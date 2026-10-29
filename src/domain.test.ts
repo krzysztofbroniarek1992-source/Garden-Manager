@@ -124,7 +124,7 @@ describe('trwałość i komendy aplikacji', () => {
     storage.setItem(STORAGE_KEY, '{broken');
     expect(() => new LocalRepository(storage).load()).toThrow('Oryginalny zapis');
     expect(storage.getItem(STORAGE_KEY)).toBe('{broken');
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, data: createDemoData() }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, data: createDemoData() }));
     expect(() => new LocalRepository(storage).load()).toThrow('Nieobsługiwana wersja');
   });
 
