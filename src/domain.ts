@@ -42,10 +42,20 @@ export interface Timer {
   startedAt: number;
 }
 
+export interface Payment {
+  id: string;
+  jobId: string;
+  amountCents: number;
+  receivedDate: string;
+  method: 'cash' | 'transfer' | 'blik' | 'other';
+  note: string;
+}
+
 export interface Data {
   clients: Client[];
   gardens: Garden[];
   jobs: Job[];
+  payments: Payment[];
   settings: { hourlyRate: number };
   timer: Timer | null;
 }
@@ -59,22 +69,127 @@ export function elapsedSeconds(job: Job, timer: Timer | null = null, now = Date.
   return job.seconds + (timer?.jobId === job.id ? Math.max(0, Math.floor((now - timer.startedAt) / 1000)) : 0);
 }
 
-const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+/** Decimal values are converted through strings, never by multiplying floats. */
+function decimalRatio(value: number | string): [bigint, bigint] {
+  if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Podaj poprawną kwotę.');
+  const input = String(value).trim().replace(',', '.');
+  const match = /^([+-]?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(input);
+  if (!match) throw new Error('Podaj poprawną kwotę.');
+  const exponent = Number(match[4] ?? 0) - (match[3]?.length ?? 0);
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 1000) throw new Error('Kwota jest zbyt duża.');
+  const numerator = BigInt(`${match[2]}${match[3] ?? ''}`) * (match[1] === '-' ? -1n : 1n);
+  return exponent >= 0 ? [numerator * 10n ** BigInt(exponent), 1n] : [numerator, 10n ** BigInt(-exponent)];
+}
 
+function safeCents(value: bigint): number {
+  const result = Number(value);
+  if (!Number.isSafeInteger(result)) throw new Error('Kwota przekracza bezpieczny zakres rozliczeń.');
+  return result;
+}
+
+function roundedRatio(numerator: bigint, denominator: bigint): number {
+  const sign = numerator < 0n ? -1n : 1n;
+  const absolute = numerator < 0n ? -numerator : numerator;
+  return safeCents(sign * ((absolute + denominator / 2n) / denominator));
+}
+
+export function toCents(value: number | string): number {
+  const [numerator, denominator] = decimalRatio(value);
+  return roundedRatio(numerator * 100n, denominator);
+}
+
+/** Integer sum also rejects totals outside JavaScript's safe integer range. */
+export function sumCents(values: Iterable<number>): number {
+  let sum = 0n;
+  for (const value of values) {
+    if (!Number.isSafeInteger(value)) throw new Error('Kwoty muszą być zapisane w pełnych groszach.');
+    sum += BigInt(value);
+  }
+  return safeCents(sum);
+}
+
+export function jobLaborCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
+  if (job.billing === 'fixed') return toCents(job.fixedPrice);
+  const [seconds, scale] = decimalRatio(elapsedSeconds(job, timer, now));
+  return roundedRatio(seconds * BigInt(toCents(job.rate)), scale * 3600n);
+}
+
+export function materialsTotalCents(job: Job): number {
+  // v0.1 rounded the material subtotal once. Preserve those legitimate balances:
+  // retain exact decimal fractions while summing, then round the total to cents.
+  let numerator = 0n;
+  let denominator = 1n;
+  for (const item of job.materials) {
+    const [quantity, scale] = decimalRatio(item.quantity);
+    const commonScale = denominator > scale ? denominator : scale;
+    numerator = numerator * (commonScale / denominator)
+      + quantity * BigInt(toCents(item.unitPrice)) * (commonScale / scale);
+    denominator = commonScale;
+  }
+  return roundedRatio(numerator, denominator);
+}
+
+export function jobTotalCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
+  return sumCents([jobLaborCents(job, now, timer), materialsTotalCents(job)]);
+}
+
+// Compatibility for existing views: calculations above stay in integer cents.
 export function jobLabor(job: Job, now = Date.now(), timer: Timer | null = null): number {
-  return job.billing === 'fixed' ? job.fixedPrice : roundMoney((elapsedSeconds(job, timer, now) / 3600) * job.rate);
+  return jobLaborCents(job, now, timer) / 100;
 }
-
-export function materialsTotal(job: Job): number {
-  return roundMoney(job.materials.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
-}
-
+export function materialsTotal(job: Job): number { return materialsTotalCents(job) / 100; }
 export function jobTotal(job: Job, now = Date.now(), timer: Timer | null = null): number {
-  return roundMoney(jobLabor(job, now, timer) + materialsTotal(job));
+  return jobTotalCents(job, now, timer) / 100;
+}
+export function money(value: number): string { return moneyCents(toCents(value)); }
+export function moneyCents(cents: number): string {
+  if (!Number.isSafeInteger(cents)) throw new Error('Nieprawidłowa kwota w groszach.');
+  const amount = BigInt(cents);
+  const absolute = amount < 0n ? -amount : amount;
+  const whole = absolute / 100n;
+  const signedWhole = amount < 0n ? (whole === 0n ? -0 : -whole) : whole;
+  const fraction = String(absolute % 100n).padStart(2, '0');
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .formatToParts(signedWhole).map(part => part.type === 'fraction' ? fraction : part.value).join('');
 }
 
-export function money(value: number): string {
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 2 }).format(value);
+export const settlementLabels = {
+  unpaid: 'NIEROZLICZONE',
+  partial: 'CZĘŚCIOWO ROZLICZONE',
+  paid: 'ROZLICZONE',
+} as const;
+export type SettlementStatus = keyof typeof settlementLabels;
+
+export function paidCents(jobId: string, payments: Payment[]): number {
+  const ids = new Set<string>();
+  return sumCents(payments.filter(payment => {
+    if (payment.jobId !== jobId || ids.has(payment.id)) return false;
+    ids.add(payment.id);
+    return true;
+  }).map(payment => payment.amountCents));
+}
+export function remainingCents(job: Job, payments: Payment[], now = Date.now(), timer: Timer | null = null): number {
+  return Math.max(0, sumCents([jobTotalCents(job, now, timer), -paidCents(job.id, payments)]));
+}
+export function settlementStatus(job: Job, payments: Payment[], now = Date.now(), timer: Timer | null = null): SettlementStatus {
+  const paid = paidCents(job.id, payments);
+  if (paid === 0) return 'unpaid';
+  return paid >= jobTotalCents(job, now, timer) ? 'paid' : 'partial';
+}
+
+export function clientSummary(data: Data, clientId: string, now = Date.now()) {
+  const gardenIds = new Set(data.gardens.filter(garden => garden.clientId === clientId).map(garden => garden.id));
+  const jobs = data.jobs.filter(job => gardenIds.has(job.gardenId));
+  const complete = jobs.filter(job => job.status === 'completed');
+  return {
+    completedValueCents: sumCents(complete.map(job => jobTotalCents(job, now, data.timer))),
+    receivedCents: sumCents(jobs.map(job => paidCents(job.id, data.payments))),
+    outstandingCents: sumCents(complete.map(job => remainingCents(job, data.payments, now, data.timer))),
+    seconds: jobs.reduce((sum, job) => sum + elapsedSeconds(job, data.timer, now), 0),
+    completedCount: complete.length,
+    plannedCount: jobs.filter(job => job.status === 'planned').length,
+    unsettledCount: complete.filter(job => remainingCents(job, data.payments, now, data.timer) > 0).length,
+  };
 }
 
 export function duration(seconds: number): string {

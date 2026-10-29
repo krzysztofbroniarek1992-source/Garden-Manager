@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Client, Data, Garden, Job } from './domain';
+import type { Client, Data, Garden, Job, Payment } from './domain';
 import { createDemoData } from './data/demo';
 import { LocalRepository, STORAGE_KEY } from './data/repository';
 import { GardenStore } from './data/store';
@@ -13,6 +13,8 @@ interface GardenContextValue {
   deleteGarden(id: string): void;
   saveJob(job: Job): void;
   deleteJob(id: string): void;
+  savePayment(payment: Payment, expected?: Payment | null): void;
+  deletePayment(id: string, expected?: Payment): void;
   startTimer(jobId: string): void;
   stopTimer(): void;
   completeJob(jobId: string): void;
@@ -66,6 +68,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     deleteGarden: id => run(store => store.deleteGarden(id)),
     saveJob: job => run(store => store.saveJob(job)),
     deleteJob: id => run(store => store.deleteJob(id)),
+    savePayment: (payment, expected) => run(store => store.savePayment(payment, expected)),
+    deletePayment: (id, expected) => run(store => store.deletePayment(id, expected)),
     startTimer: id => run(store => store.startTimer(id)),
     stopTimer: () => run(store => store.stopTimer()),
     completeJob: id => run(store => store.completeJob(id)),

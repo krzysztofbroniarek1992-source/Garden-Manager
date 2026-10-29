@@ -1,11 +1,17 @@
 # Supabase: przygotowana struktura i plan synchronizacji
 
-## Stan wersji 0.1
+## Stan wersji 0.2
 
 Aplikacja używa lokalnego repozytorium danych. Nie ma połączenia z Supabase,
 logowania ani synchronizacji pomiędzy urządzeniami. Migracja SQL jest podstawą
 następnego etapu; jej przygotowanie nie oznacza wykonania na działającej bazie.
 Testy lokalne aplikacji nie weryfikują polityk RLS na serwerze Supabase.
+
+Przyrostowa migracja płatności przeszła dodatkowe 35 sprawdzeń SQL/RLS
+w osadzonym PostgreSQL: wpłaty częściowe, edycję i usunięcie, zaokrąglenia,
+izolację właścicieli i odrzucanie nadpłat oraz zmian zmniejszających pokrycie
+już otrzymanych wpłat. Ten test używa zastępników Auth; konkurencję transakcji
+i rzeczywiste JWT trzeba jeszcze sprawdzić na osobnym projekcie Supabase.
 
 Migrację wykonano kontrolnie w osadzonym PostgreSQL (PGlite), z minimalnymi
 zastępnikami schematu Auth i ról Supabase. Przeszło 35 sprawdzeń izolacji danych,
@@ -22,8 +28,11 @@ zmian i testy integracyjne opisane poniżej.
 1. Utwórz projekt Supabase; prototyp nie wymaga planu płatnego.
 2. W SQL Editor wykonaj plik
    `supabase/migrations/202611010001_initial_schema.sql` w nowym projekcie lub
-   zastosuj migrację przez Supabase CLI. Migracja nie jest przeznaczona do
-   ponownego wykonania na tabelach, które już istnieją.
+   zastosuj migracje przez Supabase CLI. Następnie wykonaj
+   `supabase/migrations/202611010002_payments.sql`. Druga migracja jest
+   przyrostowa: nie zmienia ani nie usuwa istniejących klientów, ogrodów lub
+   zleceń. Migracje nie są przeznaczone do ponownego wykonania na tabelach,
+   które już istnieją.
 3. W Supabase Auth utwórz konto właściciela firmy i wyłącz publiczną rejestrację,
    jeżeli wdrożenie ma służyć tylko jednej osobie. Skonfiguruj dozwolone adresy
    przekierowań aplikacji i logowanie, np. e-mail/hasło lub magic link.
@@ -47,6 +56,7 @@ wyłącznie w formularzu logowania obsługiwanym przez Auth, nie w repozytorium.
 | `materials` | Materiały konkretnego zlecenia: ilość × cena jednostkowa |
 | `work_sessions` | Przedziały pracy START/STOP |
 | `settings` | Domyślna stawka godzinowa właściciela |
+| `payments` | Wpłaty przypisane do zleceń: całkowite grosze, data, metoda i notatka |
 
 Każda tabela ma `owner_id` odnoszące się do `auth.users`. Wszystkie mają włączone
 RLS, a zasady SELECT, INSERT, UPDATE i DELETE pozwalają zalogowanemu użytkownikowi
@@ -86,7 +96,8 @@ Planowany termin to lokalna data i godzina pracy (domyślnie Polska), natomiast
 sesje i znaczniki synchronizacji używają `timestamptz`/UTC. Płatność godzinowa
 to czas w sekundach / 3600 × stawka zlecenia. Przy ryczałcie robocizna ma
 wartość stałą. Materiały dolicza się w obu przypadkach oddzielnie; zaokrąglenie
-do groszy następuje przy podsumowaniu. Zmiana domyślnej stawki nie powinna
+do groszy następuje osobno dla robocizny oraz łącznej wartości materiałów,
+a potem sumowane są całkowite grosze. Zmiana domyślnej stawki nie powinna
 zmieniać już ustalonych stawek istniejących zleceń.
 
 ## Plan synchronizacji
@@ -123,3 +134,74 @@ przechowuj w prywatnym bucketcie Supabase Storage, w ścieżkach zaczynających
 się od identyfikatora użytkownika, z osobnymi politykami Storage. Dostęp przez
 krótkotrwałe podpisane URL; metadane i powiązania zdjęć w tabeli właściciela.
 Te moduły i bucket nie są częścią obecnej migracji.
+
+## Rejestr płatności i migracja 0.2
+
+Lokalna płatność `Payment` zawiera `id`, `jobId`, `amountCents`,
+`receivedDate`, `method` i `note`. Adapter mapuje je odpowiednio do
+`id`, `job_id`, `amount_cents`, `received_date`, `method` i `note`.
+Metody to `cash`, `transfer`, `blik`, `other`; interfejs wyświetla polskie nazwy.
+Identyfikator klienta nie jest powielany w płatności: wynika z powiązania
+płatność → zlecenie → ogród → klient, co zapobiega podwójnemu zliczaniu.
+
+Kwoty płatności są dodatnimi całkowitymi groszami, ograniczonymi do bezpiecznego
+zakresu liczb JavaScript. SQL używa `bigint` dla wpłat i dokładnego `numeric`
+dla pośrednich obliczeń. Robocizna godzinowa to
+`round(sekundy × stawka_w_groszach / 3600)`, ryczałt to stała kwota w groszach,
+a materiały to `round(sum(ilość × cena_jednostkowa_w_groszach))`.
+Zachowana jest kolejność zaokrągleń wersji 0.1, także dla ułamkowych ilości. Nie sumuje się kwot
+płatności z wartością zlecenia jako jednego przychodu.
+
+Statusy rozliczeń są wyliczane, a nie przechowywane jako edytowalna flaga:
+bez wpłat — nierozliczone, suma wpłat mniejsza niż należność — częściowo
+rozliczone, suma równa należności — rozliczone. Zlecenie zerowe bez wpłat
+pozostaje bez wpłat i nie tworzy zaległości. Status wykonania pracy jest
+oddzielnym polem. Zakończenie zlecenia nie dodaje wpisu do `payments`.
+
+Migracja SQL nie generuje płatności na podstawie historii. Nowa tabela jest
+pusta do chwili jawnego wprowadzenia otrzymanych wpłat. Analogicznie lokalna
+migracja formatu 1 → 2 zachowuje istniejące dane, zapisuje ich oryginał pod
+`garden-manager:backup:v1` i dodaje pusty rejestr płatności. Główny klucz
+`garden-manager:v1` pozostaje bez zmian dla zgodności originu; wewnętrzna
+wersja koperty zmienia się na 2. Nie wolno resetować localStorage podczas
+aktualizacji ani rozsyłać pustego demo jako zastępstwa dla nieudanej migracji.
+
+Nowa tabela ma cztery polityki RLS ograniczone do `auth.uid() = owner_id`,
+odmowę dostępu anonimowego oraz złożony klucz obcy do własnego zlecenia.
+Wyzwalacze działają jako `SECURITY INVOKER`, z pustym `search_path`,
+i nie omijają zasad właściciela. Przy dodawaniu lub zmianie wpłaty blokowany
+jest wiersz zlecenia; ponowne obliczenie salda odrzuca nadpłatę, również przy
+konkurencyjnych zapisach do tego samego zlecenia. Edycja nie dolicza starej
+wersji tej samej płatności po raz drugi. Korekta kwoty, daty, metody i notatki
+pozostaje możliwa; istniejącej płatności nie można przepiąć do innego zlecenia.
+Zapis wpłaty lub składnika kosztu podnosi też rewizję rodzica, dzięki czemu
+transakcja z nieaktualnym obrazem w trybie REPEATABLE READ otrzyma błąd
+serializacji. Adapter musi po zapisie odświeżyć zarówno wpłatę, jak i zlecenie.
+
+Zmiany materiałów i sesji pracy blokują ten sam wiersz rodzica. Zmniejszenie
+wartości pracy lub kosztu materiałów poniżej otrzymanych wpłat jest odrzucane.
+Zlecenie z aktywnymi wpisami płatności nie może zostać usunięte ani przeniesione
+do innego ogrodu; ogród z takimi zleceniami nie może zmienić klienta. Najpierw
+trzeba jawnie skorygować błędne wpłaty. Te kontrole nie są synchronizacją:
+adapter nadal wymaga transakcji/RPC, obsługi konfliktów i testów na prawdziwym
+Supabase. Przy błędach serializacji lub blokad adapter powinien ponowić całą
+transakcję z tym samym UUID, zamiast tworzyć drugi wpis.
+
+Zestawienie klienta sumuje wykonane prace i saldo wyłącznie z zakończonych
+zleceń wszystkich jego ogrodów. Wpływy są sumą faktycznych aktywnych wpisów
+płatności wszystkich jego zleceń, łącznie z zaliczkami. Czas pracy pochodzi
+z zleceń, nie z płatności; dwa przelewy nie podwajają liczby godzin.
+
+## Powtórzenie kontroli SQL bez projektu Supabase
+
+Opcjonalny test korzysta z PGlite zainstalowanego w oddzielnym katalogu,
+bez dodawania zależności do aplikacji. Przykład PowerShell na Windows:
+
+```powershell
+$sqlTestDir = Join-Path $env:TEMP 'garden-manager-sql-tests'
+npm install --prefix $sqlTestDir @electric-sql/pglite --no-audit --no-fund
+node supabase/tests/payments.test.mjs $sqlTestDir
+```
+
+Skrypt wykonuje obie migracje na nowej bazie w pamięci. Nie łączy się z
+Supabase, nie czyta lokalnych danych aplikacji i nie zawiera poświadczeń.

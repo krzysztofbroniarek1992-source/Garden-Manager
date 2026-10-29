@@ -38,6 +38,7 @@ export function createDemoData(now = new Date()): Data {
       makeJob({ id: 'job-6', gardenId: 'garden-6', title: 'Koszenie trawnika', date: dateAt(-2, now), status: 'completed', seconds: 9000 }),
       makeJob({ id: 'job-7', gardenId: 'garden-3', title: 'Porządkowanie terenu', date: dateAt(-3, now), status: 'completed', billing: 'fixed', fixedPrice: 780, seconds: 18000, materials: [{ id: 'material-2', name: 'Worki na odpady zielone', quantity: 10, unitPrice: 3 }] }),
     ],
+    payments: [],
     settings: { hourlyRate: 120 },
     timer: null,
   };
