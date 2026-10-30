@@ -1,10 +1,11 @@
-import { jobTotalCents, paidCents, type Data } from '../domain';
+import { calculatedLaborCents, jobTotalCents, legacySettlement, materialsTotalCents, paidCents, roundLaborTo50Cents, sumCents, type Data, type Job, type Payment } from '../domain';
 import { createDemoData } from './demo';
 
 // Preserve the original key so existing browser data are found after updating.
 export const STORAGE_KEY = 'garden-manager:v1';
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 export const LEGACY_BACKUP_KEY = 'garden-manager:backup:v1';
+export const V2_BACKUP_KEY = 'garden-manager:backup:v2';
 
 /** Local persistence boundary. Future cloud synchronization can exchange this
  * versioned snapshot through a separate authenticated synchronization service. */
@@ -47,10 +48,7 @@ export function validDate(value: unknown): value is string {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-/** A snapshot is accepted only when payment references and balances are sound. */
-export function validateData(value: unknown): asserts value is Data {
-  validateLegacyData(value);
-  const data = value as Data;
+function validatePayments(data: Data, legacy = false) {
   if (!Array.isArray(data.payments) || !data.payments.every(payment => record(payment)
     && strings(payment, ['id', 'jobId', 'receivedDate', 'method', 'note'])
     && Number.isSafeInteger(payment.amountCents) && payment.amountCents > 0
@@ -59,10 +57,56 @@ export function validateData(value: unknown): asserts value is Data {
     throw new Error('Nieprawidłowy rejestr płatności. Oryginalny zapis nie został zmieniony.');
   }
   for (const job of data.jobs) {
-    if (paidCents(job.id, data.payments) > jobTotalCents(job, Date.now(), data.timer)) {
+    const total = legacy ? sumCents([calculatedLaborCents(job, Date.now(), data.timer), materialsTotalCents(job)]) : jobTotalCents(job, Date.now(), data.timer);
+    if (paidCents(job.id, data.payments) > total) {
       throw new Error('Suma płatności przekracza wartość zlecenia. Oryginalny zapis nie został zmieniony.');
     }
   }
+}
+
+const cents = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
+
+/** V3 metadata is validated separately so old records remain migratable unchanged. */
+export function validateData(value: unknown): asserts value is Data {
+  validateLegacyData(value);
+  const data = value as Data;
+  for (const job of data.jobs) {
+    if (!Array.isArray(job.activities) || !job.activities.every(activity => typeof activity === 'string' && activity.trim())) {
+      throw new Error('Nieprawidłowa lista czynności. Oryginalny zapis nie został zmieniony.');
+    }
+    if (job.settlement !== null) {
+      const price = job.settlement;
+      if (!record(price) || job.status !== 'completed'
+        || ![price.calculatedLaborCents, price.materialsCents, price.finalLaborCents].every(cents)
+        || !positive(price.approvedAt) || !['legacy', 'rounded', 'manual', 'fixed', 'exact'].includes(price.source)
+        || !(price.suggestedLaborCents === null || cents(price.suggestedLaborCents))) {
+        throw new Error('Nieprawidłowe zatwierdzone rozliczenie. Oryginalny zapis nie został zmieniony.');
+      }
+      if (price.source === 'legacy' && price.suggestedLaborCents !== null
+        || price.source === 'rounded' && (price.suggestedLaborCents === null || price.finalLaborCents !== price.suggestedLaborCents || price.suggestedLaborCents !== roundLaborTo50Cents(price.calculatedLaborCents))
+        || price.source === 'fixed' && price.suggestedLaborCents !== null) {
+        throw new Error('Nieprawidłowe zatwierdzone rozliczenie. Oryginalny zapis nie został zmieniony.');
+      }
+    }
+  }
+  if (data.timer && (typeof data.timer.paused !== 'boolean'
+    || data.timer.remainderMs !== undefined && (!Number.isSafeInteger(data.timer.remainderMs) || data.timer.remainderMs < 0 || data.timer.remainderMs >= 1000))) {
+    throw new Error('Nieprawidłowy stan pomiaru wizyty. Oryginalny zapis nie został zmieniony.');
+  }
+  validatePayments(data);
+}
+
+function migrateLegacyData(value: Omit<Data, 'payments'>, payments: Payment[]): Data {
+  const now = Date.now();
+  return {
+    ...value,
+    jobs: value.jobs.map(old => {
+      const job: Job = { ...old, activities: [old.title], settlement: null };
+      return job.status === 'completed' ? { ...job, settlement: legacySettlement(job, now) } : job;
+    }),
+    payments,
+    timer: value.timer ? { ...value.timer, paused: false } : null,
+  };
 }
 
 export class LocalRepository implements DataRepository {
@@ -80,14 +124,16 @@ export class LocalRepository implements DataRepository {
     let parsed: unknown;
     try { parsed = JSON.parse(raw); }
     catch { throw new Error('Nie można odczytać danych lokalnych. Oryginalny zapis nie został zmieniony.'); }
-    if (!record(parsed) || (parsed.version !== 1 && parsed.version !== STORAGE_VERSION)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
-    if (parsed.version === 1) {
+    if (!record(parsed) || ![1, 2, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
+    if (parsed.version === 1 || parsed.version === 2) {
       validateLegacyData(parsed.data);
-      // Never infer historical payments. The v1 source is backed up byte-for-byte.
-      const migrated: Data = { ...parsed.data, payments: [] };
+      const payments = parsed.version === 1 ? [] : (parsed.data as Data).payments;
+      if (parsed.version === 2) validatePayments(parsed.data as Data, true);
+      const migrated = migrateLegacyData(parsed.data, payments);
       validateData(migrated);
+      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : V2_BACKUP_KEY;
       try {
-        if (this.storage.getItem(LEGACY_BACKUP_KEY) === null) this.storage.setItem(LEGACY_BACKUP_KEY, raw);
+        if (this.storage.getItem(backupKey) === null) this.storage.setItem(backupKey, raw);
       } catch { throw new Error('Nie udało się utworzyć kopii danych przed aktualizacją. Oryginalny zapis nie został zmieniony.'); }
       this.save(migrated);
       return migrated;

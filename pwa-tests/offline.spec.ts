@@ -32,7 +32,7 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta oraz aktywny st
 
   await navigation.getByRole('button', { name: 'Panel główny', exact: true }).click();
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-1');
-  await page.getByRole('button', { name: 'START — rozpocznij pracę', exact: true }).click();
+  await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
   await page.clock.fastForward(12_000);
   await expect(page.getByTestId('timer-display')).toHaveText('00:00:12');
 
@@ -40,13 +40,25 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta oraz aktywny st
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: /Dzień dobry, Ogrodniku/ })).toBeVisible();
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
-  await expect(page.getByRole('button', { name: 'STOP — zatrzymaj pomiar', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true })).toBeVisible();
   await expect(page.getByTestId('timer-display')).toHaveText(/00:00:1[2-9]/);
   await page.clock.fastForward(18_000);
-  await page.getByRole('button', { name: 'STOP — zatrzymaj pomiar', exact: true }).click();
+  await page.getByRole('button', { name: 'PAUZA — Przerwa bez naliczania', exact: true }).click();
+  const pausedDisplay = await page.getByTestId('timer-display').textContent();
+  const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  expect(paused.timer).toMatchObject({ jobId: 'job-1', paused: true });
+  await page.clock.fastForward(120_000);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByTestId('timer-display')).toHaveText(pausedDisplay!);
+  await page.getByRole('button', { name: 'WZNÓW — Kontynuuj wizytę', exact: true }).click();
+  await page.clock.fastForward(15_000);
+  await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(persisted.timer).toBeNull();
-  expect(persisted.jobs.find((job: { id: string }) => job.id === 'job-1').seconds).toBeGreaterThanOrEqual(30);
+  const pausedSeconds = paused.jobs.find((job: { id: string }) => job.id === 'job-1').seconds;
+  const stoppedSeconds = persisted.jobs.find((job: { id: string }) => job.id === 'job-1').seconds;
+  expect(stoppedSeconds).toBeGreaterThanOrEqual(pausedSeconds + 15);
+  expect(stoppedSeconds).toBeLessThan(pausedSeconds + 20);
 
   await navigation.getByRole('button', { name: 'Klienci', exact: true }).click();
   await page.reload({ waitUntil: 'domcontentloaded' });

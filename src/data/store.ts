@@ -1,4 +1,4 @@
-import { finishWork, jobTotalCents, paidCents, startWork, stopActiveTimer, type Client, type Data, type Garden, type Job, type Payment } from '../domain';
+import { calculatedLaborCents, finishWork, jobTotalCents, materialsTotalCents, paidCents, pauseActiveTimer, resumeActiveTimer, roundLaborTo50Cents, startWork, stopActiveTimer, sumCents, type Client, type Data, type Garden, type Job, type Payment, type SettlementApprovalSource } from '../domain';
 import { validDate, type DataRepository } from './repository';
 
 function upsert<T extends { id: string }>(items: T[], item: T): T[] {
@@ -8,6 +8,12 @@ function upsert<T extends { id: string }>(items: T[], item: T): T[] {
 function samePayment(left: Payment, right: Payment): boolean {
   return left.id === right.id && left.jobId === right.jobId && left.amountCents === right.amountCents
     && left.receivedDate === right.receivedDate && left.method === right.method && left.note === right.note;
+}
+
+function samePricingJob(left: Job, right: Job): boolean {
+  const terms = (job: Job) => [job.id, job.gardenId, job.status, job.billing, job.rate, job.fixedPrice, job.seconds,
+    job.materials.map(item => [item.id, item.name, item.quantity, item.unitPrice]), job.settlement];
+  return JSON.stringify(terms(left)) === JSON.stringify(terms(right));
 }
 
 const paymentConflict = () => new Error('Płatność została zmieniona lub usunięta w innej karcie. Zamknij i otwórz ponownie szczegóły zlecenia, aby wczytać aktualne dane.');
@@ -50,7 +56,9 @@ export class GardenStore {
 
   saveJob = (job: Job) => this.commit(data => {
     let next = data;
-    let updated = { ...job, title: job.title.trim() };
+    const existing = data.jobs.find(item => item.id === job.id);
+    if (existing?.settlement && job.status !== 'completed') throw new Error('Zlecenie ma zatwierdzoną cenę i musi pozostać zakończone.');
+    let updated = { ...job, seconds: existing?.seconds ?? job.seconds, title: job.title.trim(), activities: job.activities.map(activity => activity.trim()).filter(Boolean), settlement: existing?.settlement ?? null };
     if (data.timer?.jobId === job.id) {
       if (job.status === 'completed') {
         next = stopActiveTimer(data, this.clock());
@@ -61,7 +69,6 @@ export class GardenStore {
       }
     }
     const received = paidCents(job.id, data.payments);
-    const existing = data.jobs.find(item => item.id === job.id);
     if (received > 0 && existing && existing.gardenId !== job.gardenId) {
       throw new Error('Zlecenie ma płatności. Nie można przenieść go do innego ogrodu.');
     }
@@ -84,6 +91,7 @@ export class GardenStore {
     }
     const job = data.jobs.find(item => item.id === payment.jobId);
     if (!job) throw new Error('Nie znaleziono zlecenia dla płatności.');
+    if (!current && job.status === 'completed' && !job.settlement) throw new Error('Najpierw zatwierdź cenę zakończonego zlecenia, aby dodać płatność.');
     if (!Number.isSafeInteger(payment.amountCents) || payment.amountCents <= 0) throw new Error('Kwota płatności musi być dodatnia i podana w pełnych groszach.');
     if (!validDate(payment.receivedDate)) throw new Error('Podaj poprawną datę otrzymania płatności.');
     if (!['cash', 'transfer', 'blik', 'other'].includes(payment.method)) throw new Error('Wybierz poprawną metodę płatności.');
@@ -102,7 +110,42 @@ export class GardenStore {
     return { ...data, payments: data.payments.filter(payment => payment.id !== id) };
   });
 
+  correctJobTime = (jobId: string, seconds: number, expectedSeconds?: number) => this.commit(data => {
+    const job = data.jobs.find(item => item.id === jobId);
+    if (!job) throw new Error('Nie znaleziono zlecenia.');
+    if (data.timer?.jobId === jobId) throw new Error('Najpierw zakończ pomiar wizyty, aby poprawić czas.');
+    if (!Number.isSafeInteger(seconds) || seconds < 0) throw new Error('Podaj nieujemny czas w pełnych sekundach.');
+    if (expectedSeconds !== undefined && job.seconds !== expectedSeconds) throw new Error('Czas został zmieniony w innej karcie. Otwórz formularz ponownie.');
+    const updated = { ...job, seconds };
+    if (paidCents(jobId, data.payments) > jobTotalCents(updated)) throw new Error('Czas po korekcie obniżyłby należność poniżej otrzymanych wpłat.');
+    return { ...data, jobs: data.jobs.map(item => item.id === jobId ? updated : item) };
+  });
+
+  approveSettlement = (jobId: string, finalLaborCents: number, source: SettlementApprovalSource, expectedJob?: Job) => this.commit(data => {
+    const job = data.jobs.find(item => item.id === jobId);
+    if (!job) throw new Error('Nie znaleziono zlecenia.');
+    if (job.status !== 'completed' || data.timer?.jobId === jobId) throw new Error('Najpierw zakończ pracę i pomiar czasu, aby zatwierdzić cenę.');
+    if (expectedJob && !samePricingJob(job, expectedJob)) throw new Error('Dane rozliczenia zmieniły się w innej karcie. Otwórz formularz ponownie.');
+    if (!Number.isSafeInteger(finalLaborCents) || finalLaborCents < 0) throw new Error('Podaj nieujemną cenę robocizny w pełnych groszach.');
+    const calculated = calculatedLaborCents(job);
+    const suggested = job.billing === 'hourly' ? roundLaborTo50Cents(calculated) : null;
+    if (!['rounded', 'manual', 'fixed', 'exact'].includes(source)
+      || source === 'rounded' && (suggested === null || finalLaborCents !== suggested)
+      || source === 'fixed' && (job.billing !== 'fixed' || finalLaborCents !== calculated)
+      || source === 'exact' && finalLaborCents !== calculated) {
+      throw new Error('Wybierz poprawny sposób zatwierdzenia ceny.');
+    }
+    const materials = materialsTotalCents(job);
+    if (sumCents([finalLaborCents, materials]) < paidCents(jobId, data.payments)) {
+      throw new Error('Zatwierdzona należność nie może być niższa od otrzymanych wpłat. Najpierw skoryguj błędną płatność.');
+    }
+    const settlement = { calculatedLaborCents: calculated, suggestedLaborCents: suggested, materialsCents: materials, finalLaborCents, approvedAt: this.clock(), source };
+    return { ...data, jobs: data.jobs.map(item => item.id === jobId ? { ...item, settlement } : item) };
+  });
+
   startTimer = (jobId: string) => this.commit(data => startWork(data, jobId, this.clock()));
+  pauseTimer = () => this.commit(data => pauseActiveTimer(data, this.clock()));
+  resumeTimer = () => this.commit(data => resumeActiveTimer(data, this.clock()));
   stopTimer = () => this.commit(data => stopActiveTimer(data, this.clock()));
   completeJob = (jobId: string) => this.commit(data => finishWork(data, jobId, this.clock()));
   setRate = (rate: number) => this.commit(data => ({ ...data, settings: { ...data.settings, hourlyRate: rate } }));

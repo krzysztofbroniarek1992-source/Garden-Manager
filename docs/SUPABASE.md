@@ -1,11 +1,13 @@
 # Supabase: przygotowana struktura i plan synchronizacji
 
-## Stan wersji 0.2
+## Stan wersji 0.3
 
 Aplikacja używa lokalnego repozytorium danych. Nie ma połączenia z Supabase,
 logowania ani synchronizacji pomiędzy urządzeniami. Migracja SQL jest podstawą
 następnego etapu; jej przygotowanie nie oznacza wykonania na działającej bazie.
 Testy lokalne aplikacji nie weryfikują polityk RLS na serwerze Supabase.
+Migracja 0.3 przeszła dodatkowo 41 sprawdzeń wizyt, wycen i izolacji danych
+w osadzonym PostgreSQL, w tym aktualizację historycznych tombstonów.
 
 Przyrostowa migracja płatności przeszła dodatkowe 35 sprawdzeń SQL/RLS
 w osadzonym PostgreSQL: wpłaty częściowe, edycję i usunięcie, zaokrąglenia,
@@ -29,9 +31,10 @@ zmian i testy integracyjne opisane poniżej.
 2. W SQL Editor wykonaj plik
    `supabase/migrations/202611010001_initial_schema.sql` w nowym projekcie lub
    zastosuj migracje przez Supabase CLI. Następnie wykonaj
-   `supabase/migrations/202611010002_payments.sql`. Druga migracja jest
-   przyrostowa: nie zmienia ani nie usuwa istniejących klientów, ogrodów lub
-   zleceń. Migracje nie są przeznaczone do ponownego wykonania na tabelach,
+   `supabase/migrations/202611010002_payments.sql`, a potem
+   `supabase/migrations/202611010003_visits_and_settlements.sql`. Migracje są
+   przyrostowe: nie usuwają istniejących klientów, ogrodów lub zleceń. Trzecia
+   migracja dodaje zachowane wyceny do zakończonych zleceń. Migracje nie są przeznaczone do ponownego wykonania na tabelach,
    które już istnieją.
 3. W Supabase Auth utwórz konto właściciela firmy i wyłącz publiczną rejestrację,
    jeżeli wdrożenie ma służyć tylko jednej osobie. Skonfiguruj dozwolone adresy
@@ -52,7 +55,7 @@ wyłącznie w formularzu logowania obsługiwanym przez Auth, nie w repozytorium.
 | --- | --- |
 | `clients` | Klienci, kontakt i notatki |
 | `gardens` | Ogrody/obiekty, klient, adres i powierzchnia |
-| `jobs` | Termin, status, typ rozliczenia, stawka i ryczałt |
+| `jobs` | Termin, status, czynności, typ rozliczenia, stawka, korekta czasu i zatwierdzona wycena |
 | `materials` | Materiały konkretnego zlecenia: ilość × cena jednostkowa |
 | `work_sessions` | Przedziały pracy START/STOP |
 | `settings` | Domyślna stawka godzinowa właściciela |
@@ -205,3 +208,83 @@ node supabase/tests/payments.test.mjs $sqlTestDir
 
 Skrypt wykonuje obie migracje na nowej bazie w pamięci. Nie łączy się z
 Supabase, nie czyta lokalnych danych aplikacji i nie zawiera poświadczeń.
+
+## Wizyta i zatwierdzona cena w wersji 0.3
+
+Lokalny `Timer.paused` utrwala przerwę, która nie nalicza czasu. Wizytę rozpoczyna
+wyjście z samochodu u klienta, a kończy zakończenie pracy, sprzątania i całkowite
+spakowanie sprzętu. Dojazd i powrót są poza czasem rozliczeniowym. Lista
+`Job.activities` jest mapowana na `jobs.activities`; wiele czynności korzysta
+z tego samego czasu. Migracja zachowuje dawny tytuł jako pierwszą czynność.
+
+W przyszłym adapterze PAUZA zamyka bieżący przedział `work_sessions`, a WZNÓW
+zaczyna kolejny. Sumowane są wyłącznie sekundy pracy, nie odstęp między
+przedziałami. Nie należy zaokrąglać czasu do minut. Dotychczasowy indeks nadal
+ogranicza liczbę aktywnych przedziałów do jednego na właściciela. Przed
+uruchomieniem synchronizacji trzeba dodać atomową koordynację całej wizyty,
+w tym rezerwację wizyty zapauzowanej; sam brak aktywnego przedziału w bazie
+nie jest dowodem zakończenia wizyty.
+
+Podpisana korekta `time_correction_seconds` pozwala poprawić łączny czas bez
+kasowania historycznych przedziałów. `correct_job_time` ustala nowy czas w
+pełnych sekundach, blokuje aktywny pomiar i wymaga oczekiwanej rewizji zlecenia.
+Nie zmienia kolumn zatwierdzonej ceny. Przyszły adapter powinien dodać dziennik
+korekt z przyczyną i poprzednią wartością przed użyciem produkcyjnym.
+
+`Job.settlement` jest mapowany na kolumny migawki w `jobs`:
+
+| Pole lokalne | Kolumna SQL |
+| --- | --- |
+| `calculatedLaborCents` | `labor_calculated_cents` |
+| `suggestedLaborCents` | `labor_suggested_cents` |
+| `materialsCents` | `materials_approved_cents` |
+| `finalLaborCents` | `labor_approved_cents` |
+| `approvedAt` | `settlement_approved_at` (czas w UTC) |
+| `source` | `settlement_source` |
+
+Źródło to `legacy`, `rounded`, `manual`, `fixed` lub `exact`. Wyliczona
+robocizna zachowuje dokładny czas i stawkę. Propozycja dla rozliczenia
+godzinowego to `floor((grosze + 2500) / 5000) * 5000`: najbliższe 50 zł,
+a połowa w górę. Dla ryczałtu oraz starszej zachowanej ceny propozycja jest
+pusta. Materiały i zarejestrowane płatności nie są zaokrąglane do 50 zł.
+Ręcznie ustalana cena dotyczy tylko robocizny. Ostateczna należność to
+`labor_approved_cents + materials_approved_cents`.
+
+`approve_job_settlement` działa jako `SECURITY INVOKER`, wybiera tylko wiersz
+należący do `auth.uid()`, blokuje zlecenie i wymaga oczekiwanej rewizji. Wymaga
+zakończenia pracy oraz zatrzymania aktywnego pomiaru. Przy zapisie zachowuje
+jednocześnie wyliczenie, propozycję, materiały i zatwierdzoną cenę; kontrola z migracji 0002
+odrzuca cenę poniżej już otrzymanych płatności. Aktualizacja danych roboczych
+stawki, czasu lub materiałów nie zmienia migawki. Usunięcie istniejącej migawki
+jest blokowane — nowa należność wymaga jawnej korekty. Adapter powinien używać
+RPC do wycen zamiast bezwarunkowo zapisywać pola migawki.
+
+Nowe zakończone zlecenie bez zatwierdzonej ceny ma wyliczenie robocze. Nie
+powiększa jeszcze potwierdzonej wartości wykonanych prac ani salda do zapłaty;
+czas i licznik zakończeń pozostają widoczne. Wpłata zaliczkowa na planowane
+zlecenie jest nadal wpływem pieniężnym. Po zakończeniu przed dodaniem nowej
+wpłaty trzeba zatwierdzić cenę. Istniejące wpisy można nadal korygować i usuwać.
+Przyszłe zapytania finansowe muszą sumować wartość prac i saldo tylko dla
+`status = 'completed' and settlement_approved_at is not null`, a wpłaty jako
+osobny rejestr rzeczywistych wpływów.
+
+Migracja 0003 najpierw zapisuje **dokładną dotychczasową należność** wszystkich
+zakończonych zleceń jako źródło `legacy`. Nie używa nowego zaokrąglania i nie
+zmienia żadnej płatności. Dopiero potem `job_value_cents` zaczyna korzystać
+z zapisanej migawki. RLS i zasady właściciela z poprzednich migracji pozostają
+włączone. Lokalny format 3 zachowuje klucz `garden-manager:v1`, przed migracją
+formatu 2 zapisuje jego dokładne źródło w `garden-manager:backup:v2` i nie
+nadpisuje istniejących kopii. Bezpośrednia aktualizacja z formatu 1 również
+jest obsługiwana z kopią `garden-manager:backup:v1`. Błąd kopii lub migracji
+nie może skutkować resetem danych.
+
+Opcjonalny test migracji wizyt i wycen działa bez projektu Supabase:
+
+```powershell
+node supabase/tests/visits-and-settlements.test.mjs $sqlTestDir
+```
+
+Wykonuje trzy migracje, sprawdza zachowanie starego salda i wpłat,
+zaokrąglenia, zatwierdzanie cen, korektę czasu, ryczałt i ochronę właściciela.
+Zastępcze role Auth oraz PostgreSQL w PGlite nie są testem integracji
+z rzeczywistymi sesjami JWT ani konkurencją serwera Supabase.

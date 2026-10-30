@@ -103,7 +103,7 @@ async function assertMetrics(page: Page, received: string, remaining: string) {
 test('migracja 0.1 zachowuje dane: wiele ogrodów, kilkanaście zleceń, filtry i sumy klienta', async ({ page }) => {
   const original = await seedLegacy(page);
   const migrated = await snapshot(page);
-  expect(migrated.version).toBe(2);
+  expect(migrated.version).toBe(3);
   expect(migrated.data.clients).toHaveLength(2);
   expect(migrated.data.gardens).toHaveLength(3);
   expect(migrated.data.jobs).toHaveLength(13);
@@ -193,6 +193,9 @@ test('ujemna płatność i nadpłata są blokowane, zakończenie nie oznacza zap
   const planned = page.locator('article.job-card').filter({ has: page.getByRole('heading', { name: 'Archiwalna praca 11', exact: true }) });
   await planned.getByRole('button', { name: 'Zakończ', exact: true }).click();
   expect((await snapshot(page)).data.payments).toEqual([]);
+  const pricing = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
+  await expect(pricing.getByRole('button', { name: 'Zatwierdź cenę robocizny', exact: true })).toBeVisible();
+  await pricing.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await navigate(page, 'Historia prac');
   const completed = page.locator('article.job-card').filter({ has: page.getByRole('heading', { name: 'Archiwalna praca 11', exact: true }) });
   await expect(completed.locator('.payment-badge')).toHaveText('NIEROZLICZONE');
@@ -208,7 +211,7 @@ test('migracja zachowuje aktywny stoper oraz klienta i płatności na telefonie'
   await expect(page.getByTestId('timer-display')).toHaveText('00:01:00');
   await page.reload();
   await expect(page.getByTestId('timer-display')).toHaveText(/00:01:0[0-4]/);
-  await page.getByRole('button', { name: 'STOP — zatrzymaj pomiar', exact: true }).click();
+  await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   expect((await snapshot(page)).data.timer).toBeNull();
   expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
   await page.getByRole('navigation', { name: 'Nawigacja mobilna' }).getByRole('button', { name: 'Klienci', exact: true }).click();

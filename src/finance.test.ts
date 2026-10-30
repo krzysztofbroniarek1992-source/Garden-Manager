@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clientSummary, jobLaborCents, jobTotalCents, materialsTotalCents, moneyCents, paidCents, remainingCents, settlementStatus, startWork, toCents, type Data, type Job, type Payment } from './domain';
+import { clientSummary, jobLaborCents, jobTotalCents, legacySettlement, materialsTotalCents, moneyCents, paidCents, remainingCents, settlementStatus, startWork, toCents, type Data, type Job, type Payment } from './domain';
 import { createDemoData } from './data/demo';
 import { LEGACY_BACKUP_KEY, LocalRepository, STORAGE_KEY, STORAGE_VERSION, validateData, type StoragePort } from './data/repository';
 import { GardenStore } from './data/store';
@@ -18,7 +18,9 @@ function fixture() {
 }
 function legacySnapshot(data = createDemoData()) {
   const { payments: _payments, ...legacy } = data;
-  return JSON.stringify({ version: 1, data: legacy }, null, 2);
+  const jobs = legacy.jobs.map(({ activities: _activities, settlement: _settlement, ...job }) => job);
+  const timer = legacy.timer ? { jobId: legacy.timer.jobId, startedAt: legacy.timer.startedAt } : null;
+  return JSON.stringify({ version: 1, data: { ...legacy, jobs, timer } }, null, 2);
 }
 
 describe('kwoty w pełnych groszach', () => {
@@ -147,7 +149,9 @@ describe('rejestr płatności i niezależny status rozliczenia', () => {
     const { store } = fixture();
     store.savePayment(payment(30000));
     const job = store.data.jobs.find(item => item.id === 'job-6')!;
-    expect(() => store.saveJob({ ...job, rate: 1 })).toThrow('niższa');
+    store.saveJob({ ...job, rate: 1 });
+    expect(jobTotalCents(store.data.jobs.find(item => item.id === job.id)!)).toBe(30000);
+    expect(() => store.approveSettlement(job.id, 250, 'manual')).toThrow('niższa');
     expect(() => store.deleteJob(job.id)).toThrow('ma płatności');
     expect(() => store.saveJob({ ...job, gardenId: 'garden-2' })).toThrow('innego ogrodu');
     const garden = store.data.gardens.find(item => item.id === job.gardenId)!;
@@ -213,6 +217,7 @@ describe('podsumowanie klienta z kilkunastoma zleceniami i wieloma ogrodami', ()
     const planned: Job[] = Array.from({ length: 2 }, (_, index) => ({ ...template, id: `planned${index}`, billing: 'fixed', fixedPrice: 500 }));
     const active: Job = { ...template, id: 'active', status: 'in-progress', seconds: 1800 };
     data.jobs = [...completed, ...planned, active, { ...template, id: 'other', gardenId: 'garden-2', status: 'completed', billing: 'fixed', fixedPrice: 999 }];
+    data.jobs = data.jobs.map(job => job.status === 'completed' ? { ...job, settlement: legacySettlement(job) } : job);
     data.payments = [payment(10000, 'a', 'c0'), payment(4000, 'b', 'c1'), payment(6000, 'c', 'c1'), payment(2500, 'd', 'c2'), payment(10000, 'e', 'planned0'), payment(99900, 'f', 'other')];
     expect(() => validateData(data)).not.toThrow();
     expect(clientSummary(data, 'client-1')).toEqual({ completedValueCents: 120000, receivedCents: 32500, outstandingCents: 97500, seconds: 45000, completedCount: 12, plannedCount: 2, unsettledCount: 10 });
@@ -228,7 +233,12 @@ describe('bezstratna aktualizacja istniejącego zapisu lokalnego', () => {
     const original = legacySnapshot(old);
     storage.setItem(STORAGE_KEY, original);
     const migrated = new LocalRepository(storage).load();
-    expect(migrated).toEqual(old);
+    const originalData = JSON.parse(original).data;
+    expect(migrated.clients).toEqual(originalData.clients);
+    expect(migrated.gardens).toEqual(originalData.gardens);
+    expect(migrated.settings).toEqual(originalData.settings);
+    expect(migrated.timer).toEqual({ ...originalData.timer, paused: false });
+    expect(migrated.jobs.map(({ activities: _activities, settlement: _settlement, ...job }) => job)).toEqual(originalData.jobs);
     expect(migrated.payments).toEqual([]);
     expect(storage.getItem(LEGACY_BACKUP_KEY)).toBe(original);
     expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual({ version: STORAGE_VERSION, data: migrated });
@@ -258,7 +268,7 @@ describe('bezstratna aktualizacja istniejącego zapisu lokalnego', () => {
     }
   });
 
-  it('uszkodzonego v1 nie zastępuje demonstracją ani nie zapisuje jako v2', () => {
+  it('uszkodzonego v1 nie zastępuje demonstracją ani nie zapisuje jako v3', () => {
     const storage = new MemoryStorage();
     const legacy = JSON.parse(legacySnapshot());
     legacy.data.gardens[0].clientId = 'missing';
@@ -269,7 +279,7 @@ describe('bezstratna aktualizacja istniejącego zapisu lokalnego', () => {
     expect(storage.getItem(LEGACY_BACKUP_KEY)).toBeNull();
   });
 
-  it('w v2 sprawdza powiązania, płatności i brak nadpłaty bez naruszenia źródła', () => {
+  it('w v3 sprawdza powiązania, płatności i brak nadpłaty bez naruszenia źródła', () => {
     const storage = new MemoryStorage();
     const data: Data = createDemoData();
     data.payments = [payment(30001)];

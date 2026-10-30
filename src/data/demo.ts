@@ -1,4 +1,4 @@
-import { localDate, type Data, type Job } from '../domain';
+import { legacySettlement, localDate, type Data, type Job } from '../domain';
 
 const dateAt = (offset: number, now: Date) => {
   const date = new Date(now);
@@ -24,7 +24,7 @@ export function createDemoData(now = new Date()): Data {
   ];
   const makeJob = (overrides: Partial<Job> & Pick<Job, 'id' | 'gardenId' | 'title'>): Job => ({
     date: dateAt(0, now), time: '09:00', status: 'planned', billing: 'hourly', rate: 120,
-    fixedPrice: 0, seconds: 0, materials: [], notes: 'Zlecenie testowe — dane demonstracyjne.', ...overrides,
+    fixedPrice: 0, seconds: 0, materials: [], activities: [overrides.title], settlement: null, notes: 'Zlecenie testowe — dane demonstracyjne.', ...overrides,
   });
   return {
     clients,
@@ -37,7 +37,7 @@ export function createDemoData(now = new Date()): Data {
       makeJob({ id: 'job-5', gardenId: 'garden-5', title: 'Przygotowanie ogrodu do sezonu', date: dateAt(-1, now), status: 'completed', seconds: 14400, materials: [{ id: 'material-1', name: 'Kora sosnowa 80 l', quantity: 4, unitPrice: 24.5 }] }),
       makeJob({ id: 'job-6', gardenId: 'garden-6', title: 'Koszenie trawnika', date: dateAt(-2, now), status: 'completed', seconds: 9000 }),
       makeJob({ id: 'job-7', gardenId: 'garden-3', title: 'Porządkowanie terenu', date: dateAt(-3, now), status: 'completed', billing: 'fixed', fixedPrice: 780, seconds: 18000, materials: [{ id: 'material-2', name: 'Worki na odpady zielone', quantity: 10, unitPrice: 3 }] }),
-    ],
+    ].map(job => job.status === 'completed' ? { ...job, settlement: legacySettlement(job, now.getTime()) } : job),
     payments: [],
     settings: { hourlyRate: 120 },
     timer: null,
