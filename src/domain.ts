@@ -22,6 +22,17 @@ export interface Material {
   unitPrice: number;
 }
 
+export interface JobSettlement {
+  calculatedLaborCents: number;
+  suggestedLaborCents: number | null;
+  materialsCents: number;
+  finalLaborCents: number;
+  approvedAt: number;
+  source: 'legacy' | 'rounded' | 'manual' | 'fixed' | 'exact';
+}
+
+export type SettlementApprovalSource = Exclude<JobSettlement['source'], 'legacy'>;
+
 export interface Job {
   id: string;
   gardenId: string;
@@ -35,11 +46,15 @@ export interface Job {
   seconds: number;
   materials: Material[];
   notes: string;
+  activities: string[];
+  settlement: JobSettlement | null;
 }
 
 export interface Timer {
   jobId: string;
   startedAt: number;
+  paused: boolean;
+  remainderMs?: number;
 }
 
 export interface Payment {
@@ -66,7 +81,7 @@ export function localDate(date = new Date()): string {
 }
 
 export function elapsedSeconds(job: Job, timer: Timer | null = null, now = Date.now()): number {
-  return job.seconds + (timer?.jobId === job.id ? Math.max(0, Math.floor((now - timer.startedAt) / 1000)) : 0);
+  return job.seconds + (timer?.jobId === job.id && !timer.paused ? Math.max(0, Math.floor((now - timer.startedAt + (timer.remainderMs ?? 0)) / 1000)) : 0);
 }
 
 /** Decimal values are converted through strings, never by multiplying floats. */
@@ -108,7 +123,7 @@ export function sumCents(values: Iterable<number>): number {
   return safeCents(sum);
 }
 
-export function jobLaborCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
+export function calculatedLaborCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
   if (job.billing === 'fixed') return toCents(job.fixedPrice);
   const [seconds, scale] = decimalRatio(elapsedSeconds(job, timer, now));
   return roundedRatio(seconds * BigInt(toCents(job.rate)), scale * 3600n);
@@ -129,8 +144,42 @@ export function materialsTotalCents(job: Job): number {
   return roundedRatio(numerator, denominator);
 }
 
+/** Suggested commercial price only: exact elapsed seconds are never rounded. */
+export function roundLaborTo50Cents(cents: number): number {
+  if (!Number.isSafeInteger(cents) || cents < 0) throw new Error('Podaj nieujemną kwotę robocizny w groszach.');
+  return safeCents(((BigInt(cents) + 2500n) / 5000n) * 5000n);
+}
+
+export function jobLaborCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
+  return job.settlement?.finalLaborCents ?? calculatedLaborCents(job, now, timer);
+}
+
+export function billedMaterialsCents(job: Job): number {
+  return job.settlement?.materialsCents ?? materialsTotalCents(job);
+}
+
 export function jobTotalCents(job: Job, now = Date.now(), timer: Timer | null = null): number {
-  return sumCents([jobLaborCents(job, now, timer), materialsTotalCents(job)]);
+  return sumCents([jobLaborCents(job, now, timer), billedMaterialsCents(job)]);
+}
+
+export function billingBreakdown(job: Job, now = Date.now(), timer: Timer | null = null) {
+  const calculated = job.settlement?.calculatedLaborCents ?? calculatedLaborCents(job, now, timer);
+  return {
+    actualSeconds: elapsedSeconds(job, timer, now),
+    calculatedLaborCents: calculated,
+    suggestedLaborCents: job.settlement ? job.settlement.suggestedLaborCents : job.billing === 'fixed' ? null : roundLaborTo50Cents(calculated),
+    materialsCents: billedMaterialsCents(job),
+    finalLaborCents: jobLaborCents(job, now, timer),
+    totalCents: jobTotalCents(job, now, timer),
+    approved: !!job.settlement,
+    isLegacy: job.settlement?.source === 'legacy',
+  };
+}
+
+/** Preserve completed historical balances rather than applying new price rules. */
+export function legacySettlement(job: Job, now = Date.now()): JobSettlement {
+  const labor = calculatedLaborCents(job, now);
+  return { calculatedLaborCents: labor, suggestedLaborCents: null, materialsCents: materialsTotalCents(job), finalLaborCents: labor, approvedAt: now, source: 'legacy' };
 }
 
 // Compatibility for existing views: calculations above stay in integer cents.
@@ -181,14 +230,15 @@ export function clientSummary(data: Data, clientId: string, now = Date.now()) {
   const gardenIds = new Set(data.gardens.filter(garden => garden.clientId === clientId).map(garden => garden.id));
   const jobs = data.jobs.filter(job => gardenIds.has(job.gardenId));
   const complete = jobs.filter(job => job.status === 'completed');
+  const approved = complete.filter(job => job.settlement !== null);
   return {
-    completedValueCents: sumCents(complete.map(job => jobTotalCents(job, now, data.timer))),
+    completedValueCents: sumCents(approved.map(job => jobTotalCents(job, now, data.timer))),
     receivedCents: sumCents(jobs.map(job => paidCents(job.id, data.payments))),
-    outstandingCents: sumCents(complete.map(job => remainingCents(job, data.payments, now, data.timer))),
+    outstandingCents: sumCents(approved.map(job => remainingCents(job, data.payments, now, data.timer))),
     seconds: jobs.reduce((sum, job) => sum + elapsedSeconds(job, data.timer, now), 0),
     completedCount: complete.length,
     plannedCount: jobs.filter(job => job.status === 'planned').length,
-    unsettledCount: complete.filter(job => remainingCents(job, data.payments, now, data.timer) > 0).length,
+    unsettledCount: approved.filter(job => remainingCents(job, data.payments, now, data.timer) > 0).length,
   };
 }
 
@@ -212,12 +262,12 @@ export function startWork(data: Data, jobId: string, now = Date.now()): Data {
   const job = data.jobs.find(item => item.id === jobId);
   if (!job) throw new Error('Nie znaleziono zlecenia.');
   if (job.status === 'completed') throw new Error('Nie można uruchomić stopera zakończonego zlecenia.');
-  if (data.timer?.jobId === jobId) return data;
+  if (data.timer?.jobId === jobId) return data.timer.paused ? resumeActiveTimer(data, now) : data;
   if (data.timer) throw new Error('Najpierw zatrzymaj aktywny stoper.');
   return {
     ...data,
     jobs: data.jobs.map(item => item.id === jobId ? { ...item, status: 'in-progress' } : item),
-    timer: { jobId, startedAt: now },
+    timer: { jobId, startedAt: now, paused: false },
   };
 }
 
@@ -225,4 +275,18 @@ export function finishWork(data: Data, jobId: string, now = Date.now()): Data {
   if (!data.jobs.some(job => job.id === jobId)) throw new Error('Nie znaleziono zlecenia.');
   const stopped = data.timer?.jobId === jobId ? stopActiveTimer(data, now) : data;
   return { ...stopped, jobs: stopped.jobs.map(job => job.id === jobId ? { ...job, status: 'completed' } : job) };
+}
+
+/** Commit the running segment, while keeping this one visit reserved during a break. */
+export function pauseActiveTimer(data: Data, now = Date.now()): Data {
+  if (!data.timer || data.timer.paused) return data;
+  const timer = data.timer;
+  const stopped = stopActiveTimer(data, now);
+  const elapsedMs = Math.max(0, now - timer.startedAt + (timer.remainderMs ?? 0));
+  return { ...stopped, timer: { ...timer, startedAt: now, paused: true, remainderMs: elapsedMs % 1000 } };
+}
+
+export function resumeActiveTimer(data: Data, now = Date.now()): Data {
+  if (!data.timer || !data.timer.paused) return data;
+  return { ...data, timer: { ...data.timer, startedAt: now, paused: false } };
 }

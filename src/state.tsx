@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Client, Data, Garden, Job, Payment } from './domain';
+import type { Client, Data, Garden, Job, Payment, SettlementApprovalSource } from './domain';
 import { createDemoData } from './data/demo';
 import { LocalRepository, STORAGE_KEY } from './data/repository';
 import { GardenStore } from './data/store';
@@ -16,7 +16,11 @@ interface GardenContextValue {
   savePayment(payment: Payment, expected?: Payment | null): void;
   deletePayment(id: string, expected?: Payment): void;
   startTimer(jobId: string): void;
+  pauseTimer(): void;
+  resumeTimer(): void;
   stopTimer(): void;
+  correctJobTime(jobId: string, seconds: number, expectedSeconds?: number): void;
+  approveSettlement(jobId: string, finalLaborCents: number, source: SettlementApprovalSource, expectedJob?: Job): void;
   completeJob(jobId: string): void;
   setRate(rate: number): void;
 }
@@ -71,6 +75,10 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     savePayment: (payment, expected) => run(store => store.savePayment(payment, expected)),
     deletePayment: (id, expected) => run(store => store.deletePayment(id, expected)),
     startTimer: id => run(store => store.startTimer(id)),
+    pauseTimer: () => run(store => store.pauseTimer()),
+    resumeTimer: () => run(store => store.resumeTimer()),
+    correctJobTime: (id, seconds, expected) => run(store => store.correctJobTime(id, seconds, expected)),
+    approveSettlement: (id, cents, source, expected) => run(store => store.approveSettlement(id, cents, source, expected)),
     stopTimer: () => run(store => store.stopTimer()),
     completeJob: id => run(store => store.completeJob(id)),
     setRate: rate => run(store => store.setRate(rate)),

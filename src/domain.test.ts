@@ -75,7 +75,7 @@ describe('trwałość i komendy aplikacji', () => {
     const { storage, store } = fixture();
     store.startTimer('job-1');
     const restored = new GardenStore(new LocalRepository(storage));
-    expect(restored.data.timer).toEqual({ jobId: 'job-1', startedAt: 10_000 });
+    expect(restored.data.timer).toEqual({ jobId: 'job-1', startedAt: 10_000, paused: false });
     expect(elapsedSeconds(restored.data.jobs[0], restored.data.timer, 130_000)).toBe(120);
   });
 
@@ -124,7 +124,7 @@ describe('trwałość i komendy aplikacji', () => {
     storage.setItem(STORAGE_KEY, '{broken');
     expect(() => new LocalRepository(storage).load()).toThrow('Oryginalny zapis');
     expect(storage.getItem(STORAGE_KEY)).toBe('{broken');
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, data: createDemoData() }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, data: createDemoData() }));
     expect(() => new LocalRepository(storage).load()).toThrow('Nieobsługiwana wersja');
   });
 
