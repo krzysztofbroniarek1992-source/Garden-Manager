@@ -8,6 +8,7 @@ export interface TaskScope {
   zoneName: string | null;
 }
 export interface TaskSchedule extends TaskScope {
+  checklistTemplateId?: string | null;
   id: string;
   title: string;
   notes: string;

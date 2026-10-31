@@ -1,3 +1,5 @@
+import * as checklists from '../checklists/commands';
+import type { Checklist, ChecklistItem, ChecklistTarget, WorkTemplate } from '../checklists/model';
 import * as desk from '../desk/commands';
 import type { Note, Todo, ReminderStatus } from '../desk/model';
 import { resolvePhotoScope, type PhotoDetails, type PhotoMetadata } from '../photos/model';
@@ -35,7 +37,7 @@ export class GardenStore {
 
   private commit(transform: (data: Data) => Data) {
     // Read latest snapshot for changes made by another tab before this command.
-    const next = desk.reconcileDeskLinks(transform(this.repository.load()), this.clock());
+    const next = checklists.reconcileChecklistLinks(desk.reconcileDeskLinks(transform(this.repository.load()), this.clock()), this.clock());
     this.repository.save(next);
     this.data = next;
   }
@@ -202,6 +204,20 @@ export class GardenStore {
     return replacement;
   });
 
+  saveWorkTemplate = (draft: WorkTemplate) => this.commit(data => checklists.saveWorkTemplate(data, draft, this.clock()));
+  copyWorkTemplate = (id: string, revision: number): string => { let result = ''; this.commit(data => { const next = checklists.copyWorkTemplate(data,id,revision,this.clock()); result=next.id;return next.data; });return result; };
+  archiveWorkTemplate = (id: string, revision: number, archived: boolean) => this.commit(data => checklists.archiveWorkTemplate(data,id,revision,archived,this.clock()));
+  deleteWorkTemplate = (id: string, revision: number) => this.commit(data => checklists.deleteWorkTemplate(data,id,revision,this.clock()));
+  createBlankChecklist = (target: ChecklistTarget, name: string): string => { let result='';this.commit(data=>{const next=checklists.createBlankChecklist(data,target,name,this.clock());result=next.id;return next.data;});return result; };
+  applyWorkTemplate = (id: string, target: ChecklistTarget): string => { let result='';this.commit(data=>{const next=checklists.applyWorkTemplate(data,id,target,this.clock());result=next.id;return next.data;});return result; };
+  applyGardenPlan = (planId: string, jobId: string): string => { let result='';this.commit(data=>{const next=checklists.applyGardenPlan(data,planId,jobId,this.clock());result=next.id;return next.data;});return result; };
+  editChecklist = (id: string, revision: number, patch: Partial<Pick<Checklist,'name'|'description'|'category'>>) => this.commit(data=>checklists.editChecklist(data,id,revision,patch,this.clock()));
+  addChecklistItem = (id: string, revision: number, title: string) => this.commit(data=>checklists.addChecklistItem(data,id,revision,title,this.clock()));
+  editChecklistItem = (id: string, revision: number, itemId: string, patch: Partial<Pick<ChecklistItem,'title'|'note'|'status'|'photoId'>>) => this.commit(data=>checklists.editChecklistItem(data,id,revision,itemId,patch,this.clock()));
+  moveChecklistItem = (id: string, revision: number, itemId: string, direction: -1|1) => this.commit(data=>checklists.moveChecklistItem(data,id,revision,itemId,direction,this.clock()));
+  removeChecklistItem = (id: string, revision: number, itemId: string) => this.commit(data=>checklists.removeChecklistItem(data,id,revision,itemId,this.clock()));
+  deleteChecklist = (id: string, revision: number) => this.commit(data=>checklists.deleteChecklist(data,id,revision,this.clock()));
+
   saveNote = (note: Note) => this.commit(data => desk.saveNote(data, note, this.clock()));
   archiveNote = (id: string, revision: number, archived: boolean) => this.commit(data => desk.archiveNote(data, id, revision, archived, this.clock()));
   changeReminder = (id: string, revision: number, status: ReminderStatus, date?: string, time?: string | null) => this.commit(data => desk.changeReminder(data, id, revision, status, this.clock(), date, time));
@@ -213,9 +229,13 @@ export class GardenStore {
   moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected));
   skipTaskOccurrence = (id: string, date: string, expected?: OccurrenceVersion) => this.commit(data => planning.skipTaskOccurrence(data, id, date, this.clock(), expected));
   endTaskSchedule = (id: string, date: string, revision?: number) => this.commit(data => planning.endTaskSchedule(data, id, date, this.clock(), revision));
-  beginTaskOccurrence = (id: string, date: string, gardenId?: string, expected?: OccurrenceVersion): string => {
+  beginTaskOccurrence = (id: string, date: string, gardenId?: string, expected?: OccurrenceVersion, applyChecklist = false): string => {
     let jobId = '';
-    this.commit(data => { const result = planning.beginTaskOccurrence(data, id, date, this.clock(), gardenId, expected); jobId = result.jobId; return result.data; });
+    this.commit(data => { const result = planning.beginTaskOccurrence(data, id, date, this.clock(), gardenId, expected); jobId = result.jobId;
+      const templateId = result.data.taskSchedules.find(s=>s.id===id)?.checklistTemplateId;
+      const zoneId = result.data.taskOccurrences.find(o=>o.jobId===jobId)?.zoneId ?? null;
+      const garden = result.data.gardens.find(g=>g.id===result.data.jobs.find(j=>j.id===jobId)?.gardenId);
+      return applyChecklist && templateId ? checklists.applyWorkTemplate(result.data,templateId,{kind: 'visit',jobId,zoneId:garden?.zones.some(z=>z.id===zoneId)?zoneId:null},this.clock()).data : result.data; });
     return jobId;
   };
 

@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { STORAGE_VERSION, validateData, withDeskData } from '../data/repository';
+import { STORAGE_VERSION, validateData, withDeskData, withChecklistData } from '../data/repository';
 import type { Data } from '../domain';
 import { sha256, validateStoredImage } from './images';
 import { photoLimits, type PhotoAsset, type PhotoAssetRepository } from './model';
@@ -51,8 +51,9 @@ export async function readFullBackup(blob: Blob): Promise<PreparedBackup> {
     || !Number.isFinite(Date.parse(manifest.createdAt)) || !/^[a-f0-9]{64}$/.test(manifest.dataSha256)
     || await sha256(new Blob([ownedBuffer(files['data.json'])])) !== manifest.dataSha256) throw new Error('Nieprawidłowy manifest lub suma kontrolna danych kopii.');
   const envelope = JSON.parse(strFromU8(files['data.json']));
-  if (!envelope || ![6, STORAGE_VERSION].includes(envelope.version)) throw new Error('Ta wersja pełnej kopii nie jest obsługiwana przez aplikację.');
-  const data: Data = envelope.version === 6 ? withDeskData(envelope.data) : envelope.data;
+  if (!envelope || ![6, 7, STORAGE_VERSION].includes(envelope.version)) throw new Error('Ta wersja pełnej kopii nie jest obsługiwana przez aplikację.');
+  const legacy: Data = envelope.version === 6 ? withDeskData(envelope.data) : envelope.data;
+  const data: Data = envelope.version < 8 ? withChecklistData(legacy) : legacy;
   validateData(data);
   if (data.photos.some(p => p.deletedAt !== null) || manifest.files.length !== data.photos.length || names.size !== 2 + data.photos.length * 2) throw new Error('Liczba zdjęć w kopii nie zgadza się z metadanymi.');
   const seen = new Set<string>(), assets: PhotoAsset[] = [];
