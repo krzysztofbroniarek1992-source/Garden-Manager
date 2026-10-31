@@ -1,7 +1,7 @@
-# Garden Manager 0.3.2
+# Garden Manager 0.3.3
 
 Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScript,
-Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, bazy danych i płatnych
+Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, zewnętrznej bazy danych i płatnych
 usług. Przykładowe rekordy są oznaczone jako dane testowe.
 
 ## Uruchomienie na Windows
@@ -70,10 +70,10 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 5 (wersja 0.3.2).
+`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 6 (wersja 0.3.3).
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
-rekordami. Eksport JSON nadal zawiera pełne dane; import przez interfejs
-pozostaje przyszłym etapem.
+rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
+oraz możliwość odtworzenia zapewnia kopia ZIP dostępna od wersji 0.3.3.
 
 Dotychczasowe zakończone zlecenia otrzymują zapis dokładnej należności z
 poprzedniej wersji. **Nie są automatycznie przeliczane według nowego
@@ -239,7 +239,7 @@ Starsze pozycje zachowują swoje nazwy, ilości i ceny, bez wymyślania kosztu z
 Migracje v1, v2 i v3 zachowują dane. Przed aktualizacją v3 powstaje dokładna kopia
 `garden-manager:backup:v3`; kopie v1/v2 również pozostają zachowane. Klucz główny
 `garden-manager:v1` i adres `http://localhost:5173/` nie zmieniają się.
-Eksport zawiera wszystkie nowe pola. Import przez interfejs nadal nie jest
+Eksport zawiera wszystkie nowe pola. W etapie 2 import przez interfejs nie był
 obsługiwany; aplikacja nie otrzymała logowania ani połączenia z Supabase.
 
 
@@ -295,8 +295,8 @@ Format v5 dodaje `taskSchedules`, `taskOccurrences` oraz opcjonalne
 `jobs[].taskOccurrenceId`. Migracja v4 zachowuje dokładną kopię źródła pod
 `garden-manager:backup:v4`; starsze kopie i klucz główny `garden-manager:v1`
 pozostają bez zmian. Obsługiwane są również migracje v1/v2/v3. Eksport JSON
-obejmuje harmonogramy, wyjątki i powiązania wizyt. Import przez interfejs nadal
-nie jest dostępny. Nie uruchomiono synchronizacji ani logowania.
+obejmuje harmonogramy, wyjątki i powiązania wizyt. W wersji 0.3.2 import przez interfejs
+nie był dostępny (pełna kopia ZIP jest obsługiwana od 0.3.3). Nie uruchomiono synchronizacji ani logowania.
 
 [Architektura planowania i przygotowanie do synchronizacji Android](docs/PLANNING.md).
 
@@ -304,3 +304,83 @@ Walidacja 0.3.2: **123/123 testy jednostkowe**, **40/40 przeglądarkowych**
 (30 dotychczasowych regresji i 10 scenariuszy nowego kalendarza) oraz
 **1/1 test PWA offline** z harmonogramem i przesuniętym terminem.
 `npx tsc --noEmit`, kompilacja produkcyjna i `git diff --check` przechodzą.
+
+
+## Wersja 0.3.3 — dokumentacja fotograficzna
+
+Wersja bazuje na `main` po scaleniu PR #6 (`8ace236`). Zdjęcia są dostępne
+w **Galerii klienta**, **Galerii i historii ogrodu**, przez przycisk **Zdjęcia
+strefy** oraz w **Galerii zlecenia i wizyty**. Jeden wybór może obejmować do
+20 plików. Aparat telefonu udostępnia przeglądarka; można również wybrać zdjęcia
+z urządzenia.
+
+Kategorie: **PRZED PRACĄ**, **W TRAKCIE**, **PO PRACY**, **PROBLEM / CHOROBA
+ROŚLINY** i **INNE**. Każde zdjęcie ma opis, datę dodania i opcjonalną, ręcznie
+wpisaną datę wykonania. Kategorię, opis i powiązania z klientem, ogrodem, strefą
+lub zleceniem można zmieniać. Filtry obejmują kategorię, zakres dat i strefę;
+chronologię można odwrócić. Kliknięcie miniatury powiększa zdjęcie. Wybierz jedno
+zdjęcie PRZED i jedno PO, aby porównać je obok siebie, także na telefonie.
+
+Zabiegi są obecnie tekstem w notatkach strefy, bez własnych identyfikatorów.
+Dokumentację zabiegu przypisz do strefy lub zlecenia i opisz na zdjęciu.
+Usunięcie strefy albo zlecenia zachowuje zdjęcia w galerii ogrodu wraz z opisem
+wcześniejszego powiązania. Usunięcie ogrodu pozostawia je przy kliencie.
+Usunięcie klienta obejmuje jego zdjęcia i wymaga potwierdzenia.
+
+### Pliki i pamięć urządzenia
+
+**Pełne zdjęcia nie są zapisywane jako base64 w localStorage.** Baza IndexedDB
+`garden-manager-photos` przechowuje pliki JPEG jako `Blob` oraz ich miniatury.
+Dotychczasowy klucz `garden-manager:v1` przechowuje wyłącznie dane aplikacji,
+metadane zdjęć i identyfikatory plików. Format v6 migruje v1–v5, zachowując
+wcześniejsze dane, należności, materiały i harmonogramy. Przed aktualizacją v5
+powstaje dokładna kopia `garden-manager:backup:v5`.
+
+Obsługiwane są JPEG, PNG i WebP do 25 MB oraz 50 megapikseli. Zdjęcia są
+przygotowywane jako JPEG o dłuższym boku do 1920 px, a miniatury do 320 px.
+Mniejsze zdjęcia nie są powiększane. Kopia ZIP przechowuje te przygotowane wersje,
+bez oryginałów w pełnej rozdzielczości. HEIC, GIF i SVG nie są obsługiwane;
+zdjęcie HEIC należy wcześniej wyeksportować jako JPEG. Automatyczny odczyt daty
+EXIF nie jest wdrożony; data wykonania pozostaje opcjonalna.
+
+Błąd zapisu plików nie dodaje niekompletnych metadanych. Błąd localStorage
+wycofuje nowe pliki. Usuwanie zdjęcia wymaga potwierdzenia i obejmuje miniaturę;
+przerwane usuwanie jest dokańczane po ponowieniu dostępu lub uruchomieniu.
+Gdy IndexedDB jest zablokowane, istniejące moduły aplikacji nadal działają.
+Pliki potrzebne zachowanemu punktowi odzyskiwania pozostają do czasu usunięcia
+tego punktu. Dane są lokalne — wykonuj pełne kopie poza przeglądarką przed
+czyszczeniem pamięci witryny.
+
+### Pełna kopia i odtwarzanie
+
+W **Ustawieniach** dostępne są dwie różne operacje:
+
+- **Eksportuj dane**: JSON wszystkich danych i metadanych zdjęć. Nie zawiera
+  plików zdjęć i nie jest ich pełną kopią.
+- **Pobierz pełną kopię ZIP**: dane, zdjęcia i miniatury z sumami kontrolnymi.
+  Brakujący lub uszkodzony plik blokuje utworzenie kopii zamiast pomijać zdjęcie.
+
+**Wczytaj pełną kopię ZIP** najpierw sprawdza format, limity, powiązania, wymiary
+zdjęć i sumy SHA-256. Pokazuje liczby klientów, ogrodów, zleceń, płatności,
+harmonogramów oraz zdjęć. Nie zmienia danych do czasu zaznaczenia potwierdzenia
+i wpisania **ODTWÓRZ**. Odtwarzanie zastępuje cały zestaw, bez scalania rekordów.
+Zmiana bieżących danych po podglądzie wymaga ponownego wczytania kopii.
+
+Przed zastąpieniem aplikacja zachowuje lokalny **punkt odzyskiwania** poprzednich
+danych i plików. Można pobrać go jako ZIP albo przywrócić poprzedni zestaw.
+Kolejny import wymaga wcześniejszego uporządkowania tego punktu. Jego usunięcie
+ma osobne potwierdzenie. Przed odtwarzaniem zakończ bieżący pomiar przyciskiem
+STOP. Wizyta uruchomiona w kopii zostanie zapauzowana według czasu wykonania
+kopii, aby nie doliczać czasu od jej utworzenia do odtworzenia.
+
+Limit pełnej kopii to 200 MB, rozpakowanych danych 250 MB, a liczba zdjęć do
+5000. Zwykły import samego JSON nie jest dodany w tym etapie. Logowanie,
+synchronizacja chmurowa i integracja aparatu przez Capacitor pozostają przyszłymi
+etapami. Architektura korzysta z przenośnych identyfikatorów i interfejsów
+repozytorium plików oraz przygotowania zdjęć.
+
+[Szczegóły przechowywania, odzyskiwania i adaptera Android](docs/PHOTOS.md).
+
+Walidacja 0.3.3: **160/160 testów jednostkowych**, **53/53 przeglądarkowych**
+(w tym 40 wcześniejszych regresji) i **2/2 testy produkcyjnej PWA offline**.
+Kontrola TypeScript, build produkcyjny i `git diff --check` przechodzą.
