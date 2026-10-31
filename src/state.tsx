@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Client, Data, Garden, Job, Payment, SettlementApprovalSource } from './domain';
+import type { CatalogMaterial, Client, Data, Garden, GardenZone, Job, Material, Payment, SettlementApprovalSource } from './domain';
 import { createDemoData } from './data/demo';
 import { LocalRepository, STORAGE_KEY } from './data/repository';
 import { GardenStore } from './data/store';
@@ -11,6 +11,10 @@ interface GardenContextValue {
   deleteClient(id: string): void;
   saveGarden(garden: Garden): void;
   deleteGarden(id: string): void;
+  saveZone(gardenId: string, zone: GardenZone): void;
+  deleteZone(gardenId: string, zoneId: string): void;
+  saveCatalogMaterial(material: CatalogMaterial): void;
+  addJobMaterial(jobId: string, gardenId: string, material: Material): void;
   saveJob(job: Job): void;
   deleteJob(id: string): void;
   savePayment(payment: Payment, expected?: Payment | null): void;
@@ -70,6 +74,10 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     deleteClient: id => run(store => store.deleteClient(id)),
     saveGarden: garden => run(store => store.saveGarden(garden)),
     deleteGarden: id => run(store => store.deleteGarden(id)),
+    saveZone: (id, zone) => run(store => store.saveZone(id, zone)),
+    deleteZone: (id, zoneId) => run(store => store.deleteZone(id, zoneId)),
+    saveCatalogMaterial: item => run(store => store.saveCatalogMaterial(item)),
+    addJobMaterial: (id, gardenId, material) => run(store => store.addJobMaterial(id, gardenId, material)),
     saveJob: job => run(store => store.saveJob(job)),
     deleteJob: id => run(store => store.deleteJob(id)),
     savePayment: (payment, expected) => run(store => store.savePayment(payment, expected)),

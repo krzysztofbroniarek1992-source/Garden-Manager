@@ -1,4 +1,5 @@
 import GardenForm from './GardenForm';
+import GardenDetails from './GardenDetails';
 import { useState } from 'react';
 import { ClipboardList, Leaf, MapPin, Pencil, Plus, Ruler, Search, Sprout, Trash2, UserRound, X } from 'lucide-react';
 import type { Garden } from '../domain';
@@ -8,6 +9,7 @@ import './entities.css';
 
 export default function Gardens() {
   const { data, deleteGarden } = useGarden();
+  const [selected, setSelected] = useState('');
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Garden | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -18,7 +20,7 @@ export default function Gardens() {
 
   function edit(garden?: Garden) {
     setError(''); setIsNew(!garden);
-    setEditing(garden ? { ...garden } : { id: crypto.randomUUID(), clientId: data.clients[0]?.id ?? '', name: '', address: '', area: 0, notes: '' });
+    setEditing(garden ? { ...garden } : { id: crypto.randomUUID(), clientId: data.clients[0]?.id ?? '', name: '', address: '', area: 0, notes: '', zones: [] });
   }
 
 
@@ -46,9 +48,10 @@ export default function Gardens() {
           <div className="client-contact"><UserRound size={15} /><span>{clientName(garden.clientId)}</span></div>
           <div className="client-contact garden-address"><MapPin size={15} /><span>{garden.address}</span></div>
           {garden.notes && <p className="garden-notes">{garden.notes}</p>}
-          <div className="card-footer"><span><Ruler size={16}/><strong>{garden.area.toLocaleString('pl-PL')}</strong> m²</span><span><ClipboardList size={15}/>{jobs.length} {jobs.length === 1 ? 'zlecenie' : jobs.length > 1 && jobs.length < 5 ? 'zlecenia' : 'zleceń'}</span></div></div>
+          <button className="button secondary garden-detail-link" aria-label={`Karta ogrodu ${garden.name}`} onClick={() => setSelected(garden.id)}>Karta ogrodu · {garden.zones.length} stref</button><div className="card-footer"><span><Ruler size={16}/><strong>{garden.area.toLocaleString('pl-PL')}</strong> m²</span><span><ClipboardList size={15}/>{jobs.length} {jobs.length === 1 ? 'zlecenie' : jobs.length > 1 && jobs.length < 5 ? 'zlecenia' : 'zleceń'}</span></div></div>
         </article>;
       })}</div>}
+    {selected && <GardenDetails gardenId={selected} onClose={() => setSelected('')}/>}
     {editing && <GardenForm initial={editing} isNew={isNew} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć ogród?" onClose={() => setRemoving(null)}>
       {error && <p className="gm-form-error" role="alert">{error}</p>}

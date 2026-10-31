@@ -84,7 +84,7 @@ describe('trwałość i komendy aplikacji', () => {
     const client = { id: 'new-client', name: 'Test', phone: '', email: '', notes: '' };
     store.saveClient(client);
     store.saveClient({ ...client, name: 'Po edycji' });
-    const garden = { id: 'new-garden', clientId: client.id, name: 'Pierwszy', address: '', area: 10, notes: '' };
+    const garden = { id: 'new-garden', clientId: client.id, name: 'Pierwszy', address: '', area: 10, notes: '', zones: [] };
     store.saveGarden(garden);
     store.saveGarden({ ...garden, id: 'second-garden', name: 'Drugi' });
     expect(repository.load().gardens.filter(item => item.clientId === client.id)).toHaveLength(2);
@@ -124,7 +124,7 @@ describe('trwałość i komendy aplikacji', () => {
     storage.setItem(STORAGE_KEY, '{broken');
     expect(() => new LocalRepository(storage).load()).toThrow('Oryginalny zapis');
     expect(storage.getItem(STORAGE_KEY)).toBe('{broken');
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, data: createDemoData() }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 999, data: createDemoData() }));
     expect(() => new LocalRepository(storage).load()).toThrow('Nieobsługiwana wersja');
   });
 

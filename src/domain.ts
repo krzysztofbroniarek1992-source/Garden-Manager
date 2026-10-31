@@ -13,6 +13,32 @@ export interface Garden {
   address: string;
   area: number;
   notes: string;
+  zones: GardenZone[];
+}
+
+export interface GardenZone {
+  id: string;
+  name: string;
+  type: string;
+  area: number | null;
+  length: number | null;
+  plants: string;
+  requirements: string;
+  treatments: string;
+}
+
+export const materialUnits = ['m²', 'm³', 'l', 'ml', 'kg', 'g', 'm', 'szt.', 'opak.'] as const;
+export type MaterialUnit = typeof materialUnits[number];
+
+export interface CatalogMaterial {
+  id: string;
+  name: string;
+  category: string;
+  unit: MaterialUnit;
+  purchaseUnitPrice: number;
+  packageName: string;
+  packageQuantity: number | null;
+  notes: string;
 }
 
 export interface Material {
@@ -20,6 +46,11 @@ export interface Material {
   name: string;
   quantity: number;
   unitPrice: number;
+  unit?: MaterialUnit;
+  purchaseUnitPrice?: number;
+  catalogId?: string;
+  zoneId?: string;
+  zoneName?: string;
 }
 
 export interface JobSettlement {
@@ -69,6 +100,7 @@ export interface Payment {
 export interface Data {
   clients: Client[];
   gardens: Garden[];
+  materialCatalog: CatalogMaterial[];
   jobs: Job[];
   payments: Payment[];
   settings: { hourlyRate: number };
@@ -85,7 +117,7 @@ export function elapsedSeconds(job: Job, timer: Timer | null = null, now = Date.
 }
 
 /** Decimal values are converted through strings, never by multiplying floats. */
-function decimalRatio(value: number | string): [bigint, bigint] {
+export function decimalRatio(value: number | string): [bigint, bigint] {
   if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Podaj poprawną kwotę.');
   const input = String(value).trim().replace(',', '.');
   const match = /^([+-]?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(input);
@@ -129,7 +161,7 @@ export function calculatedLaborCents(job: Job, now = Date.now(), timer: Timer | 
   return roundedRatio(seconds * BigInt(toCents(job.rate)), scale * 3600n);
 }
 
-export function materialsTotalCents(job: Job): number {
+export function materialsTotalCents(job: Pick<Job, 'materials'>): number {
   // v0.1 rounded the material subtotal once. Preserve those legitimate balances:
   // retain exact decimal fractions while summing, then round the total to cents.
   let numerator = 0n;
