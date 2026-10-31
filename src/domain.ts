@@ -1,3 +1,5 @@
+import type { TaskOccurrence, TaskSchedule } from './planning/model';
+
 export interface Client {
   id: string;
   name: string;
@@ -65,6 +67,7 @@ export interface JobSettlement {
 export type SettlementApprovalSource = Exclude<JobSettlement['source'], 'legacy'>;
 
 export interface Job {
+  taskOccurrenceId?: string;
   id: string;
   gardenId: string;
   title: string;
@@ -98,6 +101,8 @@ export interface Payment {
 }
 
 export interface Data {
+  taskSchedules: TaskSchedule[];
+  taskOccurrences: TaskOccurrence[];
   clients: Client[];
   gardens: Garden[];
   materialCatalog: CatalogMaterial[];

@@ -1,4 +1,4 @@
-# Garden Manager 0.3
+# Garden Manager 0.3.2
 
 Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScript,
 Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, bazy danych i płatnych
@@ -70,7 +70,7 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 4 (etap 2 wersji 0.3.1).
+`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 5 (wersja 0.3.2).
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON nadal zawiera pełne dane; import przez interfejs
 pozostaje przyszłym etapem.
@@ -194,7 +194,7 @@ Adres uruchomienia pozostaje `http://localhost:5173/`.
 
 ## Aktualizacja 0.3.1 — etap 2
 
-Rozbudowa bazuje na `main` ze scalonym PR #4 (etap 1). Numer pakietu pozostaje
+Rozbudowa bazuje na `main` ze scalonym PR #4 (etap 1). W etapie 2 numer pakietu pozostawał
 0.3.0 do zakończenia prac nad wydaniem 0.3.1. Wszystkie funkcje etapu 1 są zachowane.
 
 - **Obiekty i ogrody → Karta ogrodu**: dane ogrodu, dowolna liczba stref,
@@ -246,3 +246,61 @@ obsługiwany; aplikacja nie otrzymała logowania ani połączenia z Supabase.
 Walidacja etapu 2: 84 testy jednostkowe, 30 testów przeglądarkowych (w tym
 21 regresji etapu 1) oraz 1 test produkcyjnej PWA offline. Kontrola TypeScript,
 kompilacja produkcyjna i `git diff --check` przechodzą bez błędów.
+
+
+## Wersja 0.3.2 — kalendarz i zadania cykliczne
+
+Wersja bazuje na `main` po scaleniu PR #5. Zachowuje wszystkie moduły klientów,
+ogrodów, materiałów, wizyt i rozliczeń. Adres pozostaje `http://localhost:5173/`.
+
+Kalendarz przełącza się między widokami **Miesiąc**, **Tydzień** i **Dzień**.
+Można przejść do dowolnej daty, kliknąć wydarzenie i dodać zadanie albo zlecenie
+z wybranego dnia. Statusy to: zaplanowane, w trakcie, wykonane i odwołane
+(pominięte wystąpienie zadania). Na telefonie widok tygodnia układa dni pionowo.
+
+**Nowe zadanie na ten dzień** pozwala wybrać klienta, ogród i opcjonalną strefę,
+wskazać początek, godzinę, opcjonalny koniec oraz powtarzanie: jednorazowo,
+co 1/N dni, tygodni, miesięcy lub lat. Zaznaczenie miesięcy ogranicza realizację
+do sezonu. Dla żywopłotu przycinanego w kwietniu i październiku wybierz co
+1 miesiąc oraz te dwa miesiące. Dni miesięczne są liczone od pierwotnej daty:
+31 stycznia → 28/29 lutego → 31 marca; rocznica 29 lutego wraca w roku przestępnym.
+Przerwa zimowa nie przesuwa rytmu, np. co 14 dni.
+
+W szczegółach zadania można:
+
+- **Przesunąć ten termin** — zmienić jedną datę i godzinę.
+- **Pominąć ten termin** — po potwierdzeniu oznaczyć go jako odwołany.
+- **Edytować całą serię** — zmienić regułę i opis, zachowując przesunięcia,
+  pominięcia i istniejące wizyty. Opis niewykonanych, przesuniętych terminów
+  aktualizuje się wraz z serią. Skrócenie daty końca odwołuje wyjątki wypadające
+  po nowym końcu, bez usuwania ich zapisów.
+- **Zakończyć serię** — wskazać ostatni dzień; istniejące zlecenia i wcześniejsze
+  terminy pozostają. Zakończone serie nie wznawiają się przy edycji opisu.
+- **Rozpocząć pracę** — utworzyć jedną rzeczywistą wizytę i uruchomić istniejący
+  stoper. Zadanie bez ogrodu wymaga wybrania ogrodu przed rozpoczęciem.
+
+Przeglądanie kalendarza, utworzenie harmonogramu i samo nadejście daty **nie
+naliczają czasu ani należności**. Ponowne rozpoczęcie tego samego wystąpienia
+otwiera tę samą wizytę; nie resetuje stopera i nie tworzy drugiego zlecenia.
+Inny aktywny stoper blokuje utworzenie nowej wizyty. Jej dalsza obsługa,
+rozliczenie, korekty i płatności korzystają z dotychczasowej karty zlecenia.
+
+Listy przypomnień w pulpicie i kalendarzu pokazują zaległe, niewykonane prace
+oraz nadchodzące terminy z kolejnych 365 dni. Domyślnie pokazują po 5 pozycji,
+po rozwinięciu do 20; kolejne można znaleźć w kalendarzu lub obsłużyć po
+wcześniejszych. Wykonane i odwołane terminy nie trafiają do zaległości.
+Przypomnienia działają wewnątrz aplikacji; nie wysyłają powiadomień systemowych.
+
+Format v5 dodaje `taskSchedules`, `taskOccurrences` oraz opcjonalne
+`jobs[].taskOccurrenceId`. Migracja v4 zachowuje dokładną kopię źródła pod
+`garden-manager:backup:v4`; starsze kopie i klucz główny `garden-manager:v1`
+pozostają bez zmian. Obsługiwane są również migracje v1/v2/v3. Eksport JSON
+obejmuje harmonogramy, wyjątki i powiązania wizyt. Import przez interfejs nadal
+nie jest dostępny. Nie uruchomiono synchronizacji ani logowania.
+
+[Architektura planowania i przygotowanie do synchronizacji Android](docs/PLANNING.md).
+
+Walidacja 0.3.2: **123/123 testy jednostkowe**, **40/40 przeglądarkowych**
+(30 dotychczasowych regresji i 10 scenariuszy nowego kalendarza) oraz
+**1/1 test PWA offline** z harmonogramem i przesuniętym terminem.
+`npx tsc --noEmit`, kompilacja produkcyjna i `git diff --check` przechodzą.

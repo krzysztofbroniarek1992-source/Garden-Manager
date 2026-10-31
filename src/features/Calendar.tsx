@@ -1,29 +1,99 @@
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, CalendarDays, MapPin, ArrowUpRight } from 'lucide-react';
+import { useGarden, useNow } from '../state';
+import { localDate, type Job } from '../domain';
+import { addDays, addMonths, isDate, weekStart } from '../planning/dates';
+import { taskOccurrencesBetween } from '../planning/occurrences';
+import { taskStatusLabels, type TaskOccurrence } from '../planning/model';
 import JobDetails from './JobDetails';
 import JobForm from './JobForm';
-import type { Job } from '../domain';
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, CalendarDays, MapPin, ArrowUpRight } from 'lucide-react';
-import { useGarden } from '../state';
-import { localDate } from '../domain';
+import TaskForm, { newTaskSchedule } from './TaskForm';
+import TaskDetails from './TaskDetails';
+import PlanningReminders from './PlanningReminders';
+import ScheduleManager from './ScheduleManager';
 import './jobs.css';
+import './planning.css';
 
+type View = 'month' | 'week' | 'day';
+const viewLabels = { month: 'Miesiąc', week: 'Tydzień', day: 'Dzień' };
+const periodLabels = { month: 'miesiąc', week: 'tydzień', day: 'dzień' };
 const weekDays = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'];
+const displayDate = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T12:00:00`).toLocaleDateString('pl-PL', options);
+interface Event {
+  id: string; date: string; time: string; title: string;
+  status: keyof typeof taskStatusLabels; gardenId: string | null; clientId: string | null;
+  jobId: string | null; task: TaskOccurrence | null;
+}
 export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const { data, saveJob } = useGarden();
+  const today = localDate(new Date(useNow()));
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [newJob, setNewJob] = useState<Job | null>(null);
-  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [selected, setSelected] = useState(localDate());
-  const firstOffset = (month.getDay() + 6) % 7;
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cellCount = Math.ceil((firstOffset + daysInMonth) / 7) * 7;
-  const cells = Array.from({length:cellCount}, (_, i) => new Date(month.getFullYear(), month.getMonth(), i - firstOffset + 1));
-  const jobs = data.jobs.filter(job => job.date === selected).sort((a, b) => a.time.localeCompare(b.time));
-  const changeMonth = (offset: number) => setMonth(value => new Date(value.getFullYear(), value.getMonth() + offset, 1));
-  return <><div className="page-heading"><div><p className="eyebrow">MIEJSCE NA KAŻDE ZLECENIE</p><h1>Kalendarz prac</h1><p className="muted">Twój harmonogram. Zawsze w zasięgu ręki.</p></div><button className="button secondary" onClick={() => { const today = new Date(); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setSelected(localDate()); }}>Dzisiaj</button></div><div className="calendar-layout"><section className="card calendar-card"><div className="calendar-heading"><h2>{month.toLocaleDateString('pl-PL', {month:'long',year:'numeric'})}</h2><div><button className="icon-button" aria-label="Poprzedni miesiąc" onClick={() => changeMonth(-1)}><ChevronLeft size={20}/></button><button className="icon-button" aria-label="Następny miesiąc" onClick={() => changeMonth(1)}><ChevronRight size={20}/></button></div></div><div className="calendar-grid calendar-weekdays">{weekDays.map(day => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{cells.map(day => {
-    const date = localDate(day);
-    const dayJobs = data.jobs.filter(job => job.date === date);
-    const outside = day.getMonth() !== month.getMonth();
-    return <button type="button" key={date} className={`calendar-day ${outside ? 'outside' : ''} ${selected === date ? 'selected' : ''} ${date === localDate() ? 'today' : ''}`} onClick={() => setSelected(date)} aria-pressed={selected === date} aria-label={`${day.toLocaleDateString('pl-PL')}, ${dayJobs.length} zleceń`}><span className="day-number">{day.getDate()}</span><span className="calendar-dots">{dayJobs.slice(0,3).map(job => <i key={job.id} className={`dot-${job.status}`}/>)}</span><span className="calendar-job-title">{dayJobs[0]?.title}{dayJobs.length > 1 ? ` +${dayJobs.length-1}` : ''}</span></button>;
-  })}</div><div className="calendar-legend"><span><i className="dot-planned"/> Zaplanowane</span><span><i className="dot-in-progress"/> W trakcie</span><span><i className="dot-completed"/> Zakończone</span></div></section><section className="card calendar-agenda"><div className="card-header"><div><p className="eyebrow">PLAN DNIA</p><h2>{new Date(`${selected}T12:00:00`).toLocaleDateString('pl-PL', {day:'numeric',month:'long'})}</h2><p className="muted">{new Date(`${selected}T12:00:00`).toLocaleDateString('pl-PL', {weekday:'long'})}</p></div><CalendarDays size={22}/></div>{jobs.map(job => { const garden = data.gardens.find(g => g.id === job.gardenId); return <div className="agenda-entry" key={job.id}><span className="agenda-time">{job.time}</span><div><span className={`badge status-${job.status}`}>{job.status === 'completed' ? 'Zakończone' : job.status === 'in-progress' ? 'W trakcie' : 'Zaplanowane'}</span><h3><button className="job-title-button" onClick={() => setSelectedJob(job.id)}>{job.title}</button></h3><p>{data.clients.find(c => c.id === garden?.clientId)?.name}</p><p className="muted"><MapPin size={13}/>{garden?.name}</p></div></div>; })}{!jobs.length && <div className="empty-state"><CalendarDays size={32}/><h3>Wolny dzień</h3><p className="muted">Na ten dzień nie ma zaplanowanych zleceń.</p></div>}<button className="button primary agenda-button" disabled={!data.gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: data.gardens[0].id, title: '', date: selected, time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>+ Nowe zlecenie na ten dzień</button>{!data.gardens.length && <p>Najpierw dodaj klienta i ogród.</p>}{onOpenJobs && <button className="button secondary agenda-button" onClick={onOpenJobs}>Przejdź do zleceń<ArrowUpRight size={17}/></button>}</section></div>{selectedJob && <JobDetails jobId={selectedJob} onClose={() => setSelectedJob(null)}/>}{newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}</>;
+  const [newTask, setNewTask] = useState<ReturnType<typeof newTaskSchedule> | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskOccurrence | null>(null);
+  const [view, setView] = useState<View>('month');
+  const [anchor, setAnchor] = useState(today);
+  const [selected, setSelected] = useState(today);
+  const cells = useMemo(() => {
+    if (view === 'day') return [anchor];
+    if (view === 'week') return Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i));
+    const first = `${anchor.slice(0, 7)}-01`;
+    const next = addMonths(first, 1);
+    const last = next ? addDays(next, -1) : '9999-12-31';
+    const start = weekStart(first);
+    const count = Math.ceil((Number(last.slice(8)) + (Date.parse(`${first}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) / 7) * 7;
+    return Array.from({ length: count }, (_, i) => { try { return addDays(start, i); } catch { return ''; } }).filter(Boolean);
+  }, [anchor, view]);
+  const events = useMemo<Event[]>(() => {
+    const from = cells[0] < selected ? cells[0] : selected;
+    const to = cells.at(-1)! > selected ? cells.at(-1)! : selected;
+    const tasks: Event[] = taskOccurrencesBetween(data, from, to).filter(item => !item.jobId).map(item => ({
+      id: item.id, date: item.date, time: item.time, title: item.title, status: item.status, gardenId: item.gardenId, clientId: item.clientId, jobId: null, task: item,
+    }));
+    const jobs: Event[] = data.jobs.filter(job => job.date >= from && job.date <= to).map(job => ({
+      id: job.id, date: job.date, time: job.time, title: job.title, status: job.status, gardenId: job.gardenId,
+      clientId: data.gardens.find(g => g.id === job.gardenId)?.clientId ?? null, jobId: job.id, task: null,
+    }));
+    return [...tasks, ...jobs].sort((a,b) => `${a.date}${a.time}${a.id}`.localeCompare(`${b.date}${b.time}${b.id}`));
+  }, [cells, selected, data]);
+  const agenda = events.filter(event => event.date === selected);
+  const open = (event: Event) => event.task ? setSelectedTask(event.task) : setSelectedJob(event.jobId);
+  const overdue = (event: Event) => event.date < today && event.status !== 'completed' && event.status !== 'cancelled';
+  const selectDay = (date: string) => { setSelected(date); if (view === 'day') setAnchor(date); };
+  const changePeriod = (offset: number) => {
+    let date: string | null;
+    try { date = view === 'month' ? addMonths(anchor, offset) : addDays(anchor, offset * (view === 'week' ? 7 : 1)); } catch { return; }
+    if (date) { setAnchor(date); setSelected(date); }
+  };
+  const title = view === 'month' ? displayDate(anchor, { month: 'long', year: 'numeric' }) : view === 'week'
+    ? `${displayDate(cells[0], { day: 'numeric', month: 'short' })} – ${displayDate(cells.at(-1)!, { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : displayDate(anchor, { day: 'numeric', month: 'long', year: 'numeric' });
+  return <>
+    <div className="page-heading"><div><p className="eyebrow">ZLECENIA I STAŁA OPIEKA NAD OGRODAMI</p><h1>Kalendarz prac</h1><p className="muted">Zaplanuj pojedynczą wizytę lub rytm prac na cały sezon.</p></div><button className="button secondary" onClick={() => { setAnchor(today); setSelected(today); }}>Dzisiaj</button></div>
+    <div className="calendar-view-toolbar"><div className="calendar-view-switch" role="group" aria-label="Widok kalendarza">{Object.entries(viewLabels).map(([value, label]) => <button key={value} className="button secondary" aria-pressed={view === value} onClick={() => { setView(value as View); setAnchor(selected); }}>{label}</button>)}</div><label className="field">Przejdź do dnia<input type="date" value={selected} onChange={e => { if (isDate(e.target.value)) { setAnchor(e.target.value); setSelected(e.target.value); } }}/></label></div>
+    <div className="calendar-layout planning-calendar-layout"><section className={`card calendar-card calendar-${view}`} aria-label={`Widok: ${viewLabels[view]}`}>
+      <div className="calendar-heading"><h2>{title}</h2><div><button className="icon-button" aria-label={`Poprzedni ${periodLabels[view]}`} onClick={() => changePeriod(-1)}><ChevronLeft size={20}/></button><button className="icon-button" aria-label={`Następny ${periodLabels[view]}`} onClick={() => changePeriod(1)}><ChevronRight size={20}/></button></div></div>
+      {view === 'month' && <div className="calendar-grid calendar-weekdays">{weekDays.map(day => <span key={day}>{day}</span>)}</div>}
+      <div className={`planning-calendar-grid planning-grid-${view}`}>{cells.map(date => {
+        const dayEvents = events.filter(event => event.date === date);
+        return <div key={date} className={`calendar-day ${date.slice(0,7) !== anchor.slice(0,7) && view === 'month' ? 'outside' : ''} ${selected === date ? 'selected' : ''} ${date === today ? 'today' : ''}`} onClick={() => selectDay(date)}>
+          <button className="calendar-day-select" type="button" onClick={() => selectDay(date)} aria-pressed={selected === date} aria-label={`Wybierz dzień ${date}`}><span className="day-number">{view === 'month' ? Number(date.slice(8)) : displayDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}</span></button>
+          {dayEvents.slice(0, view === 'month' ? 3 : undefined).map(event => <button key={event.id} className={`calendar-event calendar-event-${event.status} ${overdue(event) ? 'calendar-event-overdue' : ''}`} aria-label={`${event.time} ${event.title}, ${taskStatusLabels[event.status]}${overdue(event) ? ', termin zaległy' : ''}`} onClick={e => { e.stopPropagation(); open(event); }}><span>{event.time} · {event.task ? 'Zadanie' : 'Zlecenie'}</span><strong>{event.title}</strong><small>{taskStatusLabels[event.status]}{overdue(event) && ' · Zaległe'}</small></button>)}
+          {view === 'month' && dayEvents.length > 3 && <button className="calendar-more-events" onClick={e => { e.stopPropagation(); setSelected(date); setAnchor(date); setView('day'); }}>+ {dayEvents.length - 3} kolejne</button>}
+        </div>;
+      })}</div>
+      <div className="calendar-legend">{Object.entries(taskStatusLabels).map(([status, label]) => <span key={status}><i className={`dot-${status}`}/> {label}</span>)}<span>Obramowanie pomarańczowe: zaległe</span></div>
+    </section><section className="card calendar-agenda"><div className="card-header"><div><p className="eyebrow">PLAN DNIA</p><h2>{displayDate(selected, { day: 'numeric', month: 'long' })}</h2><p className="muted">{displayDate(selected, { weekday: 'long' })}</p></div><CalendarDays size={22}/></div>
+      {agenda.map(event => { const garden = data.gardens.find(g => g.id === event.gardenId); return <div className={`agenda-entry ${overdue(event) ? 'agenda-overdue' : ''}`} key={event.id}><span className="agenda-time">{event.time}</span><div><span className={`badge status-${event.status}`}>{taskStatusLabels[event.status]}</span><h3><button className="job-title-button" onClick={() => open(event)}>{event.title}</button></h3><p>{data.clients.find(c => c.id === event.clientId)?.name ?? 'Bez klienta'} · {event.task ? 'Zadanie' : 'Zlecenie'}</p>{garden && <p className="muted"><MapPin size={13}/>{garden.name}{event.task?.zoneName && ` · ${event.task.zoneName}`}</p>}{overdue(event) && <p className="overdue-label">Termin zaległy — wymaga uwagi</p>}</div></div>; })}
+      {!agenda.length && <div className="empty-state"><CalendarDays size={32}/><h3>Wolny dzień</h3><p className="muted">Na ten dzień nie ma zaplanowanych prac.</p></div>}
+      <button className="button primary agenda-button" onClick={() => setNewTask(newTaskSchedule(selected))}>+ Nowe zadanie na ten dzień</button>
+      <button className="button secondary agenda-button" disabled={!data.gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: data.gardens[0].id, title: '', date: selected, time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>+ Nowe zlecenie na ten dzień</button>
+      {!data.gardens.length && <p>Przed dodaniem zlecenia dodaj klienta i ogród.</p>}{onOpenJobs && <button className="button secondary agenda-button" onClick={onOpenJobs}>Przejdź do zleceń<ArrowUpRight size={17}/></button>}
+    </section></div>
+    <PlanningReminders/><ScheduleManager/>
+    {selectedJob && <JobDetails jobId={selectedJob} onClose={() => setSelectedJob(null)}/>}
+    {selectedTask && <TaskDetails scheduleId={selectedTask.scheduleId} originalDate={selectedTask.originalDate} onClose={() => setSelectedTask(null)}/>}
+    {newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
+    {newTask && <TaskForm initial={newTask} onClose={() => setNewTask(null)}/>}
+  </>;
 }

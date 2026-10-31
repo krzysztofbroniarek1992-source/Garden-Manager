@@ -1,3 +1,5 @@
+import * as planning from '../planning/commands';
+import type { OccurrenceVersion, TaskSchedule } from '../planning/model';
 import { calculatedLaborCents, finishWork, jobTotalCents, materialsTotalCents, paidCents, pauseActiveTimer, resumeActiveTimer, roundLaborTo50Cents, startWork, stopActiveTimer, sumCents, type Client, type Data, type Garden, type Job, type Payment, type SettlementApprovalSource } from '../domain';
 import { validDate, type DataRepository } from './repository';
 import type { CatalogMaterial, GardenZone, Material } from '../domain';
@@ -39,6 +41,7 @@ export class GardenStore {
 
   deleteClient = (id: string) => this.commit(data => {
     if (data.gardens.some(garden => garden.clientId === id)) throw new Error('Klient ma przypisane ogrody. Najpierw usuń lub przenieś jego ogrody.');
+    if (data.taskSchedules.some(item => item.clientId === id) || data.taskOccurrences.some(item => item.clientId === id)) throw new Error('Klient ma zaplanowane zadania. Zachowaj go, aby nie utracić ich historii.');
     return { ...data, clients: data.clients.filter(client => client.id !== id) };
   });
 
@@ -47,6 +50,7 @@ export class GardenStore {
     if (existing && existing.clientId !== garden.clientId && data.jobs.some(job => job.gardenId === garden.id && data.payments.some(payment => payment.jobId === job.id))) {
       throw new Error('Ogród ma zlecenia z płatnościami. Nie można zmienić ich właściciela.');
     }
+    if (existing && existing.clientId !== garden.clientId && (data.taskSchedules.some(item => item.gardenId === garden.id) || data.taskOccurrences.some(item => item.gardenId === garden.id))) throw new Error('Ogród ma harmonogramy zadań. Nie można zmienić ich właściciela.');
     return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim(), zones: existing?.zones ?? garden.zones }) };
   });
 
@@ -74,6 +78,7 @@ export class GardenStore {
 
   deleteGarden = (id: string) => this.commit(data => {
     if (data.jobs.some(job => job.gardenId === id)) throw new Error('Ogród ma przypisane zlecenia. Najpierw usuń lub przenieś jego zlecenia.');
+    if (data.taskSchedules.some(item => item.gardenId === id) || data.taskOccurrences.some(item => item.gardenId === id)) throw new Error('Ogród ma harmonogramy zadań. Zachowaj go, aby nie utracić ich historii.');
     return { ...data, gardens: data.gardens.filter(garden => garden.id !== id) };
   });
 
@@ -104,6 +109,7 @@ export class GardenStore {
   deleteJob = (id: string) => this.commit(data => {
     if (data.timer?.jobId === id) throw new Error('Najpierw zatrzymaj stoper tego zlecenia.');
     if (data.payments.some(payment => payment.jobId === id)) throw new Error('Zlecenie ma płatności. Najpierw usuń błędne wpisy płatności.');
+    if (data.taskOccurrences.some(item => item.jobId === id)) throw new Error('Zlecenie jest historią zadania z kalendarza. Zachowaj je, aby nie utworzyć powtórnej wizyty.');
     return { ...data, jobs: data.jobs.filter(job => job.id !== id) };
   });
 
@@ -165,6 +171,16 @@ export class GardenStore {
     const settlement = { calculatedLaborCents: calculated, suggestedLaborCents: suggested, materialsCents: materials, finalLaborCents, approvedAt: this.clock(), source };
     return { ...data, jobs: data.jobs.map(item => item.id === jobId ? { ...item, settlement } : item) };
   });
+
+  saveTaskSchedule = (schedule: TaskSchedule) => this.commit(data => planning.saveTaskSchedule(data, schedule, this.clock()));
+  moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected));
+  skipTaskOccurrence = (id: string, date: string, expected?: OccurrenceVersion) => this.commit(data => planning.skipTaskOccurrence(data, id, date, this.clock(), expected));
+  endTaskSchedule = (id: string, date: string, revision?: number) => this.commit(data => planning.endTaskSchedule(data, id, date, this.clock(), revision));
+  beginTaskOccurrence = (id: string, date: string, gardenId?: string, expected?: OccurrenceVersion): string => {
+    let jobId = '';
+    this.commit(data => { const result = planning.beginTaskOccurrence(data, id, date, this.clock(), gardenId, expected); jobId = result.jobId; return result.data; });
+    return jobId;
+  };
 
   startTimer = (jobId: string) => this.commit(data => startWork(data, jobId, this.clock()));
   pauseTimer = () => this.commit(data => pauseActiveTimer(data, this.clock()));
