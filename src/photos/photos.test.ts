@@ -8,7 +8,7 @@ import { IndexedDbPhotoRepository } from './assets';
 import { imageDimensions, resizedDimensions, sha256, BrowserPhotoProcessor } from './images';
 import { makeFullBackup, readFullBackup } from './backup';
 import { PhotoService } from './service';
-import { matchesPhotoScope, photoDate, photoStorageError, type PhotoAsset, type PhotoDetails, type PhotoProcessor } from './model';
+import { matchesPhotoScope, photoDate, photoStorageError, type PhotoAsset, type PhotoDetails, type PhotoProcessor, type RestoreJournal } from './model';
 
 class MemoryStorage implements StoragePort {
   values = new Map<string, string>(); fail = false;
@@ -18,9 +18,10 @@ class MemoryStorage implements StoragePort {
 const jpeg = new Blob([new Uint8Array([255,216,255,192,0,17,8,0,2,0,3,3,1,17,0,2,17,0,3,17,0,255,217])], { type: 'image/jpeg' });
 const details: PhotoDetails = { clientId: 'client-1', gardenId: 'garden-1', zoneId: null, jobId: 'job-1', category: 'before', description: 'Przed koszeniem', capturedDate: '2026-10-30' };
 class FaultyAssets extends IndexedDbPhotoRepository {
-  failPut = false; failDelete = false; failFinish = false;
+  failPut = false; failDelete = false; failFinish = false; failStage = false;
   override putMany(assets: PhotoAsset[]) { if (this.failPut) return Promise.reject(new DOMException('Disk full', 'QuotaExceededError')); return super.putMany(assets); }
   override deleteMany(ids: string[]) { if (this.failDelete) return Promise.reject(new Error('IndexedDB unavailable')); return super.deleteMany(ids); }
+  override stageRestore(assets: PhotoAsset[], journal: RestoreJournal) { if (this.failStage) return Promise.reject(new DOMException('Disk full', 'QuotaExceededError')); return super.stageRestore(assets, journal); }
   override finishRestore() { if (this.failFinish) return Promise.reject(new Error('IndexedDB unavailable')); return super.finishRestore(); }
 }
 async function fixture() {
@@ -146,6 +147,23 @@ describe('pełna kopia i odtwarzanie', () => {
     const p = await target.service.prepare(await source.service.exportFull()); await target.service.importFull(p.prepared, p.expected);
     expect(await target.assets.get(old.assetId)).toBeDefined(); const point = await target.assets.recovery(); await target.service.clearRecovery(point!.id);
     expect(await target.assets.get(old.assetId)).toBeUndefined();
+  });
+  it('brak miejsca podczas odtwarzania nie zmienia bieżącego zestawu ani punktów odzyskiwania', async () => {
+    const { add, service, assets, store } = await fixture(); await add(); const before = structuredClone(store.data);
+    const preview = await service.prepare(await service.exportFull()); assets.failStage = true;
+    await expect(service.importFull(preview.prepared, preview.expected)).rejects.toMatchObject({ name: 'QuotaExceededError' });
+    expect(store.data).toEqual(before); expect(await assets.list()).toHaveLength(1); expect(await assets.recovery()).toBeUndefined(); expect(await assets.journal()).toBeUndefined();
+  });
+  it('usunięcie zdjęcia z bieżącego zestawu nie niszczy pliku potrzebnego punktowi odzyskiwania', async () => {
+    const { add, service, assets, store } = await fixture(); const [photo] = await add();
+    await assets.stageRestore([], { id: 'shared', data: structuredClone(store.data), createdAt: 1, stagedAssetIds: [] });
+    store.restoreSnapshot({ ...store.data, photoRestoreId: 'shared' }, JSON.stringify(store.data)); await assets.finishRestore();
+    await service.remove(photo); expect(store.data.photos).toEqual([]); expect(await assets.get(photo.assetId)).toBeDefined(); await expect(service.exportRecovery()).resolves.toBeInstanceOf(Blob);
+  });
+  it('odrzuca metadane ze zdjęciem ukrytym przez niespójne powiązanie klienta', async () => {
+    const { add, store, storage } = await fixture(); await add(); const data = structuredClone(store.data); data.photos[0].clientId = null;
+    const raw = JSON.stringify({ version: STORAGE_VERSION, data }); storage.setItem(STORAGE_KEY, raw);
+    expect(() => new LocalRepository(storage).load()).toThrow('metadane'); expect(storage.getItem(STORAGE_KEY)).toBe(raw);
   });
   it('nie przedstawia kopii z brakującym plikiem jako pełnej', async () => {
     const { add, service, assets } = await fixture(); const [photo] = await add(); await assets.deleteMany([photo.assetId]); await expect(service.exportFull()).rejects.toThrow('brak');

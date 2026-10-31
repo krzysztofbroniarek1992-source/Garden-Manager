@@ -69,7 +69,10 @@ export function validatePhotos(data: Data) {
       || !size(p.size, photoLimits.imageBytes) || !size(p.thumbnailSize, photoLimits.thumbnailBytes)
       || !/^[a-f0-9]{64}$/.test(p.sha256) || !/^[a-f0-9]{64}$/.test(p.thumbnailSha256)) fail();
     if (p.deletedAt === null) {
-      try { resolvePhotoScope(data, p); } catch { fail(); }
+      try {
+        const scope = resolvePhotoScope(data, p);
+        if ((['clientId', 'gardenId', 'zoneId', 'jobId'] as const).some(key => scope[key] !== p[key])) fail();
+      } catch { fail(); }
     }
   }
   if (new Set(data.photos.map(p => p.id)).size !== data.photos.length || new Set(data.photos.map(p => p.assetId)).size !== data.photos.length) fail();

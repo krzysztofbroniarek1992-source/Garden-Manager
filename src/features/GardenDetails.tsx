@@ -1,3 +1,4 @@
+import PhotoGallery from '../photos/PhotoGallery';
 import { useState, type FormEvent } from 'react';
 import { useGarden } from '../state';
 import { duration, type GardenZone } from '../domain';
@@ -16,6 +17,7 @@ export default function GardenDetails({ gardenId, onClose }: { gardenId: string;
   const [zone, setZone] = useState<GardenZone | null>(null);
   const [removing, setRemoving] = useState<GardenZone | null>(null);
   const [selectedJob, setSelectedJob] = useState('');
+  const [photoZone, setPhotoZone] = useState<GardenZone | null>(null);
   const [error, setError] = useState('');
   const [calculating, setCalculating] = useState<string | null>(null);
   if (!garden) return <Modal title="Karta ogrodu" onClose={onClose}><p>Ogród nie jest już dostępny.</p></Modal>;
@@ -34,12 +36,14 @@ export default function GardenDetails({ gardenId, onClose }: { gardenId: string;
       <div className="zone-list">{garden.zones.map(item => <article className="tool-card zone-card" key={item.id}>
         <h4>{item.name} <small>{item.type}</small></h4><p>{item.area !== null && `${formatQuantity(item.area)} m²`}{item.area !== null && item.length !== null && ' · '}{item.length !== null && `${formatQuantity(item.length)} m`}</p>
         <dl>{([['Rośliny', item.plants], ['Szczególne wymagania', item.requirements], ['Wykonane zabiegi', item.treatments]] as const).map(([label, value]) => value && <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
-        <div className="tool-actions"><button className="button primary" aria-label={`Oblicz dla strefy ${item.name}`} onClick={() => setCalculating(item.id)}>Oblicz materiały</button><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
+        <div className="tool-actions"><button className="button secondary" aria-label={`Zdjęcia strefy ${item.name}`} onClick={() => setPhotoZone(item)}>Zdjęcia strefy</button><button className="button primary" aria-label={`Oblicz dla strefy ${item.name}`} onClick={() => setCalculating(item.id)}>Oblicz materiały</button><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
       </article>)}</div>
     </>}
     <div className="tool-heading"><h3>Zlecenia i historia prac ({jobs.length})</h3></div>
     {!jobs.length && <p className="muted">Zlecenia przypisane do tego ogrodu pojawią się tutaj.</p>}
     <div className="garden-job-list">{jobs.map(job => <button className="tool-card garden-job" key={job.id} onClick={() => setSelectedJob(job.id)}><strong>{job.title}</strong><span>{job.date} · {workLabels[job.status]} · {duration(job.seconds)}</span><span>{job.activities.join(' · ')}</span></button>)}</div>
+    <PhotoGallery key={gardenId} scope={{ gardenId }} title="Galeria i historia ogrodu"/>
+    {photoZone && <Modal title={`Zdjęcia strefy: ${photoZone.name}`} onClose={() => setPhotoZone(null)} wide><PhotoGallery key={photoZone.id} scope={{ gardenId, zoneId: photoZone.id }} title="Galeria strefy"/></Modal>}
   </Modal>;
 }
 

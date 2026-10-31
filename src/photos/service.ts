@@ -41,9 +41,10 @@ export class PhotoService {
       if (data.photoRestoreId === journal.id) await this.assets.finishRestore();
       else { const recovery = await this.assets.recovery(); await this.assets.abortRestore([...refs(data), ...(recovery ? refs(recovery.data) : [])]); }
     }
-    const deleted = this.store.snapshot().photos.filter(p => p.deletedAt !== null);
-    if (deleted.length) { await this.assets.deleteMany(deleted.map(p => p.assetId)); this.store.finalizePhotoDeletion(deleted.map(p => p.id)); }
     const recovery = await this.assets.recovery();
+    const retained = new Set(recovery ? refs(recovery.data) : []);
+    const deleted = this.store.snapshot().photos.filter(p => p.deletedAt !== null);
+    if (deleted.length) { await this.assets.deleteMany(deleted.filter(p => !retained.has(p.assetId)).map(p => p.assetId)); this.store.finalizePhotoDeletion(deleted.map(p => p.id)); }
     const protectedIds = new Set([...refs(this.store.snapshot()), ...(recovery ? refs(recovery.data) : [])]);
     const immediate = typeof navigator === 'undefined' || !!navigator.locks;
     const orphans = (await this.assets.list()).filter(a => !protectedIds.has(a.id) && (immediate || a.createdAt < this.clock() - 600_000));

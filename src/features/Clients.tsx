@@ -69,7 +69,7 @@ export default function Clients() {
     {editing && <ClientForm initial={editing} isNew={isNew} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć klienta?" onClose={() => setRemoving(null)}>
       {error && <p className="gm-form-error" role="alert">{error}</p>}
-      <p>Klient <strong>{removing.name}</strong> zostanie usunięty. Tej operacji nie można cofnąć.</p>
+      <p>Klient <strong>{removing.name}</strong> zostanie usunięty wraz z przypisanymi mu zdjęciami. Tej operacji nie można cofnąć.</p>
       {data.gardens.some(garden => garden.clientId === removing.id) && <p className="gm-form-note">Klient ma przypisane ogrody. Aby zachować powiązania danych, najpierw usuń je lub przypisz innemu klientowi.</p>}
       <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => setRemoving(null)}>Anuluj</button><button type="button" className="button danger" onClick={remove}>Usuń klienta</button></div>
     </Modal>}
