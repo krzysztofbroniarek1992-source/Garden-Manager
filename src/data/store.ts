@@ -1,3 +1,5 @@
+import * as desk from '../desk/commands';
+import type { Note, Todo, ReminderStatus } from '../desk/model';
 import { resolvePhotoScope, type PhotoDetails, type PhotoMetadata } from '../photos/model';
 import * as planning from '../planning/commands';
 import type { OccurrenceVersion, TaskSchedule } from '../planning/model';
@@ -33,7 +35,7 @@ export class GardenStore {
 
   private commit(transform: (data: Data) => Data) {
     // Read latest snapshot for changes made by another tab before this command.
-    const next = transform(this.repository.load());
+    const next = desk.reconcileDeskLinks(transform(this.repository.load()), this.clock());
     this.repository.save(next);
     this.data = next;
   }
@@ -199,6 +201,13 @@ export class GardenStore {
     if (data.timer) throw new Error('Przed odtwarzaniem zakończ pomiar wizyty przyciskiem STOP.');
     return replacement;
   });
+
+  saveNote = (note: Note) => this.commit(data => desk.saveNote(data, note, this.clock()));
+  archiveNote = (id: string, revision: number, archived: boolean) => this.commit(data => desk.archiveNote(data, id, revision, archived, this.clock()));
+  changeReminder = (id: string, revision: number, status: ReminderStatus, date?: string, time?: string | null) => this.commit(data => desk.changeReminder(data, id, revision, status, this.clock(), date, time));
+  saveTodo = (todo: Todo) => this.commit(data => desk.saveTodo(data, todo, this.clock()));
+  changeTodoStatus = (id: string, revision: number, status: Todo['status']) => this.commit(data => desk.changeTodoStatus(data, id, revision, status, this.clock()));
+  deleteDeskRecord = (kind: 'note' | 'todo', id: string, revision: number) => this.commit(data => desk.deleteDeskRecord(data, kind, id, revision, this.clock()));
 
   saveTaskSchedule = (schedule: TaskSchedule) => this.commit(data => planning.saveTaskSchedule(data, schedule, this.clock()));
   moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected));

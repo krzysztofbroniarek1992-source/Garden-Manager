@@ -27,6 +27,9 @@ export function createDemoData(now = new Date()): Data {
     fixedPrice: 0, seconds: 0, materials: [], activities: [overrides.title], settlement: null, notes: 'Zlecenie testowe — dane demonstracyjne.', ...overrides,
   });
   return {
+    notes: [],
+    todos: [],
+    deskTombstones: [],
     photos: [],
     photoRestoreId: null,
     taskSchedules: [],
