@@ -1,3 +1,4 @@
+import type { VisitDetails, VisitReport, VisitTimeEvent } from './reports/model';
 import type { WorkTemplate, Checklist, ChecklistTombstone } from './checklists/model';
 import type { Note, Todo, DeskTombstone } from './desk/model';
 import type { PhotoMetadata } from './photos/model';
@@ -70,6 +71,9 @@ export interface JobSettlement {
 export type SettlementApprovalSource = Exclude<JobSettlement['source'], 'legacy'>;
 
 export interface Job {
+  visitDetails?: VisitDetails;
+  timeHistory?: VisitTimeEvent[];
+  reports?: VisitReport[];
   taskOccurrenceId?: string;
   id: string;
   gardenId: string;
@@ -104,6 +108,7 @@ export interface Payment {
 }
 
 export interface Data {
+  reportSequence: number;
   workTemplates: WorkTemplate[];
   checklists: Checklist[];
   checklistTombstones: ChecklistTombstone[];

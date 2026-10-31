@@ -1,3 +1,4 @@
+import { auditTimeChanges, reconcileVisitDetails, saveVisitDetails, saveVisitReport } from '../reports/commands';
 import * as checklists from '../checklists/commands';
 import type { Checklist, ChecklistItem, ChecklistTarget, WorkTemplate } from '../checklists/model';
 import * as desk from '../desk/commands';
@@ -35,9 +36,12 @@ export class GardenStore {
 
   refresh() { this.data = this.repository.load(); }
 
-  private commit(transform: (data: Data) => Data) {
+  private commit(transform: (data: Data) => Data, trackTime = false, correctionId?: string) {
     // Read latest snapshot for changes made by another tab before this command.
-    const next = checklists.reconcileChecklistLinks(desk.reconcileDeskLinks(transform(this.repository.load()), this.clock()), this.clock());
+    const before = this.repository.load();
+    let result = transform(before);
+    if (trackTime) result = auditTimeChanges(before,result,this.clock(),correctionId);
+    const next = reconcileVisitDetails(checklists.reconcileChecklistLinks(desk.reconcileDeskLinks(result, this.clock()), this.clock()),this.clock());
     this.repository.save(next);
     this.data = next;
   }
@@ -92,7 +96,7 @@ export class GardenStore {
     let next = data;
     const existing = data.jobs.find(item => item.id === job.id);
     if (existing?.settlement && job.status !== 'completed') throw new Error('Zlecenie ma zatwierdzoną cenę i musi pozostać zakończone.');
-    let updated = { ...job, seconds: existing?.seconds ?? job.seconds, title: job.title.trim(), activities: job.activities.map(activity => activity.trim()).filter(Boolean), settlement: existing?.settlement ?? null };
+    let updated = { ...job, ...(existing?.visitDetails?{visitDetails:existing.visitDetails}:{}), ...(existing?.timeHistory?{timeHistory:existing.timeHistory}:{}), ...(existing?.reports?{reports:existing.reports}:{}), seconds: existing?.seconds ?? job.seconds, title: job.title.trim(), activities: job.activities.map(activity => activity.trim()).filter(Boolean), settlement: existing?.settlement ?? null };
     if (data.timer?.jobId === job.id) {
       if (job.status === 'completed') {
         next = stopActiveTimer(data, this.clock());
@@ -102,6 +106,7 @@ export class GardenStore {
         updated = { ...updated, status: 'in-progress', seconds: data.jobs.find(item => item.id === job.id)!.seconds };
       }
     }
+    if (existing?.visitDetails && existing.gardenId !== job.gardenId) updated = {...updated,visitDetails:{...existing.visitDetails,zoneId:null,zoneName:null,revision:existing.visitDetails.revision+1,updatedAt:this.clock()}};
     const received = paidCents(job.id, data.payments);
     if (received > 0 && existing && existing.gardenId !== job.gardenId) {
       throw new Error('Zlecenie ma płatności. Nie można przenieść go do innego ogrodu.');
@@ -110,7 +115,7 @@ export class GardenStore {
       throw new Error('Wartość zlecenia nie może być niższa od otrzymanych płatności. Najpierw skoryguj błędną płatność.');
     }
     return { ...next, jobs: upsert(next.jobs, updated), photos: next.photos.map(p => p.deletedAt === null && p.jobId === job.id && p.gardenId !== job.gardenId ? { ...p, ...resolvePhotoScope(next, { clientId: null, gardenId: job.gardenId, zoneId: null, jobId: null }), jobId: job.id, jobTitle: job.title, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
-  });
+  }, true);
 
   deleteJob = (id: string) => this.commit(data => {
     if (data.timer?.jobId === id) throw new Error('Najpierw zatrzymaj stoper tego zlecenia.');
@@ -154,7 +159,7 @@ export class GardenStore {
     const updated = { ...job, seconds };
     if (paidCents(jobId, data.payments) > jobTotalCents(updated)) throw new Error('Czas po korekcie obniżyłby należność poniżej otrzymanych wpłat.');
     return { ...data, jobs: data.jobs.map(item => item.id === jobId ? updated : item) };
-  });
+  }, true, jobId);
 
   approveSettlement = (jobId: string, finalLaborCents: number, source: SettlementApprovalSource, expectedJob?: Job) => this.commit(data => {
     const job = data.jobs.find(item => item.id === jobId);
@@ -204,6 +209,9 @@ export class GardenStore {
     return replacement;
   });
 
+  saveVisitDetails = (jobId: string, draft: Parameters<typeof saveVisitDetails>[2], revision: number) => this.commit(data => saveVisitDetails(data,jobId,draft,revision,this.clock()));
+  saveVisitReport = (jobId: string, report: Parameters<typeof saveVisitReport>[2], expected: string) => this.commit(data => saveVisitReport(data,jobId,report,expected));
+
   saveWorkTemplate = (draft: WorkTemplate) => this.commit(data => checklists.saveWorkTemplate(data, draft, this.clock()));
   copyWorkTemplate = (id: string, revision: number): string => { let result = ''; this.commit(data => { const next = checklists.copyWorkTemplate(data,id,revision,this.clock()); result=next.id;return next.data; });return result; };
   archiveWorkTemplate = (id: string, revision: number, archived: boolean) => this.commit(data => checklists.archiveWorkTemplate(data,id,revision,archived,this.clock()));
@@ -235,14 +243,14 @@ export class GardenStore {
       const templateId = result.data.taskSchedules.find(s=>s.id===id)?.checklistTemplateId;
       const zoneId = result.data.taskOccurrences.find(o=>o.jobId===jobId)?.zoneId ?? null;
       const garden = result.data.gardens.find(g=>g.id===result.data.jobs.find(j=>j.id===jobId)?.gardenId);
-      return applyChecklist && templateId ? checklists.applyWorkTemplate(result.data,templateId,{kind: 'visit',jobId,zoneId:garden?.zones.some(z=>z.id===zoneId)?zoneId:null},this.clock()).data : result.data; });
+      return applyChecklist && templateId ? checklists.applyWorkTemplate(result.data,templateId,{kind: 'visit',jobId,zoneId:garden?.zones.some(z=>z.id===zoneId)?zoneId:null},this.clock()).data : result.data; }, true);
     return jobId;
   };
 
-  startTimer = (jobId: string) => this.commit(data => startWork(data, jobId, this.clock()));
-  pauseTimer = () => this.commit(data => pauseActiveTimer(data, this.clock()));
-  resumeTimer = () => this.commit(data => resumeActiveTimer(data, this.clock()));
-  stopTimer = () => this.commit(data => stopActiveTimer(data, this.clock()));
-  completeJob = (jobId: string) => this.commit(data => finishWork(data, jobId, this.clock()));
+  startTimer = (jobId: string) => this.commit(data => startWork(data, jobId, this.clock()), true);
+  pauseTimer = () => this.commit(data => pauseActiveTimer(data, this.clock()), true);
+  resumeTimer = () => this.commit(data => resumeActiveTimer(data, this.clock()), true);
+  stopTimer = () => this.commit(data => stopActiveTimer(data, this.clock()), true);
+  completeJob = (jobId: string) => this.commit(data => finishWork(data, jobId, this.clock()), true);
   setRate = (rate: number) => this.commit(data => ({ ...data, settings: { ...data.settings, hourlyRate: rate } }));
 }

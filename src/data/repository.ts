@@ -1,3 +1,4 @@
+import { validateReports } from '../reports/validation';
 import { validateChecklists } from '../checklists/validation';
 import { starterTemplates } from '../checklists/starters';
 import { validateDeskData } from '../desk/model';
@@ -8,7 +9,7 @@ import { createDemoData } from './demo';
 
 // Preserve the original key so existing browser data are found after updating.
 export const STORAGE_KEY = 'garden-manager:v1';
-export const STORAGE_VERSION = 8;
+export const STORAGE_VERSION = 9;
 export const LEGACY_BACKUP_KEY = 'garden-manager:backup:v1';
 export const V2_BACKUP_KEY = 'garden-manager:backup:v2';
 export const V3_BACKUP_KEY = 'garden-manager:backup:v3';
@@ -16,6 +17,7 @@ export const V4_BACKUP_KEY = 'garden-manager:backup:v4';
 export const V5_BACKUP_KEY = 'garden-manager:backup:v5';
 export const V6_BACKUP_KEY = 'garden-manager:backup:v6';
 export const V7_BACKUP_KEY = 'garden-manager:backup:v7';
+export const V8_BACKUP_KEY = 'garden-manager:backup:v8';
 
 /** Local persistence boundary. Future cloud synchronization can exchange this
  * versioned snapshot through a separate authenticated synchronization service. */
@@ -85,6 +87,7 @@ export function validateData(value: unknown): asserts value is Data {
   validatePhotos(data);
   validateDeskData(data);
   validateChecklists(data);
+  validateReports(data);
   for (const job of data.jobs) {
     if (!Array.isArray(job.activities) || !job.activities.every(activity => typeof activity === 'string' && activity.trim())) {
       throw new Error('Nieprawidłowa lista czynności. Oryginalny zapis nie został zmieniony.');
@@ -161,6 +164,8 @@ export function withChecklistData(data: Data): Data {
     checklistTombstones: data.checklistTombstones === undefined ? [] : data.checklistTombstones };
 }
 
+export function withReportData(data: Data): Data { return {...data,reportSequence:data.reportSequence===undefined?0:data.reportSequence}; }
+
 export class LocalRepository implements DataRepository {
   constructor(private readonly storage: StoragePort, private readonly seed: () => Data = createDemoData) {}
 
@@ -176,15 +181,17 @@ export class LocalRepository implements DataRepository {
     let parsed: unknown;
     try { parsed = JSON.parse(raw); }
     catch { throw new Error('Nie można odczytać danych lokalnych. Oryginalny zapis nie został zmieniony.'); }
-    if (!record(parsed) || ![1, 2, 3, 4, 5, 6, 7, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
+    if (!record(parsed) || ![1, 2, 3, 4, 5, 6, 7, 8, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
     if (parsed.version !== STORAGE_VERSION) {
       validateLegacyData(parsed.data);
       const payments = parsed.version === 1 ? [] : (parsed.data as Data).payments;
       if (parsed.version === 2) validatePayments(parsed.data as Data, true);
       const base = withStage2((parsed.version as number) >= 3 ? parsed.data as Data : migrateLegacyData(parsed.data, payments));
-      const migrated: Data = { ...withChecklistData(parsed.version === 7 ? base : withDeskData(base)), taskSchedules: base.taskSchedules ?? [], taskOccurrences: base.taskOccurrences ?? [], photos: base.photos ?? [], photoRestoreId: base.photoRestoreId ?? null };
+      const desk = (parsed.version as number) < 7 ? withDeskData(base) : base;
+      const checklists = (parsed.version as number) < 8 ? withChecklistData(desk) : desk;
+      const migrated: Data = { ...withReportData(checklists), taskSchedules: base.taskSchedules ?? [], taskOccurrences: base.taskOccurrences ?? [], photos: base.photos ?? [], photoRestoreId: base.photoRestoreId ?? null };
       validateData(migrated);
-      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : parsed.version === 2 ? V2_BACKUP_KEY : parsed.version === 3 ? V3_BACKUP_KEY : parsed.version === 4 ? V4_BACKUP_KEY : parsed.version === 5 ? V5_BACKUP_KEY : parsed.version === 6 ? V6_BACKUP_KEY : V7_BACKUP_KEY;
+      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : parsed.version === 2 ? V2_BACKUP_KEY : parsed.version === 3 ? V3_BACKUP_KEY : parsed.version === 4 ? V4_BACKUP_KEY : parsed.version === 5 ? V5_BACKUP_KEY : parsed.version === 6 ? V6_BACKUP_KEY : parsed.version === 7 ? V7_BACKUP_KEY : V8_BACKUP_KEY;
       try {
         if (this.storage.getItem(backupKey) === null) this.storage.setItem(backupKey, raw);
       } catch { throw new Error('Nie udało się utworzyć kopii danych przed aktualizacją. Oryginalny zapis nie został zmieniony.'); }

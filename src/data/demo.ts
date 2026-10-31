@@ -28,6 +28,7 @@ export function createDemoData(now = new Date()): Data {
     fixedPrice: 0, seconds: 0, materials: [], activities: [overrides.title], settlement: null, notes: 'Zlecenie testowe — dane demonstracyjne.', ...overrides,
   });
   return {
+    reportSequence: 0,
     workTemplates: starterTemplates(now.getTime()),
     checklists: [],
     checklistTombstones: [],
