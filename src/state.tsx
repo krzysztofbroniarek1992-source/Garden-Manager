@@ -1,3 +1,4 @@
+import type { Note, Todo, ReminderStatus } from './desk/model';
 import { PhotoProvider } from './photos/state';
 import type { OccurrenceVersion, TaskSchedule } from './planning/model';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
@@ -9,6 +10,12 @@ import { GardenStore } from './data/store';
 interface GardenContextValue {
   data: Data;
   error: string | null;
+  saveNote(note: Note): void;
+  archiveNote(id: string, revision: number, archived: boolean): void;
+  changeReminder(id: string, revision: number, status: ReminderStatus, date?: string, time?: string | null): void;
+  saveTodo(todo: Todo): void;
+  changeTodoStatus(id: string, revision: number, status: Todo['status']): void;
+  deleteDeskRecord(kind: 'note' | 'todo', id: string, revision: number): void;
   saveClient(client: Client): void;
   deleteClient(id: string): void;
   saveGarden(garden: Garden): void;
@@ -78,6 +85,12 @@ export function GardenProvider({ children }: { children: ReactNode }) {
 
   return <GardenContext.Provider value={{
     data, error,
+    saveNote: note => run(store => store.saveNote(note)),
+    archiveNote: (id, revision, archived) => run(store => store.archiveNote(id, revision, archived)),
+    changeReminder: (id, revision, status, date, time) => run(store => store.changeReminder(id, revision, status, date, time)),
+    saveTodo: todo => run(store => store.saveTodo(todo)),
+    changeTodoStatus: (id, revision, status) => run(store => store.changeTodoStatus(id, revision, status)),
+    deleteDeskRecord: (kind, id, revision) => run(store => store.deleteDeskRecord(kind, id, revision)),
     saveClient: client => run(store => store.saveClient(client)),
     deleteClient: id => run(store => store.deleteClient(id)),
     saveGarden: garden => run(store => store.saveGarden(garden)),

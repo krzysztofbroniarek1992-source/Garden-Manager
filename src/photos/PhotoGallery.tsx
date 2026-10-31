@@ -1,3 +1,5 @@
+import { NoteForm } from '../desk/Forms';
+import { newNote, type Note } from '../desk/model';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -28,6 +30,7 @@ export function PhotoImage({ photo, thumbnail = false }: { photo: PhotoMetadata;
 export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzna' }: { scope: Partial<PhotoScope>; title?: string }) {
   const { data } = useGarden();
   const photos = usePhotos();
+  const [noteDraft, setNoteDraft] = useState<Note | null>(null);
   const [uploading, setUploading] = useState(false), [files, setFiles] = useState<File[]>([]);
   const [details, setDetails] = useState<PhotoDetails>(() => ({ ...resolvePhotoScope(data, { clientId: scope.clientId ?? null, gardenId: scope.gardenId ?? null, zoneId: scope.zoneId ?? null, jobId: scope.jobId ?? null }), category: 'other', description: '', capturedDate: null }));
   const [category, setCategory] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState(''), [zone, setZone] = useState(''), [order, setOrder] = useState('newest');
@@ -62,10 +65,11 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
     <div className="photo-grid">{matches.slice(0, limit).map(p => <article className="photo-card" key={p.id}>
       <button className="photo-thumbnail" aria-label={`Powiększ zdjęcie ${p.filename}`} onClick={() => setViewing(p)}><PhotoImage photo={p} thumbnail/></button>
       <div className="photo-card-content"><span className={`photo-category photo-category-${p.category}`}>{photoCategories[p.category]}</span><time dateTime={photoDate(p)}>{photoDate(p)}{!p.capturedDate && ' · data dodania'}</time><strong className="photo-filename">{p.filename}</strong>{p.description && <p className="preserve-lines">{p.description}</p>}<small>{p.gardenName ?? 'Dokumentacja klienta'}{p.zoneName && ` · ${p.zoneName}`}{p.jobTitle && ` · ${p.jobTitle}`}</small>
-        <div className="photo-actions"><button className="button secondary" disabled={photos.busy} aria-label={`Edytuj zdjęcie ${p.filename}`} onClick={() => setEditing(p)}>Edytuj</button><button className="button ghost" disabled={photos.busy} aria-label={`Usuń zdjęcie ${p.filename}`} onClick={() => setRemoving(p)}>Usuń</button></div>
+        <div className="photo-actions"><button className="button secondary" aria-label={`Notatka do zdjęcia ${p.filename}`} onClick={() => setNoteDraft(newNote(data, { clientId: p.clientId, gardenId: p.gardenId, zoneId: p.zoneId, jobId: p.jobId }, undefined, p.id))}>Notatka do zdjęcia</button><button className="button secondary" disabled={photos.busy} aria-label={`Edytuj zdjęcie ${p.filename}`} onClick={() => setEditing(p)}>Edytuj</button><button className="button ghost" disabled={photos.busy} aria-label={`Usuń zdjęcie ${p.filename}`} onClick={() => setRemoving(p)}>Usuń</button></div>
         {(p.category === 'before' || p.category === 'after') && <button className="button secondary photo-select-comparison" aria-pressed={p.category === 'before' ? beforeId === p.id : afterId === p.id} onClick={() => p.category === 'before' ? setBeforeId(p.id) : setAfterId(p.id)}>{p.category === 'before' ? 'Wybierz PRZED' : 'Wybierz PO'}</button>}
       </div></article>)}</div>
     {matches.length > limit && <button className="button secondary" onClick={() => setLimit(v => v + 24)}>Wczytaj kolejne zdjęcia</button>}
+    {noteDraft && <NoteForm initial={noteDraft} onClose={() => setNoteDraft(null)}/>}
     {viewing && <Modal title="Podgląd zdjęcia" onClose={() => setViewing(null)} wide><div className="photo-enlarged"><PhotoImage photo={viewing}/></div><p>{photoCategories[viewing.category]} · {photoDate(viewing)}</p><p className="preserve-lines">{viewing.description}</p></Modal>}
     {editing && <PhotoEditor photo={editing} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć zdjęcie?" onClose={() => setRemoving(null)}><p>Zdjęcie <strong>{removing.filename}</strong> i miniatura zostaną usunięte z bieżącego zestawu. Zachowane kopie ZIP i punkt odzyskiwania pozostaną bez zmian.</p><div className="gm-modal-actions"><button className="button secondary" disabled={photos.busy} onClick={() => setRemoving(null)}>Anuluj</button><button className="button danger" disabled={photos.busy} onClick={() => { void photos.remove(removing).then(() => { setRemoving(null); setNotice('Zdjęcie usunięte.'); }).catch(() => setRemoving(null)); }}>Potwierdź usunięcie zdjęcia</button></div></Modal>}
