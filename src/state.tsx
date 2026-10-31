@@ -8,6 +8,8 @@ import { LocalRepository, STORAGE_KEY } from './data/repository';
 import { GardenStore } from './data/store';
 
 interface GardenContextValue {
+  saveVisitDetails: GardenStore['saveVisitDetails'];
+  saveVisitReport: GardenStore['saveVisitReport'];
   saveWorkTemplate: GardenStore['saveWorkTemplate'];
   copyWorkTemplate: GardenStore['copyWorkTemplate'];
   archiveWorkTemplate: GardenStore['archiveWorkTemplate'];
@@ -99,6 +101,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
 
   return <GardenContext.Provider value={{
     data, error,
+    saveVisitDetails: (...args) => run(store => store.saveVisitDetails(...args)),
+    saveVisitReport: (...args) => run(store => store.saveVisitReport(...args)),
     saveWorkTemplate: (...args) => run(store => store.saveWorkTemplate(...args)),
     copyWorkTemplate: (...args) => run(store => store.copyWorkTemplate(...args)),
     archiveWorkTemplate: (...args) => run(store => store.archiveWorkTemplate(...args)),

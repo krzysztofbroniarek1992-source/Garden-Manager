@@ -1,4 +1,4 @@
-# Garden Manager 0.3.5
+# Garden Manager 0.3.6
 
 Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScript,
 Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, zewnętrznej bazy danych i płatnych
@@ -70,7 +70,7 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 8 (wersja 0.3.5).
+`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 9 (wersja 0.3.6).
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
 oraz możliwość odtworzenia zapewnia kopia ZIP dostępna od wersji 0.3.3.
@@ -478,3 +478,61 @@ Walidacja 0.3.5: **256/256 testów jednostkowych**, **81/81 przeglądarkowych**
 (w tym wszystkie 66 wcześniejszych regresji) oraz **4/4 testy produkcyjnej PWA offline**.
 Sprawdzono również TypeScript, build produkcyjny bez ostrzeżenia o wielkości
 pakietu, `git diff --check` i układ przy szerokości 1440 oraz 390 px.
+
+## Wersja 0.3.6 — karta wizyty i raport PDF
+
+Istniejąca karta zlecenia/wizyty ma nawigację do zakresu i czasu, materiałów,
+rozliczenia, checklist, notatek i zdjęć oraz przycisk **Podsumowanie wizyty**.
+Podsumowanie zbiera dane dotychczasowych modułów, pokazuje zaplanowany zakres,
+wykonane czynności, materiały i ilości, postęp checklist, dokumentację PRZED /
+W TRAKCIE / PO oraz saldo i wpłaty. Z jego poziomu wrócisz do istniejących
+formularzy edycji, korekty czasu, galerii i rozliczenia. Niepełna checklista daje
+ostrzeżenie i pozwala zakończyć wizytę.
+
+Nowe pola **Opis wykonanych prac dla klienta** i **Uwagi i zalecenia dla klienta**
+są oddzielone od notatek wewnętrznych. Można wskazać strefę wizyty. Przed raportem
+zapisz zmieniony opis. Samo otwieranie podsumowania, podglądu lub PDF nie zmienia
+stopera ani należności. Od 0.3.6 karta zapisuje historię startu, pauzy, wznowienia,
+zatrzymania, zakończenia i ręcznych korekt czasu. Starszy czas pracy pozostaje
+zachowany; nie odtwarzamy nieznanych wcześniejszych przerw.
+
+Po zakończeniu wizyty **Generuj raport PDF** otwiera ustawienia. Wybierzesz czas,
+materiały, checklisty, zdjęcia PRZED/PO, zalecenia i finanse. **Finanse i zalecenia
+są domyślnie wyłączone.** Finanse wymagają istniejącej zatwierdzonej należności;
+raport bez finansów można przygotować także przed jej zatwierdzeniem.
+Notatki wewnętrzne, uwagi czynności checklist, opisy/oryginalne nazwy zdjęć, dane
+kontaktowe klienta i koszty zakupu nie są treścią raportu.
+
+**Przygotuj podgląd raportu** tworzy PDF w pamięci, bez zapisu historii. Podgląd
+na telefonie pokazuje tę samą publiczną treść; można również otworzyć plik PDF.
+**Zapisz raport i pobierz PDF** zapisuje metadane oraz migawkę treści i pobiera
+plik na urządzenie. Nagłówek: **BRONIAREK OGRODY**. Opcjonalne logo wybierzesz
+z galerii lub dodasz do niej jako INNE. Nie są wysyłane żadne wiadomości ani dane.
+
+Raporty mają UUID, numer `BO/rok/000001`, wersję i datę utworzenia. Zmieniona
+publiczna treść lub opcje tworzą kolejną wersję tego samego numeru. Ponowne
+pobranie korzysta z zapisanej migawki i nie dubluje historii ani nie pobiera
+aktualnych cen. Numery przy zapisie są chronione blokadą między kartami i kontrolą
+aktualności podglądu. PDF generujemy na żądanie; **pełnych plików PDF nie zapisujemy
+w localStorage ani IndexedDB**. Zdjęcia pozostają w dotychczasowym IndexedDB.
+
+Limit: 6 zdjęć PRZED/PO, łącznie z logo do 12 MB obrazów, 60 stron i 20 MB PDF.
+Brakujące lub uszkodzone zdjęcie blokuje generację z czytelnym komunikatem.
+Usuwanie fotografii użytej w raporcie ostrzega o skutkach dla ponownej generacji.
+Lokalne czcionki zapewniają polskie znaki; także generator i czcionki są objęte
+cache PWA, aby raport dało się przygotować bez internetu.
+
+Format danych **v9** migruje v1–v8, zachowując dokładną kopię v8 w
+`garden-manager:backup:v8`. Klucz `garden-manager:v1` i `localhost:5173` pozostają
+bez zmian. JSON oraz pełne ZIP-y obejmują podsumowania, historię czasu, migawki
+raportów i licznik numerów. Import obsługuje ZIP-y v6–v9 i wcześniejsze punkty
+odzyskiwania, ze wszystkimi dotychczasowymi potwierdzeniami.
+
+[Sposób generowania, przechowywania, prywatność i ograniczenia](docs/REPORTS.md).
+
+Walidacja 0.3.6: **309/309 testów jednostkowych**, **96/96 przeglądarkowych**
+(w tym wszystkie 81 wcześniejszych regresji) oraz **5/5 testów produkcyjnej PWA offline**.
+Przeszły TypeScript, build produkcyjny i `git diff --check`. Sprawdzono również
+wygląd pobranego PDF oraz widok 390 px bez przewijania poziomego. Build zgłasza
+ostrzeżenie o wielkości odroczonego pakietu fontkit (717 kB); generator jest
+ładowany na żądanie i dostępny w cache offline.
