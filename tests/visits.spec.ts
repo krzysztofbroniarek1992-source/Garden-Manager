@@ -1,3 +1,4 @@
+import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import type { Job, Payment } from '../src/domain';
 
@@ -284,11 +285,11 @@ test('korekta zatwierdzonej ceny nie obniża należności poniżej wpłat częś
 test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego zaokrąglania', async ({ page }) => {
   const original = await seed02(page);
   const migrated = await snapshot(page);
-  expect(migrated.version).toBe(3);
+  expect(migrated.version).toBe(STORAGE_VERSION);
   expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
   const old = fixture();
   expect(migrated.data.clients).toEqual(old.clients);
-  expect(migrated.data.gardens).toEqual(old.gardens);
+  expect(migrated.data.gardens).toEqual(old.gardens.map(garden => ({ ...garden, zones: [] })));
   expect(migrated.data.payments).toEqual(old.payments);
   expect(migrated.data.settings).toEqual(old.settings);
   expect(migrated.data.jobs).toHaveLength(3);
@@ -313,7 +314,7 @@ test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego z
   const chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
   const exported = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  expect(exported.version).toBe(3);
+  expect(exported.version).toBe(STORAGE_VERSION);
   expect(exported.data.payments).toEqual(old.payments);
   expect(exported.data.jobs.find((job: Job) => job.id === 'old-job').settlement).toEqual(preserved.settlement);
 });

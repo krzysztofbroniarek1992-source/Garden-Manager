@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('manifest, ikony PNG i aplikacja offline zachowują klienta oraz aktywny stoper', async ({ page, context, request }) => {
+test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalog oraz aktywny stoper', async ({ page, context, request }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const manifestResponse = await request.get('/manifest.webmanifest');
@@ -30,6 +30,21 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta oraz aktywny st
   await dialog.getByRole('button', { name: 'Dodaj klienta', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Klient zachowany offline', exact: true })).toBeVisible();
 
+  await navigation.getByRole('button', { name: 'Materiały', exact: true }).click();
+  await page.getByRole('button', { name: 'Dodaj materiał', exact: true }).click();
+  const material = page.getByRole('dialog', { name: 'Nowy materiał' });
+  await material.getByLabel('Nazwa materiału', { exact: true }).fill('Kora zachowana offline');
+  await material.getByLabel('Kategoria', { exact: true }).fill('Podłoża');
+  await material.getByLabel('Domyślna cena zakupu').fill('0.5');
+  await material.getByRole('button', { name: 'Zapisz materiał' }).click();
+  await navigation.getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
+  await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click();
+  await page.getByRole('button', { name: 'Dodaj strefę', exact: true }).click();
+  await page.getByLabel('Nazwa strefy', { exact: true }).fill('Rabata offline');
+  await page.getByLabel('Powierzchnia strefy').fill('12.3456789');
+  await page.getByRole('button', { name: 'Zapisz strefę' }).click();
+  await page.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
+
   await navigation.getByRole('button', { name: 'Panel główny', exact: true }).click();
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-1');
   await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
@@ -55,6 +70,8 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta oraz aktywny st
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(persisted.timer).toBeNull();
+  expect(persisted.materialCatalog[0]).toMatchObject({ name: 'Kora zachowana offline', unit: 'l', purchaseUnitPrice: 0.5 });
+  expect(persisted.gardens[0].zones[0]).toMatchObject({ name: 'Rabata offline', area: 12.3456789 });
   const pausedSeconds = paused.jobs.find((job: { id: string }) => job.id === 'job-1').seconds;
   const stoppedSeconds = persisted.jobs.find((job: { id: string }) => job.id === 'job-1').seconds;
   expect(stoppedSeconds).toBeGreaterThanOrEqual(pausedSeconds + 15);

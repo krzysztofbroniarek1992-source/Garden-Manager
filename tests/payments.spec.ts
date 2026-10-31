@@ -1,3 +1,4 @@
+import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 
 const test = base.extend<{ browserErrors: string[] }>({
@@ -103,7 +104,7 @@ async function assertMetrics(page: Page, received: string, remaining: string) {
 test('migracja 0.1 zachowuje dane: wiele ogrodów, kilkanaście zleceń, filtry i sumy klienta', async ({ page }) => {
   const original = await seedLegacy(page);
   const migrated = await snapshot(page);
-  expect(migrated.version).toBe(3);
+  expect(migrated.version).toBe(STORAGE_VERSION);
   expect(migrated.data.clients).toHaveLength(2);
   expect(migrated.data.gardens).toHaveLength(3);
   expect(migrated.data.jobs).toHaveLength(13);
