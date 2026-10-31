@@ -102,8 +102,9 @@ describe('wyjątki, serie i zlecenia', () => {
     const { store } = fixture(); store.saveTaskSchedule(schedule());
     store.moveTaskOccurrence('schedule-1', '2026-01-31', '2026-02-02', '11:00');
     const jobs = structuredClone(store.data.jobs);
-    store.saveTaskSchedule({ ...store.data.taskSchedules[0], startDate: '2026-02-15' });
+    store.saveTaskSchedule({ ...store.data.taskSchedules[0], startDate: '2026-02-15', title: 'Nowe koszenie' });
     expect(taskOccurrencesBetween(store.data, '2026-02-01', '2026-02-28').map(o => o.date)).toEqual(['2026-02-02', '2026-02-15']);
+    expect(store.data.taskOccurrences[0]).toMatchObject({ originalDate: '2026-01-31', date: '2026-02-02', time: '11:00', title: 'Nowe koszenie' });
     expect(store.data.jobs).toEqual(jobs);
   });
   it('zakończenie serii zachowuje historię oraz odwołuje przyszły wyjątek', () => {
@@ -115,6 +116,26 @@ describe('wyjątki, serie i zlecenia', () => {
     expect(taskOccurrencesBetween(store.data, '2026-04-01', '2026-12-31')).toEqual([]);
     expect(store.data.taskOccurrences.find(o => o.originalDate === '2026-01-31')!.status).toBe('cancelled');
     expect(store.data.jobs).toEqual(before);
+  });
+  it('koniec serii nie odwołuje wystąpienia przesuniętego wcześniej przed datę końca', () => {
+    const { store } = fixture(); store.saveTaskSchedule(schedule());
+    store.moveTaskOccurrence('schedule-1', '2026-02-28', '2026-01-30', '09:00');
+    store.endTaskSchedule('schedule-1', '2026-01-31');
+    expect(store.data.taskOccurrences[0].status).toBe('planned');
+  });
+  it('skrócenie daty końca harmonogramu odwołuje przyszły wyjątek bez kasowania go', () => {
+    const { store } = fixture(); store.saveTaskSchedule(schedule());
+    store.moveTaskOccurrence('schedule-1', '2026-01-31', '2026-03-01', '09:00');
+    store.saveTaskSchedule({ ...store.data.taskSchedules[0], endDate: '2026-02-01' });
+    expect(store.data.taskOccurrences[0]).toMatchObject({ date: '2026-03-01', status: 'cancelled' });
+  });
+  it('usunięcie strefy zachowuje jej opis w planie i późniejszej wizycie', () => {
+    const { store } = fixture();
+    store.saveZone('garden-1', { id: 'zone', name: 'Trawnik', type: 'trawnik', area: 100, length: null, plants: '', requirements: '', treatments: '' });
+    store.saveTaskSchedule(schedule({ zoneId: 'zone', zoneName: 'Trawnik' }));
+    store.deleteZone('garden-1', 'zone');
+    const id = store.beginTaskOccurrence('schedule-1', '2026-01-31');
+    expect(store.data.jobs.find(job => job.id === id)!.notes).toContain('Strefa: Trawnik');
   });
   it('rozpoczęcie tworzy jedną rzeczywistą wizytę; kolejne kliknięcie nie resetuje ani nie wznawia pomiaru', () => {
     const { store, repository, advance } = fixture(); store.saveTaskSchedule(schedule());

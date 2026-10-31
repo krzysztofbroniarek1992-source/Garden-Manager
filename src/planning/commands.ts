@@ -27,7 +27,10 @@ export function saveTaskSchedule(data: Data, draft: TaskSchedule, now: number): 
   const next = { ...draft, title: draft.title.trim(), notes: draft.notes.trim(), clientId: garden?.clientId ?? draft.clientId,
     zoneName: zone?.name ?? (draft.zoneId ? draft.zoneName : null), endedOn: existing?.endedOn ?? null,
     revision: (existing?.revision ?? 0) + 1, updatedAt: now };
-  return { ...data, taskSchedules: put(data.taskSchedules, next) };
+  return { ...data, taskSchedules: put(data.taskSchedules, next),
+    taskOccurrences: data.taskOccurrences.map(item => item.scheduleId === next.id && !item.jobId && item.status === 'planned'
+      ? { ...item, title: next.title, notes: next.notes, clientId: next.clientId, gardenId: next.gardenId, zoneId: next.zoneId, zoneName: next.zoneName,
+        status: next.endDate && item.date > next.endDate ? 'cancelled' : item.status, revision: item.revision + 1, updatedAt: now } : item) };
 }
 export function moveTaskOccurrence(data: Data, scheduleId: string, originalDate: string, date: string, time: string, now: number, expected?: OccurrenceVersion): Data {
   const occurrence = currentOccurrence(data, scheduleId, originalDate, expected);
@@ -48,7 +51,7 @@ export function endTaskSchedule(data: Data, scheduleId: string, lastDate: string
   if (revision !== undefined && revision !== schedule.revision) throw conflict();
   if (!isDate(lastDate)) throw new Error('Podaj poprawną datę zakończenia serii.');
   return { ...data, taskSchedules: put(data.taskSchedules, { ...schedule, endedOn: lastDate, revision: schedule.revision + 1, updatedAt: now }),
-    taskOccurrences: data.taskOccurrences.map(item => item.scheduleId === scheduleId && !item.jobId && (item.date > lastDate || item.originalDate > lastDate)
+    taskOccurrences: data.taskOccurrences.map(item => item.scheduleId === scheduleId && !item.jobId && item.date > lastDate
       ? { ...item, status: 'cancelled', revision: item.revision + 1, updatedAt: now } : item) };
 }
 /** One transaction creates a real visit and starts its timer, only on explicit user action. */
