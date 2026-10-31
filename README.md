@@ -173,3 +173,19 @@ nie łączy się z Supabase ani nie obsługuje logowania.
 mapowanie danych, ochronę dostępu oraz sposób dodawania kolejnych modułów.
 W repozytorium nie ma haseł ani tajnych kluczy. `.env.example` pokazuje wyłącznie
 przyszłą, publiczną konfigurację klienta.
+
+## Aktualizacja 0.3.1 — etap 1
+
+Karta zlecenia jest wspólna dla listy zleceń, historii, karty klienta i kalendarza.
+Przycisk „Edytuj zlecenie” w karcie udostępnia dane wizyty, czynności, materiały
+oraz stawkę. Czas, korekta czasu, zatwierdzenie należności i płatności pozostają
+w tej samej karcie. Zmiana danych nie przelicza zatwierdzonej należności.
+
+Na karcie klienta można edytować kontakt, dodawać i edytować ogrody oraz tworzyć
+zlecenia. Formularz zlecenia pokazuje ogrody wybranego klienta; przy jednym ogrodzie
+wybiera go automatycznie. Klient bez ogrodu może dodać go na swojej karcie.
+W kalendarzu tytuł zlecenia otwiera wspólną kartę, a przycisk
+„+ Nowe zlecenie na ten dzień” ustawia wybraną datę w formularzu.
+
+Etap nie zmienia formatu localStorage ani numeru wydania 0.3.0 w pakiecie.
+Adres uruchomienia pozostaje `http://localhost:5173/`.

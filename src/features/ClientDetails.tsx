@@ -48,7 +48,7 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
     <button className="client-back" onClick={onBack}><ArrowLeft size={16}/>Wróć do klientów</button>
     <div className="page-heading client-panel-heading"><div><p className="eyebrow">KARTA KLIENTA</p><h1>{client.name}</h1><p className="muted">Wszystkie ogrody, wykonane prace i rozliczenia w jednym miejscu.</p></div><span className="client-panel-label"><Sprout size={17}/>{gardens.length} {polishPlural(gardens.length, 'ogród', 'ogrody', 'ogrodów')} pod opieką</span></div>
 
-    <div className="job-actions"><button className="button secondary" onClick={() => setEditClient(true)}>Edytuj klienta</button><button className="button secondary" onClick={() => setEditGarden({ id: crypto.randomUUID(), clientId, name: '', address: '', area: 0, notes: '' })}>Dodaj ogród</button><button className="button primary" disabled={!gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: gardens[0].id, title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>Nowe zlecenie</button></div>
+    <div className="job-actions"><button className="button secondary" onClick={() => setEditClient(true)}>Edytuj klienta</button><button className="button secondary" onClick={() => setEditGarden({ id: crypto.randomUUID(), clientId, name: '', address: '', area: 0, notes: '' })}>Dodaj ogród</button><button className="button primary" disabled={!gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: gardens.length === 1 ? gardens[0].id : '', title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>Nowe zlecenie</button></div>
     <div className="client-metrics" aria-label="Podsumowanie finansowe klienta">
       <Metric label="WARTOŚĆ WYKONANYCH PRAC" value={moneyCents(summary.completedValueCents)} note="Zakończone · zatwierdzone należności" icon={<CheckCheck size={20}/>} testId="client-completed-value"/>
       <Metric label="OTRZYMANE PŁATNOŚCI" value={moneyCents(summary.receivedCents)} note="Rzeczywiste wpłaty, także zaliczki" icon={<Wallet size={20}/>} testId="client-received"/>
@@ -86,7 +86,7 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
     </section>
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
-    {newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
+    {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
     {selectedJob && <JobDetails jobId={selectedJob} onClose={() => setSelectedJob(null)}/>}
   </section>;
 }

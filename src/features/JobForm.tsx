@@ -3,10 +3,10 @@ import { Plus, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
 import { materialsTotalCents, moneyCents, type Job, type Material } from '../domain';
-export default function JobForm({ job, onClose, onSave, embedded = false }: { job: Job; embedded?: boolean; onClose: () => void; onSave: (job: Job) => void }) {
+export default function JobForm({ job, onClose, onSave, clientId: initialClientId, embedded = false }: { job: Job; clientId?: string; embedded?: boolean; onClose: () => void; onSave: (job: Job) => void }) {
   const { data } = useGarden();
   const [draft, setDraft] = useState(job);
-  const [clientId, setClientId] = useState(() => data.gardens.find(g => g.id === job.gardenId)?.clientId ?? '');
+  const [clientId, setClientId] = useState(() => initialClientId ?? data.gardens.find(g => g.id === job.gardenId)?.clientId ?? '');
   const gardens = data.gardens.filter(g => g.clientId === clientId);
   const [error, setError] = useState('');
   const patch = <K extends keyof Job>(key: K, value: Job[K]) => setDraft(current => ({ ...current, [key]: value }));
