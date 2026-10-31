@@ -1,4 +1,4 @@
-# Garden Manager 0.3.3
+# Garden Manager 0.3.4
 
 Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScript,
 Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, zewnętrznej bazy danych i płatnych
@@ -70,7 +70,7 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 6 (wersja 0.3.3).
+`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 7 (wersja 0.3.4).
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
 oraz możliwość odtworzenia zapewnia kopia ZIP dostępna od wersji 0.3.3.
@@ -383,4 +383,46 @@ repozytorium plików oraz przygotowania zdjęć.
 
 Walidacja 0.3.3: **160/160 testów jednostkowych**, **53/53 przeglądarkowych**
 (w tym 40 wcześniejszych regresji) i **2/2 testy produkcyjnej PWA offline**.
+Kontrola TypeScript, build produkcyjny i `git diff --check` przechodzą.
+
+## Wersja 0.3.4 — notatki i przypomnienia
+
+Na pulpicie dostępne są szybkie przyciski **Dodaj notatkę**, **Dodaj przypomnienie**
+i **Dodaj sprawę**. Widok **Notatki** zbiera zapiski ogólne oraz zapiski klientów,
+ogrodów, stref i zleceń/wizyt. Można je wyszukiwać, filtrować, edytować,
+archiwizować, przywracać i usuwać z potwierdzeniem. Notatka ma opcjonalną
+kategorię, priorytet i odniesienie do istniejącego zdjęcia z galerii.
+Przyciski tworzenia są także na odpowiednich kartach i przy zdjęciach.
+
+Przypomnienie należy do notatki i ma datę oraz opcjonalną godzinę. Dostępne są
+wykonanie, anulowanie, ponowne aktywowanie i odroczenie. Archiwizacja notatki
+wstrzymuje widoczność przypomnienia na pulpicie i w kalendarzu; przywrócenie
+pokazuje ten sam wpis. Historia wykonanych i anulowanych terminów pozostaje
+w kalendarzu oraz filtrach notatek. Odroczenie przenosi ten sam termin.
+
+Osobny widok **Do zrobienia** obsługuje samodzielne sprawy, także bez klienta
+lub daty. Zakładki: wszystkie, na dziś, nadchodzące, zaległe, wykonane,
+bez terminu i anulowane. Sprawę można szybko wykonać lub przywrócić.
+Notatki i sprawy mają filtry klienta, priorytetu, statusu i terminu;
+notatki również kategorii. Na telefonie oba widoki są w menu **Więcej**.
+
+Kalendarz miesiąca, tygodnia i dnia rozróżnia **pracę ogrodniczą**, **zlecenie**,
+**przypomnienie** i **sprawę**. Wybrany dzień umożliwia utworzenie przypomnienia
+lub sprawy. Pulpit pokazuje do pięciu najwcześniejszych aktywnych wpisów każdego
+rodzaju, w tym zaległości. Pełne listy dostępne są w nowych widokach.
+Termin bez godziny dotyczy całego lokalnego dnia; z godziną staje się zaległy
+po jej upływie. **Notatki, przypomnienia i sprawy nie tworzą zleceń, nie uruchamiają
+stopera i nie naliczają należności.**
+
+Format v7 automatycznie migruje v1–v6, a oryginalny zapis v6 zachowuje w
+`garden-manager:backup:v6`. Klucz `garden-manager:v1`, adres `localhost:5173`
+i magazyn zdjęć IndexedDB pozostają te same. JSON oraz pełny ZIP obejmują nowe
+kolekcje, powiązania i znaczniki usunięć. Import ZIP zachowuje walidację,
+podgląd, potwierdzenie i punkt odzyskiwania. Obsługiwane są także ZIP-y oraz
+punkty odzyskiwania z 0.3.3. **JSON nadal nie zawiera plików zdjęć.**
+
+[Szczegóły modelu, migracji i ograniczeń](docs/NOTES.md).
+
+Walidacja 0.3.4: **206 testów jednostkowych**, **66 scenariuszy przeglądarkowych**
+(w tym wszystkie 53 wcześniejsze regresje) oraz **3 testy produkcyjnej PWA offline**.
 Kontrola TypeScript, build produkcyjny i `git diff --check` przechodzą.

@@ -1,3 +1,4 @@
+import type { Note, Todo, DeskTombstone } from './desk/model';
 import type { PhotoMetadata } from './photos/model';
 import type { TaskOccurrence, TaskSchedule } from './planning/model';
 
@@ -102,6 +103,9 @@ export interface Payment {
 }
 
 export interface Data {
+  notes: Note[];
+  todos: Todo[];
+  deskTombstones: DeskTombstone[];
   photos: PhotoMetadata[];
   photoRestoreId: string | null;
   taskSchedules: TaskSchedule[];

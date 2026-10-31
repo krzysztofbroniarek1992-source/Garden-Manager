@@ -1,6 +1,6 @@
 import { GardenStore } from '../data/store';
 import { pauseActiveTimer, type Data } from '../domain';
-import { validateData } from '../data/repository';
+import { validateData, withDeskData } from '../data/repository';
 import { makeFullBackup, readFullBackup, type PreparedBackup } from './backup';
 import { photoLimits, resolvePhotoScope, type PhotoAssetRepository, type PhotoDetails, type PhotoInput, type PhotoMetadata, type PhotoProcessor, type PreparedImage, type RecoveryPoint } from './model';
 
@@ -87,14 +87,14 @@ export class PhotoService {
     catch { return 'Dane i zdjęcia zostały odtworzone. Ponów porządkowanie, aby dokończyć zapis punktu odzyskiwania.'; }
   }
   importFull(prepared: PreparedBackup, expected: string) { return locked(() => this.restore(prepared, expected, false)); }
-  recovery() { return this.assets.recovery(); }
-  exportRecovery() { return locked(async () => { const point = await this.assets.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.'); return makeFullBackup(point.data, this.assets, point.createdAt); }); }
+  async recovery() { const point = await this.assets.recovery(); if (!point) return undefined; const data = withDeskData(point.data); validateData(data); return { ...point, data }; }
+  exportRecovery() { return locked(async () => { const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.'); return makeFullBackup(point.data, this.assets, point.createdAt); }); }
   async prepareRecovery(): Promise<{ point: RecoveryPoint; expected: string }> {
-    const point = await this.assets.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.');
+    const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.');
     validateData(point.data); return { point, expected: JSON.stringify(this.store.snapshot()) };
   }
   restoreRecovery(id: string, expected: string) { return locked(async () => {
-    const point = await this.assets.recovery(); if (!point || point.id !== id) throw new Error('Punkt odzyskiwania zmienił się. Wczytaj go ponownie.');
+    const point = await this.recovery(); if (!point || point.id !== id) throw new Error('Punkt odzyskiwania zmienił się. Wczytaj go ponownie.');
     return this.restore({ data: point.data, assets: [], createdAt: point.createdAt }, expected, true);
   }); }
   clearRecovery(id: string) { return locked(async () => {
