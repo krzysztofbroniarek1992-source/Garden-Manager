@@ -1,4 +1,4 @@
-# Garden Manager 0.3.4
+# Garden Manager 0.3.5
 
 Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScript,
 Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, zewnętrznej bazy danych i płatnych
@@ -70,7 +70,7 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 7 (wersja 0.3.4).
+`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 8 (wersja 0.3.5).
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
 oraz możliwość odtworzenia zapewnia kopia ZIP dostępna od wersji 0.3.3.
@@ -426,3 +426,55 @@ punkty odzyskiwania z 0.3.3. **JSON nadal nie zawiera plików zdjęć.**
 Walidacja 0.3.4: **206 testów jednostkowych**, **66 scenariuszy przeglądarkowych**
 (w tym wszystkie 53 wcześniejsze regresje) oraz **3 testy produkcyjnej PWA offline**.
 Kontrola TypeScript, build produkcyjny i `git diff --check` przechodzą.
+
+## Wersja 0.3.5 — checklisty i szablony prac
+
+Widok **Szablony prac** zawiera własne standardy usług i cztery edytowalne
+przykłady: koszenie trawnika, cięcie żywopłotu, pielęgnację drzew i krzewów oraz
+zabieg ochrony roślin. Możesz tworzyć, edytować, kopiować, archiwizować,
+przywracać i usuwać szablony z potwierdzeniem. Wyszukiwanie obejmuje nazwę,
+opis i czynności; filtry dotyczą kategorii usługi oraz archiwum. Kolejność
+czynności zmieniają przyciski strzałek, dostępne również na telefonie.
+
+Zastosowanie szablonu tworzy **niezależną checklistę**. Można przypisać kilka
+różnych list do jednej wizyty lub utworzyć listę od zera. Zmiana, archiwizacja
+lub usunięcie szablonu nie zmieniają istniejących list i ich postępu. Ponowne
+zastosowanie tego samego szablonu do tej samej wizyty otwiera istniejącą listę.
+
+W karcie wizyty przycisk **Checklisty wizyty** prowadzi do list kontrolnych.
+Każda czynność ma wygodne odhaczanie, status **Nie dotyczy**, datę wykonania,
+uwagę oraz opcjonalny odnośnik do istniejącego zdjęcia. Edycja, status i kolejność
+zapisują się automatycznie. Błąd zapisu pozostawia szkic pola do ponowienia.
+Postęp to wykonane / wszystkie czynności z wyłączeniem „Nie dotyczy”, wyliczany
+bez zapisywania zaokrąglonego procentu. Pusta lista i lista zawierająca wyłącznie
+„Nie dotyczy” pokazują **—**, zamiast pozornego 100%.
+
+Karty ogrodu i strefy pozwalają tworzyć **plany czynności**. Plan nie tworzy
+zlecenia ani należności. W karcie wizyty można skopiować plan tego ogrodu,
+zachowując uwagi i odnośniki do zdjęć, z nowym postępem wykonania. Plany i listy
+wizyt są wyraźnie oznaczone. Zakładka **Checklisty i plany** w bibliotece zachowuje
+dostęp również do historii po usunięciu powiązanego zlecenia lub ogrodu.
+
+Harmonogram kalendarza może wskazywać szablon. Przy **Rozpocznij pracę** można
+zastosować go do rzeczywistej wizyty lub odznaczyć tę opcję. Przyszłe terminy nie
+generują kopii list. Ponowne otwarcie wizyty niczego nie tworzy i nie restartuje
+stopera. W samej karcie wizyty można także zastosować szablon harmonogramu.
+
+Niepełna checklista daje czytelne ostrzeżenie, ale **nie blokuje zakończenia
+wizyty**. Odhaczanie, edycja lub usuwanie list nie zmienia stopera, cen,
+materiałów ani płatności. Przykłady ochrony roślin przypominają o aktualnej
+etykiecie; nie podają dawek ani mieszanin.
+
+Format v8 migruje v1–v7 i zachowuje dokładną kopię źródła v7 w
+`garden-manager:backup:v7`. Klucz `garden-manager:v1` i `localhost:5173` pozostają
+bez zmian. JSON i pełny ZIP obejmują szablony, checklisty, postęp, uwagi,
+identyfikatory zdjęć i znaczniki usunięcia. Import odczytuje ZIP-y v6, v7 i v8
+oraz wcześniejsze punkty odzyskiwania. Zdjęcia pozostają w dotychczasowym
+IndexedDB; checklisty ich nie kopiują. JSON nadal nie zawiera plików fotografii.
+
+[Szczegóły modelu, automatycznego zapisu i migracji](docs/CHECKLISTS.md).
+
+Walidacja 0.3.5: **256/256 testów jednostkowych**, **81/81 przeglądarkowych**
+(w tym wszystkie 66 wcześniejszych regresji) oraz **4/4 testy produkcyjnej PWA offline**.
+Sprawdzono również TypeScript, build produkcyjny bez ostrzeżenia o wielkości
+pakietu, `git diff --check` i układ przy szerokości 1440 oraz 390 px.
