@@ -1,3 +1,4 @@
+import { starterTemplates } from '../checklists/starters';
 import { legacySettlement, localDate, type Data, type Job } from '../domain';
 
 const dateAt = (offset: number, now: Date) => {
@@ -27,6 +28,9 @@ export function createDemoData(now = new Date()): Data {
     fixedPrice: 0, seconds: 0, materials: [], activities: [overrides.title], settlement: null, notes: 'Zlecenie testowe — dane demonstracyjne.', ...overrides,
   });
   return {
+    workTemplates: starterTemplates(now.getTime()),
+    checklists: [],
+    checklistTombstones: [],
     notes: [],
     todos: [],
     deskTombstones: [],

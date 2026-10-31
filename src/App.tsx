@@ -2,8 +2,8 @@ import Notes from './desk/Notes'
 import Todos from './desk/Todos'
 import DeskOverview, { DeskQuickActions } from './desk/Overview'
 import FullBackupPanel from './photos/FullBackupPanel'
-import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowDownToLine, ArrowRight, Calculator, Package, StickyNote, ListTodo, CalendarDays, Check, ChevronRight, Clock3, Flower2, History, LayoutDashboard, Leaf, MapPin, MoreHorizontal, Pause, Play, Plus, Settings2, ShieldCheck, Sprout, Square, TrendingUp, Users, Wallet, Wifi, WifiOff } from 'lucide-react'
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
+import { ArrowDownToLine, ArrowRight, Calculator, Package, StickyNote, ListTodo, ListChecks, CalendarDays, Check, ChevronRight, Clock3, Flower2, History, LayoutDashboard, Leaf, MapPin, MoreHorizontal, Pause, Play, Plus, Settings2, ShieldCheck, Sprout, Square, TrendingUp, Users, Wallet, Wifi, WifiOff } from 'lucide-react'
 import { useGarden, useNow } from './state'
 import { duration, elapsedSeconds, calculatedLaborCents, jobTotalCents, localDate, money, moneyCents, remainingCents, sumCents } from './domain'
 import Clients from './features/Clients'
@@ -17,7 +17,9 @@ import Modal from './components/Modal'
 import { STORAGE_VERSION } from './data/repository'
 import './features/dashboard-finance.css'
 
-type Page = 'dashboard' | 'clients' | 'gardens' | 'jobs' | 'calendar' | 'history' | 'materials' | 'calculators' | 'notes' | 'todos'
+const TemplateLibrary = lazy(() => import('./checklists/Library'))
+
+type Page = 'dashboard' | 'clients' | 'gardens' | 'jobs' | 'calendar' | 'history' | 'materials' | 'calculators' | 'notes' | 'todos' | 'templates'
 const navigation = [
   { id: 'dashboard', label: 'Panel główny', short: 'Pulpit', icon: LayoutDashboard },
   { id: 'clients', label: 'Klienci', short: 'Klienci', icon: Users },
@@ -28,6 +30,7 @@ const navigation = [
   { id: 'calculators', label: 'Kalkulatory', short: 'Oblicz', icon: Calculator },
   { id: 'notes', label: 'Notatki', short: 'Notatki', icon: StickyNote },
   { id: 'todos', label: 'Do zrobienia', short: 'Sprawy', icon: ListTodo },
+  { id: 'templates', label: 'Szablony prac', short: 'Szablony', icon: ListChecks },
   { id: 'history', label: 'Historia prac', short: 'Historia', icon: History },
 ] as const
 function ClipboardIcon({ size = 20 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/></svg> }
@@ -54,14 +57,14 @@ export default function App() {
       <a href="#dashboard" className="brand" onClick={() => go('dashboard')}><span className="brand-icon"><Leaf size={25}/></span><span>garden<span className="brand-light">manager</span><small>TWÓJ BIZNES. NATURALNIE.</small></span></a>
       <div className="workspace-label">PRZESTRZEŃ ROBOCZA</div>
       <nav aria-label="Nawigacja główna">{navigation.map(item => <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => go(item.id)}><item.icon size={20}/><span>{item.label}</span>{item.id === 'jobs' && <span className="nav-count">{data.jobs.filter(j => j.status !== 'completed').length}</span>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="demo-sidebar"><span className="demo-dot"/> Wersja demonstracyjna<p>Poznaj swój nowy rytm pracy.<br/>Dane zapisujemy na tym urządzeniu.</p><span className="version-tag">WERSJA 0.3.4</span></div><button className="nav-item" onClick={() => setSettings(true)}><Settings2 size={20}/>Ustawienia</button><div className="profile"><span className="avatar">OG</span><div><strong>Moja firma ogrodnicza</strong><small>Konto demonstracyjne</small></div><ShieldCheck size={17}/></div></div>
+      <div className="sidebar-bottom"><div className="demo-sidebar"><span className="demo-dot"/> Wersja demonstracyjna<p>Poznaj swój nowy rytm pracy.<br/>Dane zapisujemy na tym urządzeniu.</p><span className="version-tag">WERSJA 0.3.5</span></div><button className="nav-item" onClick={() => setSettings(true)}><Settings2 size={20}/>Ustawienia</button><div className="profile"><span className="avatar">OG</span><div><strong>Moja firma ogrodnicza</strong><small>Konto demonstracyjne</small></div><ShieldCheck size={17}/></div></div>
     </aside>
     <div className="app-body">
       <header className="topbar"><div className="breadcrumb"><span>Moja firma</span><ChevronRight size={15}/><strong>{navigation.find(n => n.id === page)?.label}</strong></div><div className="topbar-right"><span className="connection">{online ? <Wifi size={15}/> : <WifiOff size={15}/>}<span>{online ? 'Zapis lokalny' : 'Tryb offline'}</span></span><span className="topbar-divider"/><span className="demo-badge">DEMO · DANE TESTOWE</span><button className="avatar small" aria-label="Ustawienia konta demonstracyjnego" onClick={() => setSettings(true)}>OG</button></div></header>
-      <main id="main-content">{error && <div role="alert" className="error-banner">{error}</div>}{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'materials' ? <Materials/> : page === 'calculators' ? <Calculators/> : page === 'notes' ? <Notes/> : page === 'todos' ? <Todos/> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</main>
-      <footer className="app-footer"><span><Leaf size={13}/> Garden Manager <span className="footer-version">0.3.4</span></span><span>Dobra organizacja. Więcej czasu na to, co rośnie.</span></footer>
+      <main id="main-content">{error && <div role="alert" className="error-banner">{error}</div>}{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'materials' ? <Materials/> : page === 'calculators' ? <Calculators/> : page === 'notes' ? <Notes/> : page === 'todos' ? <Todos/> : page === 'templates' ? <Suspense fallback={<p role="status">Otwieranie szablonów prac…</p>}><TemplateLibrary/></Suspense> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</main>
+      <footer className="app-footer"><span><Leaf size={13}/> Garden Manager <span className="footer-version">0.3.5</span></span><span>Dobra organizacja. Więcej czasu na to, co rośnie.</span></footer>
     </div>
-    {more && <div className="mobile-more"><button onClick={() => go('notes')}><StickyNote size={20}/>Notatki</button><button onClick={() => go('todos')}><ListTodo size={20}/>Do zrobienia</button><button onClick={() => go('materials')}><Package size={20}/>Materiały</button><button onClick={() => go('calculators')}><Calculator size={20}/>Kalkulatory</button><button onClick={() => { go('history') }}><History size={20}/>Historia prac</button><button onClick={() => {setSettings(true);setMore(false)}}><Settings2 size={20}/>Ustawienia</button></div>}
+    {more && <div className="mobile-more"><button onClick={() => go('templates')}><ListChecks size={20}/>Szablony prac</button><button onClick={() => go('notes')}><StickyNote size={20}/>Notatki</button><button onClick={() => go('todos')}><ListTodo size={20}/>Do zrobienia</button><button onClick={() => go('materials')}><Package size={20}/>Materiały</button><button onClick={() => go('calculators')}><Calculator size={20}/>Kalkulatory</button><button onClick={() => { go('history') }}><History size={20}/>Historia prac</button><button onClick={() => {setSettings(true);setMore(false)}}><Settings2 size={20}/>Ustawienia</button></div>}
     <nav className="mobile-nav" aria-label="Nawigacja mobilna">{navigation.filter(n => ['dashboard','clients','gardens','jobs','calendar'].includes(n.id)).map(item => <button key={item.id} onClick={() => go(item.id)} aria-current={page === item.id ? 'page' : undefined} className={page === item.id ? 'active' : ''}><item.icon size={21}/><span>{item.short}</span></button>)}<button onClick={() => setMore(!more)} aria-expanded={more}><MoreHorizontal size={21}/><span>Więcej</span></button></nav>
     {settings && <Settings onClose={() => setSettings(false)}/>}
   </div>

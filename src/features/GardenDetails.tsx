@@ -1,6 +1,6 @@
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { useGarden } from '../state';
 import { duration, type GardenZone } from '../domain';
 import { formatQuantity } from '../gardening';
@@ -10,6 +10,7 @@ import JobDetails from './JobDetails';
 import { CalculatorPanel } from './Calculators';
 import './gardening.css';
 
+const ChecklistPanel = lazy(() => import('../checklists/ChecklistPanel'));
 const workLabels = { planned: 'Zaplanowane', 'in-progress': 'W trakcie', completed: 'Zakończone' };
 export default function GardenDetails({ gardenId, onClose }: { gardenId: string; onClose: () => void }) {
   const { data, deleteZone } = useGarden();
@@ -19,6 +20,7 @@ export default function GardenDetails({ gardenId, onClose }: { gardenId: string;
   const [removing, setRemoving] = useState<GardenZone | null>(null);
   const [selectedJob, setSelectedJob] = useState('');
   const [deskZone, setDeskZone] = useState<GardenZone | null>(null);
+  const [checklistZone, setChecklistZone] = useState<GardenZone | null>(null);
   const [photoZone, setPhotoZone] = useState<GardenZone | null>(null);
   const [error, setError] = useState('');
   const [calculating, setCalculating] = useState<string | null>(null);
@@ -38,12 +40,14 @@ export default function GardenDetails({ gardenId, onClose }: { gardenId: string;
       <div className="zone-list">{garden.zones.map(item => <article className="tool-card zone-card" key={item.id}>
         <h4>{item.name} <small>{item.type}</small></h4><p>{item.area !== null && `${formatQuantity(item.area)} m²`}{item.area !== null && item.length !== null && ' · '}{item.length !== null && `${formatQuantity(item.length)} m`}</p>
         <dl>{([['Rośliny', item.plants], ['Szczególne wymagania', item.requirements], ['Wykonane zabiegi', item.treatments]] as const).map(([label, value]) => value && <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
-        <div className="tool-actions"><button className="button secondary" aria-label={`Notatki strefy ${item.name}`} onClick={() => setDeskZone(item)}>Notatki strefy</button><button className="button secondary" aria-label={`Zdjęcia strefy ${item.name}`} onClick={() => setPhotoZone(item)}>Zdjęcia strefy</button><button className="button primary" aria-label={`Oblicz dla strefy ${item.name}`} onClick={() => setCalculating(item.id)}>Oblicz materiały</button><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
+        <div className="tool-actions"><button className="button secondary" aria-label={`Checklisty strefy ${item.name}`} onClick={() => setChecklistZone(item)}>Checklisty strefy</button><button className="button secondary" aria-label={`Notatki strefy ${item.name}`} onClick={() => setDeskZone(item)}>Notatki strefy</button><button className="button secondary" aria-label={`Zdjęcia strefy ${item.name}`} onClick={() => setPhotoZone(item)}>Zdjęcia strefy</button><button className="button primary" aria-label={`Oblicz dla strefy ${item.name}`} onClick={() => setCalculating(item.id)}>Oblicz materiały</button><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
       </article>)}</div>
     </>}
     <div className="tool-heading"><h3>Zlecenia i historia prac ({jobs.length})</h3></div>
     {!jobs.length && <p className="muted">Zlecenia przypisane do tego ogrodu pojawią się tutaj.</p>}
     <div className="garden-job-list">{jobs.map(job => <button className="tool-card garden-job" key={job.id} onClick={() => setSelectedJob(job.id)}><strong>{job.title}</strong><span>{job.date} · {workLabels[job.status]} · {duration(job.seconds)}</span><span>{job.activities.join(' · ')}</span></button>)}</div>
+    <Suspense fallback={<p role="status">Otwieranie checklist…</p>}><ChecklistPanel target={{kind:'plan',gardenId,zoneId:null}}/></Suspense>
+    {checklistZone && <Modal title={`Plany strefy: ${checklistZone.name}`} onClose={() => setChecklistZone(null)} wide><Suspense fallback={<p role="status">Otwieranie checklist…</p>}><ChecklistPanel target={{kind:'plan',gardenId,zoneId:checklistZone.id}}/></Suspense></Modal>}
     <ContextNotes scope={{ gardenId }} title="Notatki ogrodu"/>
     {deskZone && <Modal title={`Notatki strefy: ${deskZone.name}`} onClose={() => setDeskZone(null)} wide><ContextNotes scope={{ gardenId, zoneId: deskZone.id }} title="Notatki strefy"/></Modal>}
     <PhotoGallery key={gardenId} scope={{ gardenId }} title="Galeria i historia ogrodu"/>

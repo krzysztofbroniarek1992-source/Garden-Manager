@@ -8,6 +8,20 @@ import { LocalRepository, STORAGE_KEY } from './data/repository';
 import { GardenStore } from './data/store';
 
 interface GardenContextValue {
+  saveWorkTemplate: GardenStore['saveWorkTemplate'];
+  copyWorkTemplate: GardenStore['copyWorkTemplate'];
+  archiveWorkTemplate: GardenStore['archiveWorkTemplate'];
+  deleteWorkTemplate: GardenStore['deleteWorkTemplate'];
+  createBlankChecklist: GardenStore['createBlankChecklist'];
+  applyWorkTemplate: GardenStore['applyWorkTemplate'];
+  applyGardenPlan: GardenStore['applyGardenPlan'];
+  editChecklist: GardenStore['editChecklist'];
+  addChecklistItem: GardenStore['addChecklistItem'];
+  editChecklistItem: GardenStore['editChecklistItem'];
+  moveChecklistItem: GardenStore['moveChecklistItem'];
+  removeChecklistItem: GardenStore['removeChecklistItem'];
+  deleteChecklist: GardenStore['deleteChecklist'];
+
   data: Data;
   error: string | null;
   saveNote(note: Note): void;
@@ -40,7 +54,7 @@ interface GardenContextValue {
   moveTaskOccurrence(id: string, date: string, target: string, time: string, expected?: OccurrenceVersion): void;
   skipTaskOccurrence(id: string, date: string, expected?: OccurrenceVersion): void;
   endTaskSchedule(id: string, date: string, revision?: number): void;
-  beginTaskOccurrence(id: string, date: string, gardenId?: string, expected?: OccurrenceVersion): string;
+  beginTaskOccurrence(id: string, date: string, gardenId?: string, expected?: OccurrenceVersion, applyChecklist?: boolean): string;
 }
 
 const GardenContext = createContext<GardenContextValue | null>(null);
@@ -85,6 +99,20 @@ export function GardenProvider({ children }: { children: ReactNode }) {
 
   return <GardenContext.Provider value={{
     data, error,
+    saveWorkTemplate: (...args) => run(store => store.saveWorkTemplate(...args)),
+    copyWorkTemplate: (...args) => run(store => store.copyWorkTemplate(...args)),
+    archiveWorkTemplate: (...args) => run(store => store.archiveWorkTemplate(...args)),
+    deleteWorkTemplate: (...args) => run(store => store.deleteWorkTemplate(...args)),
+    createBlankChecklist: (...args) => run(store => store.createBlankChecklist(...args)),
+    applyWorkTemplate: (...args) => run(store => store.applyWorkTemplate(...args)),
+    applyGardenPlan: (...args) => run(store => store.applyGardenPlan(...args)),
+    editChecklist: (...args) => run(store => store.editChecklist(...args)),
+    addChecklistItem: (...args) => run(store => store.addChecklistItem(...args)),
+    editChecklistItem: (...args) => run(store => store.editChecklistItem(...args)),
+    moveChecklistItem: (...args) => run(store => store.moveChecklistItem(...args)),
+    removeChecklistItem: (...args) => run(store => store.removeChecklistItem(...args)),
+    deleteChecklist: (...args) => run(store => store.deleteChecklist(...args)),
+
     saveNote: note => run(store => store.saveNote(note)),
     archiveNote: (id, revision, archived) => run(store => store.archiveNote(id, revision, archived)),
     changeReminder: (id, revision, status, date, time) => run(store => store.changeReminder(id, revision, status, date, time)),
@@ -115,7 +143,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     moveTaskOccurrence: (id, date, target, time, expected) => run(store => store.moveTaskOccurrence(id, date, target, time, expected)),
     skipTaskOccurrence: (id, date, expected) => run(store => store.skipTaskOccurrence(id, date, expected)),
     endTaskSchedule: (id, date, revision) => run(store => store.endTaskSchedule(id, date, revision)),
-    beginTaskOccurrence: (id, date, gardenId, expected) => run(store => store.beginTaskOccurrence(id, date, gardenId, expected)),
+    beginTaskOccurrence: (id, date, gardenId, expected, applyChecklist) => run(store => store.beginTaskOccurrence(id, date, gardenId, expected, applyChecklist)),
   }}><PhotoProvider store={initial.store} metadata={data.photos} onChange={setData}>{children}</PhotoProvider></GardenContext.Provider>;
 }
 

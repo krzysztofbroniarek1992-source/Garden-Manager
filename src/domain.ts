@@ -1,3 +1,4 @@
+import type { WorkTemplate, Checklist, ChecklistTombstone } from './checklists/model';
 import type { Note, Todo, DeskTombstone } from './desk/model';
 import type { PhotoMetadata } from './photos/model';
 import type { TaskOccurrence, TaskSchedule } from './planning/model';
@@ -103,6 +104,9 @@ export interface Payment {
 }
 
 export interface Data {
+  workTemplates: WorkTemplate[];
+  checklists: Checklist[];
+  checklistTombstones: ChecklistTombstone[];
   notes: Note[];
   todos: Todo[];
   deskTombstones: DeskTombstone[];

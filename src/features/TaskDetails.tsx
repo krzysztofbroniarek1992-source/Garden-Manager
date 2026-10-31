@@ -20,6 +20,7 @@ export default function TaskDetails({ scheduleId, originalDate, onClose }: { sch
   const [panel, setPanel] = useState<'move' | 'skip' | 'end' | null>(null);
   const [editing, setEditing] = useState(false);
   const [jobId, setJobId] = useState('');
+  const [applyChecklist,setApplyChecklist] = useState(true);
   const [error, setError] = useState('');
   if (!schedule || !original) return <Modal title="Szczegóły zadania" onClose={onClose}><p>Ten termin zmienił się. Zamknij szczegóły i wybierz aktualny termin.</p></Modal>;
   if (editing) return <TaskForm initial={schedule} onClose={() => setEditing(false)} onDone={onClose}/>;
@@ -29,6 +30,7 @@ export default function TaskDetails({ scheduleId, originalDate, onClose }: { sch
   const job = data.jobs.find(j => j.id === occurrence.jobId);
   const garden = data.gardens.find(g => g.id === (job?.gardenId ?? occurrence.gardenId));
   const status = taskStatus(data, occurrence);
+  const checklistTemplate = data.workTemplates.find(t=>t.id===schedule.checklistTemplateId);
   const perform = (action: () => void) => { try { action(); setError(''); } catch (e) { setError((e as Error).message); } };
   const move = (e: FormEvent) => { e.preventDefault(); perform(() => { moveTaskOccurrence(scheduleId, originalDate, targetDate, time, version); onClose(); }); };
   return <Modal title="Szczegóły zadania" onClose={onClose} wide><div className="task-details">
@@ -39,11 +41,12 @@ export default function TaskDetails({ scheduleId, originalDate, onClose }: { sch
     <p className="preserve-lines">{occurrence.notes}</p><p className="muted">{scheduleDescription(schedule)} · od {schedule.startDate}{schedule.endDate && ` do ${schedule.endDate}`}{schedule.endedOn && ` · seria zakończona ${schedule.endedOn}`}</p>
     {!job && status === 'planned' && <>
       {!occurrence.gardenId && <label className="field">Ogród do wykonania pracy<select value={gardenId} onChange={e => setGardenId(e.target.value)}><option value="">Wybierz ogród przed rozpoczęciem</option>{data.gardens.filter(g => !occurrence.clientId || g.clientId === occurrence.clientId).map(g => <option value={g.id} key={g.id}>{g.name}</option>)}</select></label>}
+      {checklistTemplate && (checklistTemplate.archivedAt===null?<label className="desk-checkbox"><input type="checkbox" checked={applyChecklist} onChange={e=>setApplyChecklist(e.target.checked)}/>Zastosuj checklistę przy rozpoczęciu: {checklistTemplate.name}</label>:<p className="planning-note">Szablon checklisty jest w archiwum. Możesz rozpocząć pracę i dodać inną listę w karcie wizyty.</p>)}
       <p className="planning-note">Dopiero „Rozpocznij pracę” utworzy rzeczywiste zlecenie i uruchomi stoper wizyty. Sam termin nie nalicza czasu ani należności.</p>
     </>}
     {error && <p role="alert" className="gm-form-error">{error}</p>}
     <div className="planning-actions">
-      {job ? <button className="button primary" onClick={() => setJobId(job.id)}>Otwórz rzeczywiste zlecenie</button> : status === 'planned' && <button className="button primary" disabled={!gardenId} onClick={() => perform(() => setJobId(beginTaskOccurrence(scheduleId, originalDate, gardenId, version)))}>Rozpocznij pracę</button>}
+      {job ? <button className="button primary" onClick={() => setJobId(job.id)}>Otwórz rzeczywiste zlecenie</button> : status === 'planned' && <button className="button primary" disabled={!gardenId} onClick={() => perform(() => setJobId(beginTaskOccurrence(scheduleId, originalDate, gardenId, version, applyChecklist && checklistTemplate?.archivedAt===null)))}>Rozpocznij pracę</button>}
       {!job && status === 'planned' && <><button className="button secondary" onClick={() => { setPanel('move'); setError(''); }}>Przesuń ten termin</button><button className="button secondary" onClick={() => { setPanel('skip'); setError(''); }}>Pomiń ten termin</button></>}
       <button className="button secondary" onClick={() => setEditing(true)}>Edytuj całą serię</button>
       {!schedule.endedOn && schedule.recurrence.frequency !== 'once' && <button className="button secondary" onClick={() => { setPanel('end'); setError(''); }}>Zakończ serię</button>}
