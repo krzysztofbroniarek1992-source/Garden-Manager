@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalog oraz aktywny stoper', async ({ page, context, request }) => {
+test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalog, harmonogramy, wyjątki oraz aktywny stoper', async ({ page, context, request }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const manifestResponse = await request.get('/manifest.webmanifest');
@@ -45,6 +45,19 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await page.getByRole('button', { name: 'Zapisz strefę' }).click();
   await page.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
 
+  await navigation.getByRole('button', { name: 'Kalendarz', exact: true }).click();
+  await page.getByRole('button', { name: '+ Nowe zadanie na ten dzień', exact: true }).click();
+  const task = page.getByRole('dialog', { name: 'Nowe zadanie', exact: true });
+  await task.getByLabel('Nazwa zadania', { exact: true }).fill('Koszenie offline');
+  await task.getByRole('combobox', { name: 'Powtarzanie', exact: true }).selectOption('days');
+  await task.getByLabel('Powtarzaj co').fill('14');
+  await task.getByRole('button', { name: 'Zapisz harmonogram' }).click();
+  await page.locator('.calendar-agenda').getByRole('button', { name: 'Koszenie offline', exact: true }).click();
+  const details = page.getByRole('dialog', { name: 'Szczegóły zadania', exact: true });
+  await details.getByRole('button', { name: 'Przesuń ten termin' }).click();
+  await details.getByLabel('Nowa data terminu').fill('2026-11-04');
+  await details.getByRole('button', { name: 'Zapisz przesunięcie' }).click();
+
   await navigation.getByRole('button', { name: 'Panel główny', exact: true }).click();
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-1');
   await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
@@ -70,6 +83,8 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(persisted.timer).toBeNull();
+  expect(persisted.taskSchedules[0]).toMatchObject({ title: 'Koszenie offline', recurrence: { frequency: 'days', interval: 14 } });
+  expect(persisted.taskOccurrences[0]).toMatchObject({ originalDate: '2026-11-03', date: '2026-11-04', status: 'planned', jobId: null });
   expect(persisted.materialCatalog[0]).toMatchObject({ name: 'Kora zachowana offline', unit: 'l', purchaseUnitPrice: 0.5 });
   expect(persisted.gardens[0].zones[0]).toMatchObject({ name: 'Rabata offline', area: 12.3456789 });
   const pausedSeconds = paused.jobs.find((job: { id: string }) => job.id === 'job-1').seconds;

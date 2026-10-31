@@ -160,6 +160,15 @@ describe('wyjątki, serie i zlecenia', () => {
     expect(() => store.beginTaskOccurrence('schedule-1', '2026-01-31')).toThrow('stoper');
     expect(store.data).toEqual(before);
   });
+  it('zmiana daty rzeczywistego zlecenia przenosi wydarzenie bez odtworzenia starego zadania', () => {
+    const { store } = fixture(); store.saveTaskSchedule(schedule());
+    const id = store.beginTaskOccurrence('schedule-1', '2026-01-31'); store.stopTimer();
+    const job = store.data.jobs.find(item => item.id === id)!;
+    store.saveJob({ ...job, date: '2026-02-05', time: '12:30' });
+    expect(taskOccurrencesBetween(store.data, '2026-01-31', '2026-01-31')).toEqual([]);
+    expect(taskOccurrencesBetween(store.data, '2026-02-05', '2026-02-05')).toHaveLength(1);
+    expect(store.beginTaskOccurrence('schedule-1', '2026-01-31')).toBe(id);
+  });
   it('zadanie bez ogrodu wymaga przypisania ogrodu właściwego klienta', () => {
     const { store } = fixture(); store.saveTaskSchedule(schedule({ gardenId: null }));
     expect(() => store.beginTaskOccurrence('schedule-1', '2026-01-31')).toThrow('ogród');
