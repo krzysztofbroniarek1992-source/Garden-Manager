@@ -1,3 +1,4 @@
+import type { OccurrenceVersion, TaskSchedule } from './planning/model';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { CatalogMaterial, Client, Data, Garden, GardenZone, Job, Material, Payment, SettlementApprovalSource } from './domain';
 import { createDemoData } from './data/demo';
@@ -27,6 +28,11 @@ interface GardenContextValue {
   approveSettlement(jobId: string, finalLaborCents: number, source: SettlementApprovalSource, expectedJob?: Job): void;
   completeJob(jobId: string): void;
   setRate(rate: number): void;
+  saveTaskSchedule(schedule: TaskSchedule): void;
+  moveTaskOccurrence(id: string, date: string, target: string, time: string, expected?: OccurrenceVersion): void;
+  skipTaskOccurrence(id: string, date: string, expected?: OccurrenceVersion): void;
+  endTaskSchedule(id: string, date: string, revision?: number): void;
+  beginTaskOccurrence(id: string, date: string, gardenId?: string, expected?: OccurrenceVersion): string;
 }
 
 const GardenContext = createContext<GardenContextValue | null>(null);
@@ -43,12 +49,13 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   });
   const [data, setData] = useState(initial.data);
   const [error, setError] = useState(initial.error);
-  const run = useCallback((command: (store: GardenStore) => void) => {
+  const run = useCallback(<T,>(command: (store: GardenStore) => T): T => {
     try {
       if (!initial.store) throw new Error(initial.error ?? 'Zapis lokalny jest niedostępny.');
-      command(initial.store);
+      const result = command(initial.store);
       setData(initial.store.data);
       setError(null);
+      return result;
     } catch (caught) {
       setError(messageOf(caught));
       throw caught;
@@ -90,6 +97,11 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     stopTimer: () => run(store => store.stopTimer()),
     completeJob: id => run(store => store.completeJob(id)),
     setRate: rate => run(store => store.setRate(rate)),
+    saveTaskSchedule: item => run(store => store.saveTaskSchedule(item)),
+    moveTaskOccurrence: (id, date, target, time, expected) => run(store => store.moveTaskOccurrence(id, date, target, time, expected)),
+    skipTaskOccurrence: (id, date, expected) => run(store => store.skipTaskOccurrence(id, date, expected)),
+    endTaskSchedule: (id, date, revision) => run(store => store.endTaskSchedule(id, date, revision)),
+    beginTaskOccurrence: (id, date, gardenId, expected) => run(store => store.beginTaskOccurrence(id, date, gardenId, expected)),
   }}>{children}</GardenContext.Provider>;
 }
 
