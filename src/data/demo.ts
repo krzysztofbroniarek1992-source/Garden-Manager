@@ -28,7 +28,8 @@ export function createDemoData(now = new Date()): Data {
   });
   return {
     clients,
-    gardens,
+    gardens: gardens.map(garden => ({ ...garden, zones: [] })),
+    materialCatalog: [],
     jobs: [
       makeJob({ id: 'job-1', gardenId: 'garden-1', title: 'Pielęgnacja ogrodu', time: '09:00' }),
       makeJob({ id: 'job-2', gardenId: 'garden-2', title: 'Koszenie i porządkowanie', time: '13:00', billing: 'fixed', fixedPrice: 450 }),

@@ -1,5 +1,6 @@
 import { calculatedLaborCents, finishWork, jobTotalCents, materialsTotalCents, paidCents, pauseActiveTimer, resumeActiveTimer, roundLaborTo50Cents, startWork, stopActiveTimer, sumCents, type Client, type Data, type Garden, type Job, type Payment, type SettlementApprovalSource } from '../domain';
 import { validDate, type DataRepository } from './repository';
+import type { CatalogMaterial, GardenZone, Material } from '../domain';
 
 function upsert<T extends { id: string }>(items: T[], item: T): T[] {
   return items.some(existing => existing.id === item.id) ? items.map(existing => existing.id === item.id ? item : existing) : [...items, item];
@@ -46,7 +47,29 @@ export class GardenStore {
     if (existing && existing.clientId !== garden.clientId && data.jobs.some(job => job.gardenId === garden.id && data.payments.some(payment => payment.jobId === job.id))) {
       throw new Error('Ogród ma zlecenia z płatnościami. Nie można zmienić ich właściciela.');
     }
-    return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim() }) };
+    return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim(), zones: existing?.zones ?? garden.zones }) };
+  });
+
+  saveZone = (gardenId: string, zone: GardenZone) => this.commit(data => {
+    const garden = data.gardens.find(item => item.id === gardenId);
+    if (!garden) throw new Error('Nie znaleziono ogrodu.');
+    return { ...data, gardens: upsert(data.gardens, { ...garden, zones: upsert(garden.zones, { ...zone, name: zone.name.trim() }) }) };
+  });
+
+  deleteZone = (gardenId: string, zoneId: string) => this.commit(data => ({ ...data,
+    gardens: data.gardens.map(garden => garden.id === gardenId ? { ...garden, zones: garden.zones.filter(zone => zone.id !== zoneId) } : garden),
+  }));
+
+  saveCatalogMaterial = (item: CatalogMaterial) => this.commit(data => ({ ...data,
+    materialCatalog: upsert(data.materialCatalog, { ...item, name: item.name.trim(), category: item.category.trim() }),
+  }));
+
+  /** Append to the latest job; never replace visit, settlement or payment data. */
+  addJobMaterial = (jobId: string, gardenId: string, material: Material) => this.commit(data => {
+    const job = data.jobs.find(item => item.id === jobId);
+    if (!job || job.gardenId !== gardenId) throw new Error('Zlecenie nie należy już do wybranego ogrodu. Wybierz je ponownie.');
+    if (job.materials.some(item => item.id === material.id)) throw new Error('Ten wynik jest już zapisany w zleceniu.');
+    return { ...data, jobs: upsert(data.jobs, { ...job, materials: [...job.materials, material] }) };
   });
 
   deleteGarden = (id: string) => this.commit(data => {

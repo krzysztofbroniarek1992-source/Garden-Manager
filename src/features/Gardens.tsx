@@ -18,7 +18,7 @@ export default function Gardens() {
 
   function edit(garden?: Garden) {
     setError(''); setIsNew(!garden);
-    setEditing(garden ? { ...garden } : { id: crypto.randomUUID(), clientId: data.clients[0]?.id ?? '', name: '', address: '', area: 0, notes: '' });
+    setEditing(garden ? { ...garden } : { id: crypto.randomUUID(), clientId: data.clients[0]?.id ?? '', name: '', address: '', area: 0, notes: '', zones: [] });
   }
 
 

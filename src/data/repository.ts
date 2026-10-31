@@ -1,11 +1,12 @@
-import { calculatedLaborCents, jobTotalCents, legacySettlement, materialsTotalCents, paidCents, roundLaborTo50Cents, sumCents, type Data, type Job, type Payment } from '../domain';
+import { calculatedLaborCents, jobTotalCents, legacySettlement, materialUnits, materialsTotalCents, paidCents, roundLaborTo50Cents, sumCents, toCents, type Data, type Job, type Payment } from '../domain';
 import { createDemoData } from './demo';
 
 // Preserve the original key so existing browser data are found after updating.
 export const STORAGE_KEY = 'garden-manager:v1';
-export const STORAGE_VERSION = 3;
+export const STORAGE_VERSION = 4;
 export const LEGACY_BACKUP_KEY = 'garden-manager:backup:v1';
 export const V2_BACKUP_KEY = 'garden-manager:backup:v2';
+export const V3_BACKUP_KEY = 'garden-manager:backup:v3';
 
 /** Local persistence boundary. Future cloud synchronization can exchange this
  * versioned snapshot through a separate authenticated synchronization service. */
@@ -70,6 +71,7 @@ const cents = (value: unknown): value is number => Number.isSafeInteger(value) &
 export function validateData(value: unknown): asserts value is Data {
   validateLegacyData(value);
   const data = value as Data;
+  validateStage2(data);
   for (const job of data.jobs) {
     if (!Array.isArray(job.activities) || !job.activities.every(activity => typeof activity === 'string' && activity.trim())) {
       throw new Error('Nieprawidłowa lista czynności. Oryginalny zapis nie został zmieniony.');
@@ -94,6 +96,30 @@ export function validateData(value: unknown): asserts value is Data {
     throw new Error('Nieprawidłowy stan pomiaru wizyty. Oryginalny zapis nie został zmieniony.');
   }
   validatePayments(data);
+}
+
+function validateStage2(data: Data) {
+  const fail = () => { throw new Error('Nieprawidłowe strefy lub katalog materiałów. Oryginalny zapis nie został zmieniony.'); };
+  const unit = (value: unknown) => materialUnits.includes(value as typeof materialUnits[number]);
+  const price = (value: unknown) => positive(value) && Number.isSafeInteger(toCents(value as number));
+  for (const garden of data.gardens) {
+    if (!Array.isArray(garden.zones) || !garden.zones.every(zone => record(zone)
+      && strings(zone, ['id', 'name', 'type', 'plants', 'requirements', 'treatments']) && zone.name.trim() && zone.type.trim()
+      && (zone.area === null || positive(zone.area)) && (zone.length === null || positive(zone.length))) || !unique(garden.zones)) fail();
+  }
+  if (!Array.isArray(data.materialCatalog) || !data.materialCatalog.every(item => record(item)
+    && strings(item, ['id', 'name', 'category', 'unit', 'packageName', 'notes']) && item.name.trim() && item.category.trim()
+    && unit(item.unit) && price(item.purchaseUnitPrice)
+    && (item.packageQuantity === null || positive(item.packageQuantity) && item.packageQuantity > 0)) || !unique(data.materialCatalog)) fail();
+  for (const job of data.jobs) for (const item of job.materials) {
+    if (item.unit !== undefined && !unit(item.unit)
+      || item.purchaseUnitPrice !== undefined && !price(item.purchaseUnitPrice)
+      || !['catalogId', 'zoneId', 'zoneName'].every(key => (item as unknown as Record<string, unknown>)[key] === undefined || typeof (item as unknown as Record<string, unknown>)[key] === 'string')) fail();
+  }
+}
+
+function withStage2(data: Data): Data {
+  return { ...data, gardens: data.gardens.map(garden => ({ ...garden, zones: garden.zones ?? [] })), materialCatalog: data.materialCatalog ?? [] };
 }
 
 function migrateLegacyData(value: Omit<Data, 'payments'>, payments: Payment[]): Data {
@@ -124,14 +150,14 @@ export class LocalRepository implements DataRepository {
     let parsed: unknown;
     try { parsed = JSON.parse(raw); }
     catch { throw new Error('Nie można odczytać danych lokalnych. Oryginalny zapis nie został zmieniony.'); }
-    if (!record(parsed) || ![1, 2, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
-    if (parsed.version === 1 || parsed.version === 2) {
+    if (!record(parsed) || ![1, 2, 3, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
+    if (parsed.version !== STORAGE_VERSION) {
       validateLegacyData(parsed.data);
       const payments = parsed.version === 1 ? [] : (parsed.data as Data).payments;
       if (parsed.version === 2) validatePayments(parsed.data as Data, true);
-      const migrated = migrateLegacyData(parsed.data, payments);
+      const migrated = withStage2(parsed.version === 3 ? parsed.data as Data : migrateLegacyData(parsed.data, payments));
       validateData(migrated);
-      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : V2_BACKUP_KEY;
+      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : parsed.version === 2 ? V2_BACKUP_KEY : V3_BACKUP_KEY;
       try {
         if (this.storage.getItem(backupKey) === null) this.storage.setItem(backupKey, raw);
       } catch { throw new Error('Nie udało się utworzyć kopii danych przed aktualizacją. Oryginalny zapis nie został zmieniony.'); }
