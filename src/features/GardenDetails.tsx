@@ -5,6 +5,7 @@ import { formatQuantity } from '../gardening';
 import Modal from '../components/Modal';
 import GardenForm from './GardenForm';
 import JobDetails from './JobDetails';
+import { CalculatorPanel } from './Calculators';
 import './gardening.css';
 
 const workLabels = { planned: 'Zaplanowane', 'in-progress': 'W trakcie', completed: 'Zakończone' };
@@ -16,21 +17,24 @@ export default function GardenDetails({ gardenId, onClose }: { gardenId: string;
   const [removing, setRemoving] = useState<GardenZone | null>(null);
   const [selectedJob, setSelectedJob] = useState('');
   const [error, setError] = useState('');
+  const [calculating, setCalculating] = useState<string | null>(null);
   if (!garden) return <Modal title="Karta ogrodu" onClose={onClose}><p>Ogród nie jest już dostępny.</p></Modal>;
   if (editing) return <GardenForm initial={garden} isNew={false} onClose={() => setEditing(false)}/>;
   if (selectedJob) return <JobDetails jobId={selectedJob} onClose={() => setSelectedJob('')}/>;
+  if (calculating !== null) return <Modal title="Kalkulator ogrodu" onClose={onClose} wide><button className="button secondary" onClick={() => setCalculating(null)}>Wróć do karty ogrodu</button><CalculatorPanel initialGardenId={gardenId} initialZoneId={calculating}/></Modal>;
   const jobs = data.jobs.filter(job => job.gardenId === gardenId).sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
   return <Modal title={`Karta ogrodu: ${garden.name}`} onClose={onClose} wide>
     <div className="garden-summary"><p>{data.clients.find(client => client.id === garden.clientId)?.name} · {garden.address}</p><strong>{formatQuantity(garden.area)} m²</strong><p className="preserve-lines">{garden.notes}</p><button className="button secondary" onClick={() => setEditing(true)}>Edytuj dane ogrodu</button></div>
     {zone ? <ZoneForm key={zone.id} gardenId={gardenId} initial={zone} onClose={() => setZone(null)}/> : <>
       <div className="tool-heading"><h3>Strefy ogrodu ({garden.zones.length})</h3><button className="button primary" onClick={() => setZone({ id: crypto.randomUUID(), name: '', type: 'trawnik', area: null, length: null, plants: '', requirements: '', treatments: '' })}>Dodaj strefę</button></div>
+      <button className="button secondary" onClick={() => setCalculating('')}>Oblicz dla całego ogrodu</button>
       {error && <p role="alert" className="gm-form-error">{error}</p>}
       {removing && <div className="tool-confirm" role="group" aria-label="Potwierdzenie usunięcia strefy"><strong>Usunąć strefę „{removing.name}”?</strong><p>Zapisane zlecenia, materiały i historia prac pozostaną zachowane.</p><div className="tool-actions"><button className="button secondary" onClick={() => setRemoving(null)}>Anuluj usunięcie</button><button className="button danger" onClick={() => { try { deleteZone(gardenId, removing.id); setRemoving(null); setError(''); } catch (e) { setError((e as Error).message); } }}>Potwierdź usunięcie strefy</button></div></div>}
       {!garden.zones.length && <p className="muted">Dodaj trawnik, rabatę, żywopłot lub inną strefę, aby zapisać jej wymiary i wymagania.</p>}
       <div className="zone-list">{garden.zones.map(item => <article className="tool-card zone-card" key={item.id}>
         <h4>{item.name} <small>{item.type}</small></h4><p>{item.area !== null && `${formatQuantity(item.area)} m²`}{item.area !== null && item.length !== null && ' · '}{item.length !== null && `${formatQuantity(item.length)} m`}</p>
         <dl>{([['Rośliny', item.plants], ['Szczególne wymagania', item.requirements], ['Wykonane zabiegi', item.treatments]] as const).map(([label, value]) => value && <div key={label}><dt>{label}</dt><dd className="preserve-lines">{value}</dd></div>)}</dl>
-        <div className="tool-actions"><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
+        <div className="tool-actions"><button className="button primary" aria-label={`Oblicz dla strefy ${item.name}`} onClick={() => setCalculating(item.id)}>Oblicz materiały</button><button className="button secondary" aria-label={`Edytuj strefę ${item.name}`} onClick={() => setZone(item)}>Edytuj strefę</button><button className="button ghost" aria-label={`Usuń strefę ${item.name}`} onClick={() => { setRemoving(item); setError(''); }}>Usuń strefę</button></div>
       </article>)}</div>
     </>}
     <div className="tool-heading"><h3>Zlecenia i historia prac ({jobs.length})</h3></div>

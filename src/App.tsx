@@ -1,22 +1,26 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowDownToLine, ArrowRight, CalendarDays, Check, ChevronRight, Clock3, Flower2, History, LayoutDashboard, Leaf, MapPin, MoreHorizontal, Pause, Play, Plus, Settings2, ShieldCheck, Sprout, Square, TrendingUp, Users, Wallet, Wifi, WifiOff } from 'lucide-react'
+import { ArrowDownToLine, ArrowRight, Calculator, Package, CalendarDays, Check, ChevronRight, Clock3, Flower2, History, LayoutDashboard, Leaf, MapPin, MoreHorizontal, Pause, Play, Plus, Settings2, ShieldCheck, Sprout, Square, TrendingUp, Users, Wallet, Wifi, WifiOff } from 'lucide-react'
 import { useGarden, useNow } from './state'
 import { duration, elapsedSeconds, calculatedLaborCents, jobTotalCents, localDate, money, moneyCents, remainingCents, sumCents } from './domain'
 import Clients from './features/Clients'
 import Gardens from './features/Gardens'
+import Materials from './features/Materials'
+import Calculators from './features/Calculators'
 import Jobs from './features/Jobs'
 import Calendar from './features/Calendar'
 import Modal from './components/Modal'
 import { STORAGE_VERSION } from './data/repository'
 import './features/dashboard-finance.css'
 
-type Page = 'dashboard' | 'clients' | 'gardens' | 'jobs' | 'calendar' | 'history'
+type Page = 'dashboard' | 'clients' | 'gardens' | 'jobs' | 'calendar' | 'history' | 'materials' | 'calculators'
 const navigation = [
   { id: 'dashboard', label: 'Panel główny', short: 'Pulpit', icon: LayoutDashboard },
   { id: 'clients', label: 'Klienci', short: 'Klienci', icon: Users },
   { id: 'gardens', label: 'Obiekty i ogrody', short: 'Ogrody', icon: Sprout },
   { id: 'jobs', label: 'Zlecenia', short: 'Zlecenia', icon: ClipboardIcon },
   { id: 'calendar', label: 'Kalendarz', short: 'Kalendarz', icon: CalendarDays },
+  { id: 'materials', label: 'Materiały', short: 'Materiały', icon: Package },
+  { id: 'calculators', label: 'Kalkulatory', short: 'Oblicz', icon: Calculator },
   { id: 'history', label: 'Historia prac', short: 'Historia', icon: History },
 ] as const
 function ClipboardIcon({ size = 20 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/></svg> }
@@ -47,11 +51,11 @@ export default function App() {
     </aside>
     <div className="app-body">
       <header className="topbar"><div className="breadcrumb"><span>Moja firma</span><ChevronRight size={15}/><strong>{navigation.find(n => n.id === page)?.label}</strong></div><div className="topbar-right"><span className="connection">{online ? <Wifi size={15}/> : <WifiOff size={15}/>}<span>{online ? 'Zapis lokalny' : 'Tryb offline'}</span></span><span className="topbar-divider"/><span className="demo-badge">DEMO · DANE TESTOWE</span><button className="avatar small" aria-label="Ustawienia konta demonstracyjnego" onClick={() => setSettings(true)}>OG</button></div></header>
-      <main id="main-content">{error && <div role="alert" className="error-banner">{error}</div>}{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</main>
+      <main id="main-content">{error && <div role="alert" className="error-banner">{error}</div>}{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'materials' ? <Materials/> : page === 'calculators' ? <Calculators/> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</main>
       <footer className="app-footer"><span><Leaf size={13}/> Garden Manager <span className="footer-version">0.3</span></span><span>Dobra organizacja. Więcej czasu na to, co rośnie.</span></footer>
     </div>
-    {more && <div className="mobile-more"><button onClick={() => { go('history') }}><History size={20}/>Historia prac</button><button onClick={() => {setSettings(true);setMore(false)}}><Settings2 size={20}/>Ustawienia</button></div>}
-    <nav className="mobile-nav" aria-label="Nawigacja mobilna">{navigation.filter(n => n.id !== 'history').map(item => <button key={item.id} onClick={() => go(item.id)} aria-current={page === item.id ? 'page' : undefined} className={page === item.id ? 'active' : ''}><item.icon size={21}/><span>{item.short}</span></button>)}<button onClick={() => setMore(!more)} aria-expanded={more}><MoreHorizontal size={21}/><span>Więcej</span></button></nav>
+    {more && <div className="mobile-more"><button onClick={() => go('materials')}><Package size={20}/>Materiały</button><button onClick={() => go('calculators')}><Calculator size={20}/>Kalkulatory</button><button onClick={() => { go('history') }}><History size={20}/>Historia prac</button><button onClick={() => {setSettings(true);setMore(false)}}><Settings2 size={20}/>Ustawienia</button></div>}
+    <nav className="mobile-nav" aria-label="Nawigacja mobilna">{navigation.filter(n => n.id !== 'history' && n.id !== 'materials' && n.id !== 'calculators').map(item => <button key={item.id} onClick={() => go(item.id)} aria-current={page === item.id ? 'page' : undefined} className={page === item.id ? 'active' : ''}><item.icon size={21}/><span>{item.short}</span></button>)}<button onClick={() => setMore(!more)} aria-expanded={more}><MoreHorizontal size={21}/><span>Więcej</span></button></nav>
     {settings && <Settings onClose={() => setSettings(false)}/>}
   </div>
 }

@@ -1,4 +1,4 @@
-import { materialsTotalCents, type MaterialUnit } from './domain';
+import { decimalRatio, materialsTotalCents, type MaterialUnit } from './domain';
 
 function nonnegative(...values: number[]): void {
   if (values.some(value => !Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER)) {
@@ -47,11 +47,15 @@ export function materialCostCents(quantity: number, price: number): number {
 export function packageCount(quantity: number, packageQuantity: number): number {
   nonnegative(quantity, packageQuantity);
   if (packageQuantity === 0) throw new Error('Ilość w opakowaniu musi być dodatnia.');
-  return result(Math.ceil(quantity / packageQuantity));
+  const [amount, amountScale] = decimalRatio(quantity);
+  const [size, sizeScale] = decimalRatio(packageQuantity);
+  const numerator = amount * sizeScale, denominator = amountScale * size;
+  return result(Number((numerator + denominator - 1n) / denominator));
 }
 /** Only presentation is rounded; callers retain the full numeric result. */
 export function formatQuantity(value: number): string {
-  nonnegative(value);
+  // Formatting an existing dimension must not reject a large legacy value.
+  if (!Number.isFinite(value) || value < 0) throw new Error('Nieprawidłowa ilość.');
   if (value > 0 && value < 0.001) return value.toLocaleString('pl-PL', { maximumSignificantDigits: 4 });
   return value.toLocaleString('pl-PL', { maximumFractionDigits: 3 });
 }

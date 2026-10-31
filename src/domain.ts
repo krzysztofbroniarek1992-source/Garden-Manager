@@ -117,7 +117,7 @@ export function elapsedSeconds(job: Job, timer: Timer | null = null, now = Date.
 }
 
 /** Decimal values are converted through strings, never by multiplying floats. */
-function decimalRatio(value: number | string): [bigint, bigint] {
+export function decimalRatio(value: number | string): [bigint, bigint] {
   if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Podaj poprawną kwotę.');
   const input = String(value).trim().replace(',', '.');
   const match = /^([+-]?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(input);

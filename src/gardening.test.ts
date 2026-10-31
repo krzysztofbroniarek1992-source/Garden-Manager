@@ -3,7 +3,7 @@ import { area, convertQuantity, dose, formatQuantity, hedge, materialCostCents, 
 import { createDemoData } from './data/demo';
 import { GardenStore } from './data/store';
 import { LocalRepository, STORAGE_KEY, STORAGE_VERSION, V3_BACKUP_KEY, type StoragePort } from './data/repository';
-import { jobTotalCents, startWork, type CatalogMaterial, type GardenZone } from './domain';
+import { jobTotalCents, startWork, type CatalogMaterial, type Data, type GardenZone } from './domain';
 
 class MemoryStorage implements StoragePort {
   values = new Map<string, string>();
@@ -25,6 +25,7 @@ describe('kalkulatory i jednostki', () => {
     expect(area('manual', 0.123456789)).toBe(0.123456789);
     expect(formatQuantity(area('circle', 3))).toBe('28,274');
     expect(formatQuantity(0.00001234)).not.toBe('0');
+    expect(() => formatQuantity(1e20)).not.toThrow();
   });
   it('przelicza cm warstwy na m³ i litry oraz bryłę żywopłotu', () => {
     expect(volume(125, 5)).toBe(6.25);
@@ -43,6 +44,7 @@ describe('kalkulatory i jednostki', () => {
     expect(materialCostCents(2.5, 0.1)).toBe(25);
     expect(packageCount(160.01, 80)).toBe(3);
     expect(packageCount(160, 80)).toBe(2);
+    expect(packageCount(0.07, 0.01)).toBe(7);
     expect(() => packageCount(1, 0)).toThrow();
   });
   it.each([-1, NaN, Infinity, Number.MAX_VALUE])('odrzuca niepoprawny wymiar %s', value => {
@@ -107,6 +109,15 @@ describe('strefy, katalog i materiały zlecenia', () => {
     expect(() => store.addJobMaterial(approved.id, 'garden-1', { id: 'other', name: 'X', quantity: 1, unitPrice: 0 })).toThrow('ogrodu');
     expect(() => store.addJobMaterial(approved.id, approved.gardenId, updated.materials.at(-1)!)).toThrow('już zapisany');
   });
+  it('dodanie materiału podczas wizyty zachowuje działający pomiar', () => {
+    const { store } = fixture();
+    store.startTimer('job-1');
+    const timer = structuredClone(store.data.timer);
+    store.addJobMaterial('job-1', 'garden-1', { id: 'm', name: 'Kora', quantity: 1.23456789, unitPrice: 10 });
+    expect(store.data.timer).toEqual(timer);
+    expect(store.data.jobs[0].seconds).toBe(0);
+    expect(store.data.jobs[0].status).toBe('in-progress');
+  });
 });
 
 describe('migracja etapu 1 i starszych zapisów', () => {
@@ -148,6 +159,20 @@ describe('migracja etapu 1 i starszych zapisów', () => {
     const original = JSON.stringify({ version: STORAGE_VERSION, data });
     storage.setItem(STORAGE_KEY, original);
     expect(() => new LocalRepository(storage).load()).toThrow('strefy');
+    expect(storage.getItem(STORAGE_KEY)).toBe(original);
+  });
+  it.each<[string, (data: Data) => void]>([
+    ['ujemna powierzchnia strefy', data => { data.gardens[0].zones = [{ ...zone, area: -1 }]; }],
+    ['nieznana jednostka katalogu', data => { data.materialCatalog = [{ ...material, unit: 'tona' as CatalogMaterial['unit'] }]; }],
+    ['ujemna cena zakupu', data => { data.materialCatalog = [{ ...material, purchaseUnitPrice: -1 }]; }],
+    ['zerowe opakowanie', data => { data.materialCatalog = [{ ...material, packageQuantity: 0 }]; }],
+    ['uszkodzona cena zakupu w zleceniu', data => { data.jobs[0].materials = [{ id: 'm', name: 'Kora', quantity: 1, unitPrice: 10, purchaseUnitPrice: -1 }]; }],
+  ])('zachowuje źródło v4: %s', (_name, corrupt) => {
+    const storage = new MemoryStorage(), data = createDemoData();
+    corrupt(data);
+    const original = JSON.stringify({ version: STORAGE_VERSION, data });
+    storage.setItem(STORAGE_KEY, original);
+    expect(() => new LocalRepository(storage).load()).toThrow();
     expect(storage.getItem(STORAGE_KEY)).toBe(original);
   });
 });

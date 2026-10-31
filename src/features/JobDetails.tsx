@@ -7,6 +7,7 @@ import { useGarden, useNow } from '../state';
 import JobForm from './JobForm';
 import BillingEditor from './BillingEditor';
 import TimeCorrection from './TimeCorrection';
+import { CalculatorPanel } from './Calculators';
 import './payments.css';
 import './billing.css';
 
@@ -24,6 +25,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
   const [pending, setPending] = useState<Payment | null>(null);
   const [removing, setRemoving] = useState<Payment | null>(null);
   const [error, setError] = useState('');
+  const [calculating, setCalculating] = useState(false);
   const [editingJob, setEditingJob] = useState(false);
   const [notice, setNotice] = useState('');
   const [panel, setPanel] = useState<'billing' | 'time' | null>(initialBilling ? 'billing' : null);
@@ -80,7 +82,8 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
   const runVisit = (action: () => void) => { try { action(); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać wizyty.'); } };
   const closeForm = () => { setDraft(null); setPending(null); setError(''); };
   return <Modal title="Szczegóły zlecenia" onClose={onClose} wide><div className="payment-details">
-    <div className="job-actions"><button className="button secondary" onClick={() => setEditingJob(value => !value)}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={draft => { saveJob(draft); setEditingJob(false); }}/>}
+    <div className="job-actions"><button className="button secondary" onClick={() => { setCalculating(v => !v); setEditingJob(false); }}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => { setEditingJob(value => !value); setCalculating(false); }}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={draft => { saveJob(draft); setEditingJob(false); }}/>}
+    {calculating && <CalculatorPanel initialGardenId={job.gardenId} jobId={job.id}/>}
     <div className="payment-job-heading"><div><h3>{job.title}</h3><p>{client?.name}</p></div><span className={`badge status-${job.status}`}>{workLabels[job.status]}</span></div>
     <div className="payment-job-meta"><span><MapPin size={14}/>{garden?.name}{garden?.address && ` · ${garden.address}`}</span><span><CalendarDays size={14}/>{displayDate(job.date)}, {job.time}</span><span><Clock3 size={14}/>{duration(elapsedSeconds(job, data.timer, now))}</span></div>
     {job.notes && <p className="payment-job-notes">{job.notes}</p>}
@@ -98,7 +101,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
     {breakdown.approved && <p className={`visit-approved-note ${breakdown.isLegacy ? 'legacy' : ''}`}>{breakdown.isLegacy ? 'Dotychczasowa należność i płatności pozostały bez zmian. Nowe zaokrąglanie zastosujesz tylko przy świadomej korekcie ceny.' : 'Pokazujemy zapisane wyliczenie i zatwierdzoną cenę. Zmiana czasu, stawki lub materiałów nie zmienia tej należności samoczynnie. Nową wycenę zatwierdzisz przez „Skoryguj cenę”.'}</p>}
     {panel === 'billing' && job.status === 'completed' && <BillingEditor jobId={job.id} onCancel={() => setPanel(null)} onDone={() => { setPanel(null); setNotice('Cena robocizny i ostateczna należność zostały zatwierdzone.'); }}/ >}
     {panel === 'time' && <TimeCorrection jobId={job.id} onCancel={() => setPanel(null)} onDone={() => { setPanel(null); setNotice('Rzeczywisty czas wizyty został poprawiony. Zatwierdzona cena pozostaje zachowana.'); }}/ >}
-    {job.materials.length > 0 && <div className="payment-material-list">{job.materials.map(material => <span key={material.id}>{material.name}<small>{material.quantity.toLocaleString('pl-PL')} × {moneyCents(toCents(material.unitPrice))}</small></span>)}</div>}
+    {job.materials.length > 0 && <div className="payment-material-list">{job.materials.map(material => <span key={material.id}>{material.name}<small>{material.quantity.toLocaleString('pl-PL', { maximumFractionDigits: 6 })} {material.unit ?? ''} × {moneyCents(toCents(material.unitPrice))} dla klienta{material.purchaseUnitPrice !== undefined && ` · zakup: ${moneyCents(toCents(material.purchaseUnitPrice))}/${material.unit ?? 'jedn.'}`}{material.zoneName && ` · ${material.zoneName}`}</small></span>)}</div>}
     {job.settlement && materialsTotalCents(job) !== breakdown.materialsCents && <p className="visit-material-snapshot-note">Obecna lista materiałów ma wartość {moneyCents(materialsTotalCents(job))}. Należność zawiera zapisane przy zatwierdzeniu {moneyCents(breakdown.materialsCents)}; uwzględnisz zmianę przez świadomą korektę ceny.</p>}
     <div className="payment-summary"><div><span>{pendingApproval ? 'Wartość przed zatwierdzeniem' : 'Ostateczna należność'}</span><strong data-testid="payment-job-total">{moneyCents(total)}</strong></div><div><span>Zapłacono</span><strong data-testid="payment-job-paid">{moneyCents(paid)}</strong></div><div><span>Pozostało</span><strong data-testid="payment-job-remaining">{moneyCents(remaining)}</strong></div></div>
     <div className="payment-status-line"><PaymentBadge status={settlementStatus(job, data.payments, now, data.timer)}/><span>Status płatności jest niezależny od wykonania pracy.</span></div>
