@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import PaymentBadge from '../components/PaymentBadge';
 import { billingBreakdown, duration, elapsedSeconds, jobTotalCents, localDate, materialsTotalCents, moneyCents, paidCents, remainingCents, settlementStatus, toCents, type Payment } from '../domain';
 import { useGarden, useNow } from '../state';
+import JobForm from './JobForm';
 import BillingEditor from './BillingEditor';
 import TimeCorrection from './TimeCorrection';
 import './payments.css';
@@ -17,12 +18,13 @@ const amountInput = (cents: number) => `${BigInt(cents) / 100n}.${String(BigInt(
 type PaymentDraft = { payment: Payment; original: Payment | null; amount: string; existing: boolean };
 
 export default function JobDetails({ jobId, onClose, initialBilling = false }: { jobId: string; onClose: () => void; initialBilling?: boolean }) {
-  const { data, savePayment, deletePayment } = useGarden();
+  const { data, savePayment, deletePayment, saveJob, startTimer, pauseTimer, resumeTimer, stopTimer, completeJob } = useGarden();
   const now = useNow();
   const [draft, setDraft] = useState<PaymentDraft | null>(null);
   const [pending, setPending] = useState<Payment | null>(null);
   const [removing, setRemoving] = useState<Payment | null>(null);
   const [error, setError] = useState('');
+  const [editingJob, setEditingJob] = useState(false);
   const [notice, setNotice] = useState('');
   const [panel, setPanel] = useState<'billing' | 'time' | null>(initialBilling ? 'billing' : null);
   const job = data.jobs.find(item => item.id === jobId);
@@ -75,8 +77,10 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się usunąć płatności.'); }
   }
 
+  const runVisit = (action: () => void) => { try { action(); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać wizyty.'); } };
   const closeForm = () => { setDraft(null); setPending(null); setError(''); };
   return <Modal title="Szczegóły zlecenia" onClose={onClose} wide><div className="payment-details">
+    <div className="job-actions"><button className="button secondary" onClick={() => setEditingJob(value => !value)}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={draft => { saveJob(draft); setEditingJob(false); }}/>}
     <div className="payment-job-heading"><div><h3>{job.title}</h3><p>{client?.name}</p></div><span className={`badge status-${job.status}`}>{workLabels[job.status]}</span></div>
     <div className="payment-job-meta"><span><MapPin size={14}/>{garden?.name}{garden?.address && ` · ${garden.address}`}</span><span><CalendarDays size={14}/>{displayDate(job.date)}, {job.time}</span><span><Clock3 size={14}/>{duration(elapsedSeconds(job, data.timer, now))}</span></div>
     {job.notes && <p className="payment-job-notes">{job.notes}</p>}

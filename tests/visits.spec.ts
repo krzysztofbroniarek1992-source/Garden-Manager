@@ -83,12 +83,14 @@ async function correctTime(panel: Locator, hours: string, minutes: string, secon
 
 async function addMaterials(page: Page, title = visitTitle) {
   await card(page, title).getByRole('button', { name: `Edytuj ${title}`, exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Edytuj zlecenie', exact: true });
+  const form = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
+  await form.getByRole('button', { name: 'Edytuj zlecenie', exact: true }).click();
   await form.getByRole('button', { name: 'Dodaj', exact: true }).click();
   await form.getByLabel('Nazwa materiału 1', { exact: true }).fill('Materiały osobno');
   await form.getByLabel('Ilość materiału 1', { exact: true }).fill('1');
   await form.getByLabel('Cena materiału 1', { exact: true }).fill('87');
   await form.getByRole('button', { name: 'Zapisz zlecenie', exact: true }).click();
+  await form.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
 }
 
 async function complete(page: Page, title = visitTitle) {
@@ -115,13 +117,15 @@ test('wizyta ma jeden stoper dla wielu czynności, pauza i wznowienie przetrwaj�
   expect(running).toMatchObject({ jobId: 'visit-job', paused: false });
   await navigate(page, 'Zlecenia');
   await card(page).getByRole('button', { name: 'Zapisz czynności bez zatrzymywania wizyty', exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Edytuj zlecenie', exact: true });
+  const form = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
+  await form.getByRole('button', { name: 'Edytuj zlecenie', exact: true }).click();
   const activities = ['Cięcie żywopłotu', 'Koszenie trawnika', 'Oprysk', 'Sprzątanie'];
   for (let index = 0; index < activities.length; index++) {
     if (index > 0) await form.getByRole('button', { name: 'Dodaj czynność', exact: true }).click();
     await form.getByLabel(`Czynność ${index + 1}`, { exact: true }).fill(activities[index]);
   }
   await form.getByRole('button', { name: 'Zapisz zlecenie', exact: true }).click();
+  await form.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   let stored = (await snapshot(page)).data;
   expect(stored.timer).toEqual(running);
   expect(stored.jobs.find((job: Job) => job.id === 'visit-job').activities).toEqual(activities);
@@ -208,9 +212,11 @@ test('ręczna cena robocizny jest zatwierdzana osobno i pozostaje stała po kore
   await panel.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await navigate(page, 'Historia prac');
   await card(page).getByRole('button', { name: `Edytuj ${visitTitle}`, exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Edytuj zlecenie', exact: true });
+  const form = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
+  await form.getByRole('button', { name: 'Edytuj zlecenie', exact: true }).click();
   await form.getByLabel('Stawka (zł/h)', { exact: true }).fill('200');
   await form.getByRole('button', { name: 'Zapisz zlecenie', exact: true }).click();
+  await form.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await page.reload();
   const restored = (await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job');
   expect(restored.rate).toBe(200);

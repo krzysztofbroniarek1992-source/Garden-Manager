@@ -100,9 +100,11 @@ test('zlecenie ryczałtowe, materiały, kalendarz, edycja i historia', async ({ 
   await expect(page.locator('.calendar-agenda').getByRole('heading', { name: 'Ryczałt z materiałami E2E', exact: true })).toBeVisible();
   await navigate(page, 'Zlecenia');
   await job.getByRole('button', { name: 'Edytuj Ryczałt z materiałami E2E', exact: true }).click();
-  dialog = page.getByRole('dialog', { name: 'Edytuj zlecenie' });
+  dialog = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
+  await dialog.getByRole('button', { name: 'Edytuj zlecenie', exact: true }).click();
   await dialog.getByLabel('Kwota ryczałtu').fill('600');
   await dialog.getByRole('button', { name: 'Zapisz zlecenie' }).click();
+  await dialog.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await expect(job.locator('.job-amount strong')).toHaveText(/650,00\s*zł/);
   await job.getByRole('button', { name: 'Zakończ', exact: true }).click();
   await expect(job).toHaveCount(0);
