@@ -1,3 +1,4 @@
+import type { PhotoMetadata } from './photos/model';
 import type { TaskOccurrence, TaskSchedule } from './planning/model';
 
 export interface Client {
@@ -101,6 +102,8 @@ export interface Payment {
 }
 
 export interface Data {
+  photos: PhotoMetadata[];
+  photoRestoreId: string | null;
   taskSchedules: TaskSchedule[];
   taskOccurrences: TaskOccurrence[];
   clients: Client[];

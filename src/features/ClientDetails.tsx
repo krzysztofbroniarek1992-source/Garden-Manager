@@ -1,3 +1,4 @@
+import PhotoGallery from '../photos/PhotoGallery';
 import ClientForm from './ClientForm';
 import GardenForm from './GardenForm';
 import GardenDetails from './GardenDetails';
@@ -86,6 +87,7 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
       })}</tbody></table></div> : <div className="client-jobs-empty"><CalendarDays size={30}/><h3>{jobs.length ? 'Brak zleceń dla wybranych filtrów' : 'Współpraca dopiero się zaczyna'}</h3><p>{jobs.length ? 'Zmień okres, ogród lub status, aby zobaczyć pozostałe prace.' : 'Zlecenia przypisane do ogrodów tego klienta pojawią się tutaj.'}</p>{hasFilters && <button className="button secondary" onClick={resetFilters}>Pokaż wszystkie zlecenia</button>}</div>}
       <p className="client-table-note">Wartości prac przed zatwierdzeniem ceny są orientacyjne i nie zwiększają podsumowania należności. W szczegółach zlecenia sprawdzisz dokładny czas, wyliczoną robociznę, propozycję zaokrąglenia i materiały. Zakończenie pracy nie rejestruje wpłaty.</p>
     </section>
+    <PhotoGallery key={clientId} scope={{ clientId }} title="Galeria klienta"/>
     {selectedGarden && <GardenDetails gardenId={selectedGarden} onClose={() => setSelectedGarden('')}/>}
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}

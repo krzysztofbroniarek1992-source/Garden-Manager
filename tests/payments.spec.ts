@@ -205,6 +205,8 @@ test('ujemna płatność i nadpłata są blokowane, zakończenie nie oznacza zap
 
 test('migracja zachowuje aktywny stoper oraz klienta i płatności na telefonie', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  // Assert migration at a fixed instant, independent of browser startup duration.
+  await page.clock.setFixedTime(new Date('2026-10-29T10:00:00+01:00'));
   const data = legacyFixture();
   data.jobs[10].status = 'in-progress';
   data.timer = { jobId: 'legacy-job-11', startedAt: new Date('2026-10-29T09:59:00+01:00').getTime() };

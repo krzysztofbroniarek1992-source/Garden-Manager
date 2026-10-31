@@ -1,3 +1,4 @@
+import { PhotoProvider } from './photos/state';
 import type { OccurrenceVersion, TaskSchedule } from './planning/model';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { CatalogMaterial, Client, Data, Garden, GardenZone, Job, Material, Payment, SettlementApprovalSource } from './domain';
@@ -102,7 +103,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     skipTaskOccurrence: (id, date, expected) => run(store => store.skipTaskOccurrence(id, date, expected)),
     endTaskSchedule: (id, date, revision) => run(store => store.endTaskSchedule(id, date, revision)),
     beginTaskOccurrence: (id, date, gardenId, expected) => run(store => store.beginTaskOccurrence(id, date, gardenId, expected)),
-  }}>{children}</GardenContext.Provider>;
+  }}><PhotoProvider store={initial.store} metadata={data.photos} onChange={setData}>{children}</PhotoProvider></GardenContext.Provider>;
 }
 
 export function useGarden(): GardenContextValue {

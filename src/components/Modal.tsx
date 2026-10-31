@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import './modal.css';
 
+const modalStack: HTMLElement[] = [];
+let previousBodyOverflow = '';
+
 interface ModalProps {
   title: string;
   onClose: () => void;
@@ -18,7 +21,9 @@ export default function Modal({ title, onClose, children, wide }: ModalProps) {
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const originalOverflow = document.body.style.overflow;
+    const element = panel.current!;
+    if (!modalStack.length) previousBodyOverflow = document.body.style.overflow;
+    modalStack.push(element);
     document.body.style.overflow = 'hidden';
     const focusable = () => Array.from(panel.current?.querySelectorAll<HTMLElement>(
       'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex="0"]',
@@ -26,6 +31,7 @@ export default function Modal({ title, onClose, children, wide }: ModalProps) {
     const initial = focusable().find(element => element.tagName !== 'BUTTON') ?? focusable()[0];
     initial?.focus();
     const handleKey = (event: KeyboardEvent) => {
+      if (modalStack.at(-1) !== element) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         close.current();
@@ -50,8 +56,10 @@ export default function Modal({ title, onClose, children, wide }: ModalProps) {
     document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = originalOverflow;
-      previous?.focus();
+      const index = modalStack.indexOf(element);
+      if (index >= 0) modalStack.splice(index, 1);
+      if (!modalStack.length) document.body.style.overflow = previousBodyOverflow;
+      if (previous?.isConnected) previous.focus();
     };
   }, []);
 
