@@ -1,3 +1,4 @@
+import { resolvePhotoScope, type PhotoDetails, type PhotoMetadata } from '../photos/model';
 import * as planning from '../planning/commands';
 import type { OccurrenceVersion, TaskSchedule } from '../planning/model';
 import { calculatedLaborCents, finishWork, jobTotalCents, materialsTotalCents, paidCents, pauseActiveTimer, resumeActiveTimer, roundLaborTo50Cents, startWork, stopActiveTimer, sumCents, type Client, type Data, type Garden, type Job, type Payment, type SettlementApprovalSource } from '../domain';
@@ -42,7 +43,7 @@ export class GardenStore {
   deleteClient = (id: string) => this.commit(data => {
     if (data.gardens.some(garden => garden.clientId === id)) throw new Error('Klient ma przypisane ogrody. Najpierw usuń lub przenieś jego ogrody.');
     if (data.taskSchedules.some(item => item.clientId === id) || data.taskOccurrences.some(item => item.clientId === id)) throw new Error('Klient ma zaplanowane zadania. Zachowaj go, aby nie utracić ich historii.');
-    return { ...data, clients: data.clients.filter(client => client.id !== id) };
+    return { ...data, clients: data.clients.filter(client => client.id !== id), photos: data.photos.map(p => p.clientId === id ? { ...p, clientId: null, gardenId: null, zoneId: null, jobId: null, deletedAt: this.clock(), updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
   saveGarden = (garden: Garden) => this.commit(data => {
@@ -51,7 +52,7 @@ export class GardenStore {
       throw new Error('Ogród ma zlecenia z płatnościami. Nie można zmienić ich właściciela.');
     }
     if (existing && existing.clientId !== garden.clientId && (data.taskSchedules.some(item => item.gardenId === garden.id) || data.taskOccurrences.some(item => item.gardenId === garden.id))) throw new Error('Ogród ma harmonogramy zadań. Nie można zmienić ich właściciela.');
-    return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim(), zones: existing?.zones ?? garden.zones }) };
+    return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim(), zones: existing?.zones ?? garden.zones }), photos: data.photos.map(p => p.deletedAt === null && p.gardenId === garden.id && p.clientId !== garden.clientId ? { ...p, clientId: garden.clientId, clientName: data.clients.find(c => c.id === garden.clientId)?.name.slice(0,300) ?? '', updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
   saveZone = (gardenId: string, zone: GardenZone) => this.commit(data => {
@@ -62,6 +63,7 @@ export class GardenStore {
 
   deleteZone = (gardenId: string, zoneId: string) => this.commit(data => ({ ...data,
     gardens: data.gardens.map(garden => garden.id === gardenId ? { ...garden, zones: garden.zones.filter(zone => zone.id !== zoneId) } : garden),
+    photos: data.photos.map(p => p.gardenId === gardenId && p.zoneId === zoneId ? { ...p, zoneId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p),
   }));
 
   saveCatalogMaterial = (item: CatalogMaterial) => this.commit(data => ({ ...data,
@@ -79,7 +81,7 @@ export class GardenStore {
   deleteGarden = (id: string) => this.commit(data => {
     if (data.jobs.some(job => job.gardenId === id)) throw new Error('Ogród ma przypisane zlecenia. Najpierw usuń lub przenieś jego zlecenia.');
     if (data.taskSchedules.some(item => item.gardenId === id) || data.taskOccurrences.some(item => item.gardenId === id)) throw new Error('Ogród ma harmonogramy zadań. Zachowaj go, aby nie utracić ich historii.');
-    return { ...data, gardens: data.gardens.filter(garden => garden.id !== id) };
+    return { ...data, gardens: data.gardens.filter(garden => garden.id !== id), photos: data.photos.map(p => p.gardenId === id ? { ...p, gardenId: null, zoneId: null, jobId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
   saveJob = (job: Job) => this.commit(data => {
@@ -103,14 +105,14 @@ export class GardenStore {
     if (received > jobTotalCents(updated, this.clock(), next.timer)) {
       throw new Error('Wartość zlecenia nie może być niższa od otrzymanych płatności. Najpierw skoryguj błędną płatność.');
     }
-    return { ...next, jobs: upsert(next.jobs, updated) };
+    return { ...next, jobs: upsert(next.jobs, updated), photos: next.photos.map(p => p.deletedAt === null && p.jobId === job.id && p.gardenId !== job.gardenId ? { ...p, ...resolvePhotoScope(next, { clientId: null, gardenId: job.gardenId, zoneId: null, jobId: null }), jobId: job.id, jobTitle: job.title, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
   deleteJob = (id: string) => this.commit(data => {
     if (data.timer?.jobId === id) throw new Error('Najpierw zatrzymaj stoper tego zlecenia.');
     if (data.payments.some(payment => payment.jobId === id)) throw new Error('Zlecenie ma płatności. Najpierw usuń błędne wpisy płatności.');
     if (data.taskOccurrences.some(item => item.jobId === id)) throw new Error('Zlecenie jest historią zadania z kalendarza. Zachowaj je, aby nie utworzyć powtórnej wizyty.');
-    return { ...data, jobs: data.jobs.filter(job => job.id !== id) };
+    return { ...data, jobs: data.jobs.filter(job => job.id !== id), photos: data.photos.map(p => p.jobId === id ? { ...p, jobId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
   savePayment = (payment: Payment, expected?: Payment | null) => this.commit(data => {
@@ -170,6 +172,32 @@ export class GardenStore {
     }
     const settlement = { calculatedLaborCents: calculated, suggestedLaborCents: suggested, materialsCents: materials, finalLaborCents, approvedAt: this.clock(), source };
     return { ...data, jobs: data.jobs.map(item => item.id === jobId ? { ...item, settlement } : item) };
+  });
+
+  snapshot = (): Data => { this.refresh(); return this.data; };
+  appendPhotos = (photos: PhotoMetadata[]) => this.commit(data => {
+    if (photos.some(p => data.photos.some(old => old.id === p.id || old.assetId === p.assetId))) throw new Error('Zdjęcie zostało już zapisane.');
+    return { ...data, photos: [...data.photos, ...photos] };
+  });
+  editPhoto = (id: string, details: PhotoDetails, revision: number) => this.commit(data => {
+    const current = data.photos.find(p => p.id === id);
+    if (!current || current.deletedAt !== null || current.revision !== revision) throw new Error('Zdjęcie zmieniło się w innej karcie. Otwórz je ponownie.');
+    const sameScope = (['clientId', 'gardenId', 'zoneId', 'jobId'] as const).every(key => current[key] === details[key]);
+    const scope = resolvePhotoScope(data, details);
+    return { ...data, photos: data.photos.map(p => p.id !== id ? p : { ...p, ...scope,
+      ...(sameScope ? { clientName: p.clientName, gardenName: p.gardenName, zoneName: p.zoneName, jobTitle: p.jobTitle } : {}),
+      category: details.category, description: details.description, capturedDate: details.capturedDate, updatedAt: this.clock(), revision: p.revision + 1 }) };
+  });
+  markPhotoDeleted = (id: string, revision: number) => this.commit(data => {
+    const current = data.photos.find(p => p.id === id);
+    if (!current || current.revision !== revision) throw new Error('Zdjęcie zmieniło się w innej karcie. Otwórz je ponownie.');
+    return { ...data, photos: data.photos.map(p => p.id !== id ? p : { ...p, deletedAt: this.clock(), updatedAt: this.clock(), revision: p.revision + 1 }) };
+  });
+  finalizePhotoDeletion = (ids: string[]) => this.commit(data => ({ ...data, photos: data.photos.filter(p => p.deletedAt === null || !ids.includes(p.id)) }));
+  restoreSnapshot = (replacement: Data, expected: string) => this.commit(data => {
+    if (JSON.stringify(data) !== expected) throw new Error('Dane zmieniły się od sprawdzenia kopii. Wczytaj kopię ponownie przed potwierdzeniem.');
+    if (data.timer) throw new Error('Przed odtwarzaniem zakończ pomiar wizyty przyciskiem STOP.');
+    return replacement;
   });
 
   saveTaskSchedule = (schedule: TaskSchedule) => this.commit(data => planning.saveTaskSchedule(data, schedule, this.clock()));

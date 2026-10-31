@@ -1,14 +1,16 @@
+import { validatePhotos } from '../photos/model';
 import { validatePlanning } from '../planning/validation';
 import { calculatedLaborCents, jobTotalCents, legacySettlement, materialUnits, materialsTotalCents, paidCents, roundLaborTo50Cents, sumCents, toCents, type Data, type Job, type Payment } from '../domain';
 import { createDemoData } from './demo';
 
 // Preserve the original key so existing browser data are found after updating.
 export const STORAGE_KEY = 'garden-manager:v1';
-export const STORAGE_VERSION = 5;
+export const STORAGE_VERSION = 6;
 export const LEGACY_BACKUP_KEY = 'garden-manager:backup:v1';
 export const V2_BACKUP_KEY = 'garden-manager:backup:v2';
 export const V3_BACKUP_KEY = 'garden-manager:backup:v3';
 export const V4_BACKUP_KEY = 'garden-manager:backup:v4';
+export const V5_BACKUP_KEY = 'garden-manager:backup:v5';
 
 /** Local persistence boundary. Future cloud synchronization can exchange this
  * versioned snapshot through a separate authenticated synchronization service. */
@@ -75,6 +77,7 @@ export function validateData(value: unknown): asserts value is Data {
   const data = value as Data;
   validateStage2(data);
   validatePlanning(data);
+  validatePhotos(data);
   for (const job of data.jobs) {
     if (!Array.isArray(job.activities) || !job.activities.every(activity => typeof activity === 'string' && activity.trim())) {
       throw new Error('Nieprawidłowa lista czynności. Oryginalny zapis nie został zmieniony.');
@@ -153,15 +156,15 @@ export class LocalRepository implements DataRepository {
     let parsed: unknown;
     try { parsed = JSON.parse(raw); }
     catch { throw new Error('Nie można odczytać danych lokalnych. Oryginalny zapis nie został zmieniony.'); }
-    if (!record(parsed) || ![1, 2, 3, 4, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
+    if (!record(parsed) || ![1, 2, 3, 4, 5, STORAGE_VERSION].includes(parsed.version as number)) throw new Error('Nieobsługiwana wersja danych lokalnych. Oryginalny zapis nie został zmieniony.');
     if (parsed.version !== STORAGE_VERSION) {
       validateLegacyData(parsed.data);
       const payments = parsed.version === 1 ? [] : (parsed.data as Data).payments;
       if (parsed.version === 2) validatePayments(parsed.data as Data, true);
       const base = withStage2((parsed.version as number) >= 3 ? parsed.data as Data : migrateLegacyData(parsed.data, payments));
-      const migrated: Data = { ...base, taskSchedules: base.taskSchedules ?? [], taskOccurrences: base.taskOccurrences ?? [] };
+      const migrated: Data = { ...base, taskSchedules: base.taskSchedules ?? [], taskOccurrences: base.taskOccurrences ?? [], photos: base.photos ?? [], photoRestoreId: base.photoRestoreId ?? null };
       validateData(migrated);
-      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : parsed.version === 2 ? V2_BACKUP_KEY : parsed.version === 3 ? V3_BACKUP_KEY : V4_BACKUP_KEY;
+      const backupKey = parsed.version === 1 ? LEGACY_BACKUP_KEY : parsed.version === 2 ? V2_BACKUP_KEY : parsed.version === 3 ? V3_BACKUP_KEY : parsed.version === 4 ? V4_BACKUP_KEY : V5_BACKUP_KEY;
       try {
         if (this.storage.getItem(backupKey) === null) this.storage.setItem(backupKey, raw);
       } catch { throw new Error('Nie udało się utworzyć kopii danych przed aktualizacją. Oryginalny zapis nie został zmieniony.'); }
