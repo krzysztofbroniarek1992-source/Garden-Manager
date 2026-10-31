@@ -1,3 +1,5 @@
+import '../checklists/checklists.css';
+import { incompleteVisitChecklists } from '../checklists/model';
 import { useState } from 'react';
 import { Plus, Search, MapPin, CalendarDays, Clock3, Pencil, Play, Pause, Square, Check, Trash2, X, ReceiptText, ListChecks } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -56,6 +58,7 @@ export default function Jobs({ history = false }: { history?: boolean }) {
           <div className="job-settlement"><span>Zapłacono <b>{moneyCents(paid)}</b></span><span>Pozostało <b>{moneyCents(remaining)}</b></span></div>
           <button className="job-details-link" onClick={() => setDetail({jobId: job.id, initialBilling: false})}><ReceiptText size={15}/> Szczegóły i płatności</button>
           {history && !breakdown.approved && <button className="button secondary" onClick={() => setDetail({jobId: job.id, initialBilling: true})}>Zatwierdź rozliczenie</button>}
+          {incompleteVisitChecklists(data,job.id).length>0 && <p className="checklist-finish-warning">{history?'Wizyta zakończona z niepełną checklistą.':'Niepełna checklista — zakończenie wizyty zachowa niewykonane czynności.'}</p>}
           <div className="job-actions">{!history && <>
             {measuring ? <>
               {paused ? <button className="button primary visit-control" onClick={() => run(resumeTimer)}><Play size={16} fill="currentColor"/> WZNÓW — Kontynuuj wizytę</button> : <button className="button secondary visit-control" onClick={() => run(pauseTimer)}><Pause size={16} fill="currentColor"/> PAUZA — Przerwa bez naliczania</button>}

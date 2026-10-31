@@ -14,5 +14,9 @@ export default defineConfig({
     },
     workbox: { globPatterns: ['**/*.{js,css,html,png,svg,woff2}'], navigateFallback: '/index.html' },
   })],
+  build: { rollupOptions: { output: {
+    // Keep the growing application bundle small; PWA also precaches this chunk.
+    manualChunks: id => /\/node_modules\/(react(?:-dom)?|scheduler)\//.test(id) ? 'react-vendor' : undefined,
+  } } },
   test: { include: ['src/**/*.test.ts'], environment: 'node' },
 })
