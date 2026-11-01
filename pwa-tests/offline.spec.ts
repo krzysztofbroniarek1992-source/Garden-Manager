@@ -39,6 +39,7 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await material.getByRole('button', { name: 'Zapisz materiał' }).click();
   await navigation.getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
   await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click();
+  await page.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click();
   await page.getByRole('button', { name: 'Dodaj strefę', exact: true }).click();
   await page.getByLabel('Nazwa strefy', { exact: true }).fill('Rabata offline');
   await page.getByLabel('Powierzchnia strefy').fill('12.3456789');

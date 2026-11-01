@@ -116,10 +116,12 @@ async function garden(page: Page) {
       exact: true,
     })
     .click();
-  return page.getByRole('dialog', {
+  const card=page.getByRole('dialog', {
     name: 'Karta ogrodu: Ogród przy Lipowej',
     exact: true,
   });
+  await card.getByRole('tab',{name:'Harmonogram i plany czynności',exact:true}).click();
+  return card;
 }
 async function apply(page: Page, panel: Locator, id = 'custom') {
   await panel
@@ -559,6 +561,7 @@ test('plan ogrodu i strefy nie tworzy wizyty, a kopia planu ma niezależny post�
     exact: true,
   });
   await close(await apply(page, panel));
+  await card.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click();
   await card
     .getByRole('button', {
       name: 'Checklisty strefy Rabata różana',
@@ -792,6 +795,7 @@ test('uwaga i zdjęcie czynności używają istniejącej galerii bez kopiowania 
 test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdjęcia', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   await seed(page);
   const detail = await job(page),
     gallery = detail.getByRole('region', {

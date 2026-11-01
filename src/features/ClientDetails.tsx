@@ -2,24 +2,28 @@ import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
 import ClientForm from './ClientForm';
 import GardenForm from './GardenForm';
-import GardenDetails from './GardenDetails';
+import { lazy, Suspense } from 'react';
+import { useCardNavigation } from './card-navigation';
+import GroupedJobHistory from './GroupedJobHistory';
+const RelatedCards=lazy(()=>import('./RelatedCards'));
 import JobForm from './JobForm';
 import { localDate, type Garden } from '../domain';
 import { useState } from 'react';
-import { ArrowLeft, ArrowUpRight, CalendarDays, CheckCheck, Clock3, FilterX, Mail, MapPin, Phone, Sprout, Wallet } from 'lucide-react';
-import { clientSummary, duration, elapsedSeconds, jobTotalCents, moneyCents, paidCents, remainingCents, settlementLabels, settlementStatus, type Job } from '../domain';
+import { ArrowLeft, CalendarDays, CheckCheck, Clock3, FilterX, Mail, MapPin, Phone, Sprout, Wallet } from 'lucide-react';
+import { clientSummary, duration, moneyCents, settlementLabels, settlementStatus, type Job } from '../domain';
 import { useGarden, useNow } from '../state';
-import PaymentBadge from '../components/PaymentBadge';
-import JobDetails from './JobDetails';
 import './client-details.css';
 
 const workLabels: Record<Job['status'], string> = { planned: 'Zaplanowane', 'in-progress': 'W trakcie', completed: 'Zakończone' };
 type PaymentFilter = '' | 'unpaid' | 'partial' | 'paid';
 const polishPlural = (count: number, one: string, few: string, many: string) => count === 1 ? one : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? few : many;
 
-export default function ClientDetails({ clientId, onBack }: { clientId: string; onBack: () => void }) {
+export default function ClientDetails({ clientId, onBack, backLabel='Wróć do klientów' }: { clientId: string; onBack: () => void; backLabel?:string }) {
   const { data, saveJob } = useGarden();
   const now = useNow();
+  const navigation=useCardNavigation();
+  const openGarden=(id:string)=>navigation?navigation.open({kind:'garden',id}):setSelectedGarden(id);
+  const openJob=(id:string,initialBilling=false)=>{if(navigation)navigation.open({kind:'job',id,initialBilling});else{setJobBilling(initialBilling);setSelectedJob(id);}};
   const [selectedGarden, setSelectedGarden] = useState('');
   const [editClient, setEditClient] = useState(false);
   const [editGarden, setEditGarden] = useState<Garden | null>(null);
@@ -29,6 +33,7 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
   const [gardenFilter, setGardenFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('');
   const [workFilter, setWorkFilter] = useState<Job['status'] | ''>('');
+  const [jobBilling,setJobBilling]=useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const client = data.clients.find(item => item.id === clientId);
   const gardens = data.gardens.filter(item => item.clientId === clientId);
@@ -46,10 +51,10 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
   const resetFilters = () => { setFrom(''); setTo(''); setGardenFilter(''); setPaymentFilter(''); setWorkFilter(''); };
   const hasFilters = !!(from || to || gardenFilter || paymentFilter || workFilter);
 
-  if (!client) return <section className="client-details-page"><button className="client-back" onClick={onBack}><ArrowLeft size={16}/>Wróć do klientów</button><div className="card empty-state"><h1>Nie znaleziono klienta</h1><p>Wróć do listy, aby wybrać dostępnego klienta.</p></div></section>;
+  if (!client) return <section className="client-details-page"><button className="client-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button><div className="card empty-state"><h1>Nie znaleziono klienta</h1><p>Wróć do listy, aby wybrać dostępnego klienta.</p></div></section>;
 
   return <section className="client-details-page">
-    <button className="client-back" onClick={onBack}><ArrowLeft size={16}/>Wróć do klientów</button>
+    <button className="client-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <div className="page-heading client-panel-heading"><div><p className="eyebrow">KARTA KLIENTA</p><h1>{client.name}</h1><p className="muted">Wszystkie ogrody, wykonane prace i rozliczenia w jednym miejscu.</p></div><span className="client-panel-label"><Sprout size={17}/>{gardens.length} {polishPlural(gardens.length, 'ogród', 'ogrody', 'ogrodów')} pod opieką</span></div>
 
     <div className="job-actions"><button className="button secondary" onClick={() => setEditClient(true)}>Edytuj klienta</button><button className="button secondary" onClick={() => setEditGarden({ id: crypto.randomUUID(), clientId, name: '', address: '', area: 0, notes: '', zones: [] })}>Dodaj ogród</button><button className="button primary" disabled={!gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: gardens.length === 1 ? gardens[0].id : '', title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>Nowe zlecenie</button></div>
@@ -64,7 +69,7 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
 
     <div className="client-context-grid">
       <section className="card client-contact-panel"><h2>Dane kontaktowe</h2><div className="client-contact"><Phone size={16}/>{client.phone ? <a href={`tel:${client.phone.replace(/\s/g, '')}`}>{client.phone}</a> : <span>Brak telefonu</span>}</div><div className="client-contact"><Mail size={16}/>{client.email ? <a href={`mailto:${client.email}`}>{client.email}</a> : <span>Brak adresu e-mail</span>}</div><div className="client-contact-notes"><span className="eyebrow">NOTATKI O KLIENCIE</span><p>{client.notes || 'Brak dodatkowych notatek.'}</p></div></section>
-      <section className="card client-gardens-panel"><div className="client-section-heading"><div><h2>Ogrody klienta</h2><p className="muted">Wszystkie obiekty przypisane do tego klienta</p></div><Sprout size={22}/></div>{gardens.length ? <div className="client-gardens-grid">{gardens.map(garden => <article className="client-garden" key={garden.id}><div><Sprout size={16}/><h3>{garden.name}</h3><button className="button secondary" onClick={() => setEditGarden(garden)}>Edytuj ogród</button></div><p><MapPin size={13}/>{garden.address || 'Brak adresu'}</p><button className="text-button" onClick={() => setSelectedGarden(garden.id)}>Karta ogrodu</button><footer><span>{garden.area.toLocaleString('pl-PL')} m²</span><span>{jobs.filter(job => job.gardenId === garden.id).length} zleceń</span></footer>{garden.notes && <p className="client-garden-note">{garden.notes}</p>}</article>)}</div> : <div className="client-inline-empty">Ten klient nie ma jeszcze przypisanych ogrodów. Użyj przycisku „Dodaj ogród” powyżej, a następnie utwórz zlecenie.</div>}</section>
+      <section className="card client-gardens-panel"><div className="client-section-heading"><div><h2>Ogrody klienta</h2><p className="muted">Wszystkie obiekty przypisane do tego klienta</p></div><Sprout size={22}/></div>{gardens.length ? <div className="client-gardens-grid">{gardens.map(garden => <article className="client-garden" key={garden.id}><div><Sprout size={16}/><h3><button className="client-garden-name" aria-label={`Otwórz ogród ${garden.name}`} onClick={()=>openGarden(garden.id)}>{garden.name}</button></h3><button className="button secondary" onClick={() => setEditGarden(garden)}>Edytuj ogród</button></div><p><MapPin size={13}/>{garden.address || 'Brak adresu'}</p><button className="text-button" onClick={() => openGarden(garden.id)}>Otwórz ogród</button><footer><span>{garden.area.toLocaleString('pl-PL')} m²</span><span>{jobs.filter(job => job.gardenId === garden.id).length} zleceń</span></footer>{garden.notes && <p className="client-garden-note">{garden.notes}</p>}</article>)}</div> : <div className="client-inline-empty">Ten klient nie ma jeszcze przypisanych ogrodów. Użyj przycisku „Dodaj ogród” powyżej, a następnie utwórz zlecenie.</div>}</section>
     </div>
 
     <section className="card client-jobs-panel">
@@ -77,24 +82,18 @@ export default function ClientDetails({ clientId, onBack }: { clientId: string; 
         <label className="field">Status wykonania<select aria-label="Filtr statusu wykonania" value={workFilter} onChange={event => setWorkFilter(event.target.value as Job['status'] | '')}><option value="">Wszystkie statusy</option>{(['planned', 'in-progress', 'completed'] as const).map(status => <option key={status} value={status}>{workLabels[status]}</option>)}</select></label>
       </div>
       <div className="client-filter-summary"><span>{filteredJobs.length} z {jobs.length} zleceń</span>{hasFilters && <button onClick={resetFilters}><FilterX size={14}/>Wyczyść filtry</button>}</div>
-      {!!filteredJobs.length && <p className="client-table-hint">Przesuń tabelę w bok, aby zobaczyć kwoty i statusy.</p>}
+
       {invalidPeriod && <p className="client-period-error" role="alert">Data „od” nie może być późniejsza niż data „do”. Popraw wybrany okres.</p>}
-      {filteredJobs.length ? <div className="client-table-wrap" tabIndex={0} aria-label="Tabela zleceń klienta — przewijana w poziomie"><table className="client-jobs-table"><thead><tr><th scope="col">Data</th><th scope="col">Ogród</th><th scope="col">Rodzaj pracy</th><th scope="col">Czas</th><th scope="col">Wartość</th><th scope="col">Zapłacono</th><th scope="col">Pozostało</th><th scope="col">Status</th></tr></thead><tbody>{filteredJobs.map(job => {
-        const garden = gardens.find(item => item.id === job.gardenId);
-        const paymentStatus = settlementStatus(job, data.payments, now, data.timer);
-        const balance = remainingCents(job, data.payments, now, data.timer);
-        const awaitingPrice = job.status === 'completed' && !job.settlement;
-        return <tr key={job.id} onClick={event => { if (!(event.target as HTMLElement).closest('button, a')) setSelectedJob(job.id); }}><td><time dateTime={job.date}>{new Date(`${job.date}T12:00:00`).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</time><small>{job.time}</small></td><td>{garden?.name}</td><td><button className="client-job-title" aria-label={`Szczegóły zlecenia ${job.title}`} onClick={() => setSelectedJob(job.id)}>{job.title}<ArrowUpRight size={13}/></button>{job.activities.length > 0 && (job.activities.length > 1 || job.activities[0] !== job.title) && <small className="client-job-activities" title={job.activities.join(' · ')}>{job.activities.join(' · ')}</small>}</td><td className="client-table-number">{duration(elapsedSeconds(job, data.timer, now))}</td><td className={`client-table-number ${awaitingPrice ? 'client-value-provisional' : ''}`}>{moneyCents(jobTotalCents(job, now, data.timer))}{awaitingPrice && <small>Przed zatwierdzeniem</small>}{job.settlement?.source === 'legacy' && <small>Kwota zachowana</small>}</td><td className="client-table-number">{moneyCents(paidCents(job.id, data.payments))}</td><td className={`client-table-number ${balance > 0 ? 'client-balance-due' : ''}`}>{moneyCents(balance)}</td><td><div className="client-table-statuses"><span className={`badge status-${job.status}`}>{workLabels[job.status]}</span><PaymentBadge status={paymentStatus}/>{awaitingPrice && <span className="badge client-price-pending">Cena do zatwierdzenia</span>}</div></td></tr>;
-      })}</tbody></table></div> : <div className="client-jobs-empty"><CalendarDays size={30}/><h3>{jobs.length ? 'Brak zleceń dla wybranych filtrów' : 'Współpraca dopiero się zaczyna'}</h3><p>{jobs.length ? 'Zmień okres, ogród lub status, aby zobaczyć pozostałe prace.' : 'Zlecenia przypisane do ogrodów tego klienta pojawią się tutaj.'}</p>{hasFilters && <button className="button secondary" onClick={resetFilters}>Pokaż wszystkie zlecenia</button>}</div>}
+      {filteredJobs.length ? <GroupedJobHistory jobs={filteredJobs} onOpen={openJob} showGarden/> : <div className="client-jobs-empty"><CalendarDays size={30}/><h3>{jobs.length ? 'Brak zleceń dla wybranych filtrów' : 'Współpraca dopiero się zaczyna'}</h3><p>{jobs.length ? 'Zmień okres, ogród lub status, aby zobaczyć pozostałe prace.' : 'Zlecenia przypisane do ogrodów tego klienta pojawią się tutaj.'}</p>{hasFilters && <button className="button secondary" onClick={resetFilters}>Pokaż wszystkie zlecenia</button>}</div>}
       <p className="client-table-note">Wartości prac przed zatwierdzeniem ceny są orientacyjne i nie zwiększają podsumowania należności. W szczegółach zlecenia sprawdzisz dokładny czas, wyliczoną robociznę, propozycję zaokrąglenia i materiały. Zakończenie pracy nie rejestruje wpłaty.</p>
     </section>
     <ContextNotes scope={{ clientId }} title="Notatki klienta"/>
     <PhotoGallery key={clientId} scope={{ clientId }} title="Galeria klienta"/>
-    {selectedGarden && <GardenDetails gardenId={selectedGarden} onClose={() => setSelectedGarden('')}/>}
+    {selectedGarden && <Suspense fallback={<p role="status">Otwieranie ogrodu…</p>}><RelatedCards initial={{kind:'garden',id:selectedGarden}} originClientId={clientId} onClose={() => setSelectedGarden('')}/></Suspense>}
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
-    {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
-    {selectedJob && <JobDetails jobId={selectedJob} onClose={() => setSelectedJob(null)}/>}
+    {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); openJob(job.id); }}/>}
+    {selectedJob && <Suspense fallback={<p role="status">Otwieranie zlecenia…</p>}><RelatedCards initial={{kind:'job',id:selectedJob,initialBilling:jobBilling}} originClientId={clientId} onClose={() => setSelectedJob(null)}/></Suspense>}
   </section>;
 }
 

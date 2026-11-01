@@ -135,10 +135,12 @@ async function garden(page: Page) {
       exact: true,
     })
     .click();
-  return page.getByRole('dialog', {
+  const card=page.getByRole('dialog', {
     name: 'Karta ogrodu: Ogród przy Lipowej',
     exact: true,
   });
+  await card.getByRole('tab',{name:'Galeria',exact:true}).click();
+  return card;
 }
 async function image(page: Page) {
   const bytes = await page.evaluate(async () => {
@@ -472,6 +474,7 @@ test('karty klienta, ogrodu, strefy i wizyty tworzą notatki z właściwymi rela
     .click();
   await expect(region).toContainText('Rozmowa z klientką');
   const card = await garden(page);
+  await card.getByRole('tab',{name:'Notatki i dokumentacja',exact:true}).click();
   region = card.getByRole('region', { name: 'Notatki ogrodu', exact: true });
   await region
     .getByRole('button', { name: 'Dodaj notatkę', exact: true })
@@ -486,6 +489,7 @@ test('karty klienta, ogrodu, strefy i wizyty tworzą notatki z właściwymi rela
   await form
     .getByRole('button', { name: 'Zapisz notatkę', exact: true })
     .click();
+  await card.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click();
   await card
     .getByRole('button', { name: 'Notatki strefy Rabata różana', exact: true })
     .click();
@@ -757,6 +761,7 @@ test('notatka z galerii korzysta z istniejącego ID zdjęcia, a usuwanie notatki
   await form
     .getByRole('button', { name: 'Zapisz notatkę', exact: true })
     .click();
+  await card.getByRole('tab',{name:'Notatki i dokumentacja',exact:true}).click();
   await card
     .getByRole('region', { name: 'Notatki ogrodu', exact: true })
     .getByRole('button', { name: 'Problem róż', exact: true })

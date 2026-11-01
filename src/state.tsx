@@ -40,8 +40,8 @@ interface GardenContextValue {
   deleteZone(gardenId: string, zoneId: string): void;
   saveCatalogMaterial(material: CatalogMaterial): void;
   addJobMaterial(jobId: string, gardenId: string, material: Material): void;
-  saveJob(job: Job): void;
-  deleteJob(id: string): void;
+  saveJob(job: Job, expected?: Job): void;
+  deleteJob(id: string, expected?: string): void;
   savePayment(payment: Payment, expected?: Payment | null): void;
   deletePayment(id: string, expected?: Payment): void;
   startTimer(jobId: string): void;
@@ -131,8 +131,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     deleteZone: (id, zoneId) => run(store => store.deleteZone(id, zoneId)),
     saveCatalogMaterial: item => run(store => store.saveCatalogMaterial(item)),
     addJobMaterial: (id, gardenId, material) => run(store => store.addJobMaterial(id, gardenId, material)),
-    saveJob: job => run(store => store.saveJob(job)),
-    deleteJob: id => run(store => store.deleteJob(id)),
+    saveJob: (job,expected) => run(store => store.saveJob(job,expected)),
+    deleteJob: (id,expected) => run(store => store.deleteJob(id,expected)),
     savePayment: (payment, expected) => run(store => store.savePayment(payment, expected)),
     deletePayment: (id, expected) => run(store => store.deletePayment(id, expected)),
     startTimer: id => run(store => store.startTimer(id)),

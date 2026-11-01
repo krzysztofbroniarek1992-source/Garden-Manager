@@ -122,7 +122,9 @@ test('rozpoczęcie zadania tworzy jedną wizytę z istniejącym stoperem i rozli
   const data = fixture(); data.taskSchedules = [schedule()]; await seed(page, data); await calendar(page);
   const task = await openTask(page); await task.getByRole('button', { name: 'Rozpocznij pracę', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
-  await expect(detail).toContainText('Stałe koszenie'); await page.clock.fastForward(13000);
+  await expect(detail).toContainText('Stałe koszenie');
+  const startedAt=(await snapshot(page)).data.timer!.startedAt;
+  await page.clock.setFixedTime(startedAt+13000);
   await detail.getByRole('button', { name: 'PAUZA — Przerwa bez naliczania', exact: true }).click();
   let saved = (await snapshot(page)).data;
   const newJob = saved.jobs.find(job => job.taskOccurrenceId === occurrenceId('s-1', '2026-10-31'))!;

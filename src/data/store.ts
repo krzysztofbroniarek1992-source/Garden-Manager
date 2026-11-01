@@ -9,6 +9,7 @@ import type { OccurrenceVersion, TaskSchedule } from '../planning/model';
 import { calculatedLaborCents, finishWork, jobTotalCents, materialsTotalCents, paidCents, pauseActiveTimer, resumeActiveTimer, roundLaborTo50Cents, startWork, stopActiveTimer, sumCents, type Client, type Data, type Garden, type Job, type Payment, type SettlementApprovalSource } from '../domain';
 import { validDate, type DataRepository } from './repository';
 import type { CatalogMaterial, GardenZone, Material } from '../domain';
+import { jobDeletionReview } from '../features/job-history';
 
 function upsert<T extends { id: string }>(items: T[], item: T): T[] {
   return items.some(existing => existing.id === item.id) ? items.map(existing => existing.id === item.id ? item : existing) : [...items, item];
@@ -92,9 +93,11 @@ export class GardenStore {
     return { ...data, gardens: data.gardens.filter(garden => garden.id !== id), photos: data.photos.map(p => p.gardenId === id ? { ...p, gardenId: null, zoneId: null, jobId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
-  saveJob = (job: Job) => this.commit(data => {
+  saveJob = (job: Job, expected?: Job) => this.commit(data => {
     let next = data;
     const existing = data.jobs.find(item => item.id === job.id);
+    const editable = (value: Job) => [value.gardenId,value.title,value.date,value.time,value.status,value.billing,value.rate,value.fixedPrice,value.notes,value.materials,value.activities];
+    if (expected && (!existing || JSON.stringify(editable(existing))!==JSON.stringify(editable(expected)))) throw new Error('Zlecenie zostało zmienione lub usunięte w innej karcie. Otwórz aktualny formularz przed zapisaniem zmian.');
     if (existing?.settlement && job.status !== 'completed') throw new Error('Zlecenie ma zatwierdzoną cenę i musi pozostać zakończone.');
     let updated = { ...job, ...(existing?.visitDetails?{visitDetails:existing.visitDetails}:{}), ...(existing?.timeHistory?{timeHistory:existing.timeHistory}:{}), ...(existing?.reports?{reports:existing.reports}:{}), seconds: existing?.seconds ?? job.seconds, title: job.title.trim(), activities: job.activities.map(activity => activity.trim()).filter(Boolean), settlement: existing?.settlement ?? null };
     if (data.timer?.jobId === job.id) {
@@ -117,10 +120,10 @@ export class GardenStore {
     return { ...next, jobs: upsert(next.jobs, updated), photos: next.photos.map(p => p.deletedAt === null && p.jobId === job.id && p.gardenId !== job.gardenId ? { ...p, ...resolvePhotoScope(next, { clientId: null, gardenId: job.gardenId, zoneId: null, jobId: null }), jobId: job.id, jobTitle: job.title, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   }, true);
 
-  deleteJob = (id: string) => this.commit(data => {
-    if (data.timer?.jobId === id) throw new Error('Najpierw zatrzymaj stoper tego zlecenia.');
-    if (data.payments.some(payment => payment.jobId === id)) throw new Error('Zlecenie ma płatności. Najpierw usuń błędne wpisy płatności.');
-    if (data.taskOccurrences.some(item => item.jobId === id)) throw new Error('Zlecenie jest historią zadania z kalendarza. Zachowaj je, aby nie utworzyć powtórnej wizyty.');
+  deleteJob = (id: string, expected?: string) => this.commit(data => {
+    const review=jobDeletionReview(data,id);
+    if (review.reasons.length) throw new Error(review.reasons[0]);
+    if (expected!==undefined && expected!==review.signature) throw new Error('Zlecenie lub jego dokumentacja zmieniły się. Zamknij potwierdzenie i sprawdź je ponownie przed usunięciem.');
     return { ...data, jobs: data.jobs.filter(job => job.id !== id), photos: data.photos.map(p => p.jobId === id ? { ...p, jobId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 

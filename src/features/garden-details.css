@@ -1,0 +1,298 @@
+.garden-workspace {
+  min-width: 0;
+  color: #243d2c;
+}
+.garden-workspace-header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.garden-workspace-header p {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.garden-workspace-header .text-button {
+  min-height: 44px;
+  font-size: 14px;
+  text-align: left;
+  white-space: normal;
+}
+.garden-workspace-header .client-back {
+  min-height: 44px;
+  margin: 0;
+}
+.garden-workspace-header .button,
+.garden-sections button,
+.garden-job-actions .button {
+  min-height: 44px;
+  white-space: normal;
+}
+.garden-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #cbd8c4;
+  margin-bottom: 20px;
+  position: sticky;
+  top: -1px;
+  background: #f6f7f5;
+  z-index: 4;
+}
+.garden-sections button {
+  border: 1px solid #b5c8ad;
+  background: white;
+  padding: 10px 14px;
+  border-radius: 9px;
+  color: #244330;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+.garden-sections button[aria-selected='true'] {
+  background: #153e35;
+  color: white;
+  border-color: #153e35;
+}
+.garden-tab-panel {
+  padding: 6px 0 24px;
+}
+.garden-tab-panel[hidden] {
+  display: none;
+}
+.garden-overview-grid,
+.garden-balances {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.garden-overview-grid article,
+.garden-balances article {
+  padding: 20px;
+  border: 1px solid #d4dfce;
+  border-radius: 12px;
+  background: white;
+}
+.garden-overview-grid strong,
+.garden-balances strong {
+  display: block;
+  font-size: 25px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.garden-overview-grid span,
+.garden-balances span {
+  font-size: 12px;
+  color: #547049;
+}
+.garden-job-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+.garden-job-tools .field,
+.history-order {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+}
+.history-order {
+  max-width: 260px;
+  margin: 15px 0;
+}
+.history-year {
+  margin: 22px 0;
+}
+.history-year > h3 {
+  font-size: 23px;
+}
+.history-month {
+  margin: 12px 0;
+  border: 1px solid #cbd9c2;
+  border-radius: 12px;
+  background: white;
+  overflow: hidden;
+}
+.history-month > summary {
+  min-height: 64px;
+  padding: 16px;
+  cursor: pointer;
+  color: #244c34;
+  font-size: 14px;
+}
+.history-month > summary strong {
+  margin-right: 16px;
+  text-transform: capitalize;
+}
+.history-month > summary span {
+  display: inline;
+  font-size: 13px;
+}
+.history-month > summary small {
+  display: block;
+  margin-top: 7px;
+  color: #805017;
+}
+.grouped-job-history .client-table-wrap {
+  margin: 0;
+}
+.grouped-job-history .client-jobs-table {
+  min-width: 740px;
+  width: 100%;
+}
+.grouped-job-history td {
+  vertical-align: top;
+}
+.grouped-job-history td small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.garden-job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 160px;
+}
+.garden-job-actions .button {
+  font-size: 12px;
+}
+.history-month > .button {
+  margin: 16px;
+}
+.job-delete-consent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  line-height: 1.6;
+  font-size: 13px;
+}
+.gm-modal .job-delete-consent input {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  accent-color: #153e35;
+}
+.related-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+.related-card-links .button {
+  white-space: normal;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+.client-garden-name,
+.garden-name-button {
+  background: none;
+  color: #244c34;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.client-garden-name {
+  min-height: 44px;
+}
+.client-garden > .text-button,
+.client-garden .button {
+  min-height: 44px;
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .gm-modal.gm-modal-fullscreen {
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom));
+  }
+  .gm-modal-fullscreen > .gm-modal-heading {
+    gap: 12px;
+  }
+  .gm-modal-fullscreen > .gm-modal-heading h2 {
+    font-size: 22px;
+    overflow-wrap: anywhere;
+  }
+  .gm-modal-fullscreen > .gm-modal-heading .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .garden-sections {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .garden-sections button {
+    font-size: 12px;
+    padding: 10px;
+  }
+  .garden-overview-grid,
+  .garden-balances {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .garden-overview-grid article {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+  }
+  .garden-overview-grid strong {
+    margin: 0;
+  }
+  .history-month > summary strong,
+  .history-month > summary span {
+    display: block;
+    margin-top: 6px;
+  }
+  .grouped-job-history .client-jobs-table {
+    min-width: 0;
+    display: block;
+  }
+  .grouped-job-history .client-jobs-table thead {
+    display: none;
+  }
+  .grouped-job-history .client-jobs-table tbody {
+    display: block;
+  }
+  .grouped-job-history .client-jobs-table tr {
+    display: block;
+    border-top: 1px solid #d3decb;
+    padding: 10px 14px;
+  }
+  .grouped-job-history .client-jobs-table td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 8px 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .grouped-job-history .client-jobs-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    color: #65775e;
+    font-weight: 600;
+    min-width: 64px;
+  }
+  .grouped-job-history .client-job-title {
+    max-width: 100%;
+    min-height: 44px;
+  }
+  .grouped-job-history .garden-job-actions {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+}
