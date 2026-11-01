@@ -121,6 +121,7 @@ describe("calendar and planning addresses", () => {
   });
   it.each([
     "#calendar?task=s",
+    "#calendar?date=2000-01-01&anchor=2099-01-01&view=month",
     "#calendar?task=s&original=2026-02-30",
     "#calendar?schedule=",
     "#calendar?date=invalid&view=month",

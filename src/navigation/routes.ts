@@ -91,6 +91,9 @@ export function validCalendar(value: unknown): value is CalendarState {
   return (
     isDate(c.date) &&
     isDate(c.anchor) &&
+    // A month grid may select an adjacent day. A forged anchor many years
+    // away must not expand the read projection over the intervening years.
+    Math.abs(Date.parse(c.date) - Date.parse(c.anchor)) <= 62 * 86_400_000 &&
     calendarViews.includes(c.view) &&
     (c.gardenId === undefined || validId(c.gardenId)) &&
     (c.kind === undefined || calendarKinds.includes(c.kind)) &&

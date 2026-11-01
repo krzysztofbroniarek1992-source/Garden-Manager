@@ -71,7 +71,8 @@ export default function GardenDetails({
     if(!active || section!=='zones' || !navigation?.zoneId)return;
     const frame=requestAnimationFrame(()=>{const target=Array.from(workspaceRef.current?.querySelectorAll<HTMLElement>('[data-zone-id]')??[]).find(el=>el.dataset.zoneId===navigation.zoneId);target?.scrollIntoView({block:'center'});target?.focus({preventScroll:true});});
     return ()=>cancelAnimationFrame(frame);
-  },[active,section,navigation?.zoneId,garden?.zones]);
+  // Focus only when navigating to the zone, not after unrelated autosaves.
+  },[active,section,navigation?.zoneId]);
   const jobs = useMemo(
     () => data.jobs.filter((j) => j.gardenId === gardenId),
     [data.jobs, gardenId],
