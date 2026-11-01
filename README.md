@@ -580,3 +580,29 @@ IndexedDB, JSON/ZIP, stopera i rozliczeń.
 Walidacja etapu: **341/341 jednostkowych**, **7/7 PWA offline**, TypeScript
 i build poprawne. E2E: 126/127 w pełnym przebiegu, następnie 6/6 testów płatności
 po doprecyzowaniu selektora; zweryfikowano wszystkie 127 scenariuszy.
+
+
+## Etap 2 — nawigacja kalendarza i harmonogramów
+
+Karta ogrodu otwiera konkretną serię lub jej termin w kalendarzu. Planowana
+czynność prowadzi do klienta, ogrodu i strefy, a powiązane zlecenie do źródłowego
+terminu i serii. Powrót ze zlecenia zachowuje szczegóły czynności.
+
+Adresy odtwarzają datę, widok i filtry kalendarza oraz otwarty termin, także
+po przesunięciu jego daty. Na pulpicie otwarcie szczegółów jest oddzielone
+od wyboru zlecenia do stopera. Samo przechodzenie między widokami nie zapisuje
+wystąpień, nie tworzy wizyt i nie uruchamia pomiaru czasu.
+
+[Przejścia, adresy, zgodność danych i zakres podglądu](docs/CALENDAR_NAVIGATION.md).
+
+Walidacja etapu 2: **357/357 jednostkowych**, **8/8 PWA offline**, TypeScript
+i build produkcyjny poprawne. E2E: **141/142** w pełnym przebiegu (wszystkie
+15 nowych scenariuszy nawigacji przeszło). Test równoległego zapisu PDF pobrał
+dwa raporty z tym samym numerem. Weryfikacja przed scaleniem potwierdziła
+rzeczywisty błąd zapisu istniejący także na main: drugi zapis może odczytać
+starszy stan localStorage i zastąpić historię pierwszego raportu. Kontrolowana
+próba odtworzyła błąd 16/30 razy na PR #13 i 10/30 na main; zwykłe E2E
+raportów i nawigacji przeszły 45/45. Rekomendacja: wstrzymać scalenie do osobnej
+naprawy atomowości zapisu, bez rozszerzania PR-a nawigacji. [Raport weryfikacji
+i odtworzenie](docs/REPORT_NUMBERING_CONCURRENCY.md). Kod aplikacji i schemat
+danych pozostają bez zmian w ramach tej weryfikacji.
