@@ -26,7 +26,9 @@ async function image(page: Page, name = 'ogrod.png', color = '#337755', width = 
 async function garden(page: Page) {
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
   await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click();
-  return page.getByRole('dialog', { name: 'Karta ogrodu: Ogród przy Lipowej', exact: true });
+  const card=page.getByRole('dialog', { name: 'Karta ogrodu: Ogród przy Lipowej', exact: true });
+  await card.getByRole('tab',{name:'Galeria',exact:true}).click();
+  return card;
 }
 async function upload(gallery: Locator, files: Awaited<ReturnType<typeof image>>[], category = 'before', description = 'Dokumentacja testowa') {
   await gallery.getByRole('button', { name: 'Dodaj zdjęcia', exact: true }).click();
@@ -80,7 +82,7 @@ test('galeria klienta i strefy pokazuje powiązane zdjęcia, w tym zdjęcia przy
   expect((await snapshot(page)).photos[0]).toMatchObject({ clientId: 'client-1', gardenId: null, zoneId: null, jobId: null });
   await clientGallery.getByRole('button', { name: 'Edytuj zdjęcie klient.png', exact: true }).click(); const edit = page.getByRole('dialog', { name: 'Edytuj zdjęcie', exact: true });
   await edit.getByRole('combobox', { name: 'Ogród zdjęcia', exact: true }).selectOption('garden-1'); await edit.getByRole('combobox', { name: 'Strefa zdjęcia', exact: true }).selectOption('zone-1'); await edit.getByRole('button', { name: 'Zapisz opis i powiązania' }).click();
-  const card = await garden(page); await card.getByRole('button', { name: 'Zdjęcia strefy Rabata różana', exact: true }).click();
+  const card = await garden(page); await card.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click(); await card.getByRole('button', { name: 'Zdjęcia strefy Rabata różana', exact: true }).click();
   const zone = page.getByRole('dialog', { name: 'Zdjęcia strefy: Rabata różana', exact: true }); await expect(zone.locator('.photo-card')).toHaveCount(1); await expect(zone).toContainText('Problem z rośliną');
 });
 
@@ -103,7 +105,7 @@ test('usunięcie wymaga potwierdzenia i usuwa plik oraz miniaturę', async ({ pa
 test('usunięcie strefy zachowuje zdjęcia w historii ogrodu', async ({ page }) => {
   await seed(page); const card = await garden(page); const gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true });
   await gallery.getByRole('button', { name: 'Dodaj zdjęcia', exact: true }).click(); await gallery.getByLabel('Zdjęcia z urządzenia', { exact: true }).setInputFiles(await image(page)); await gallery.getByRole('combobox', { name: 'Strefa zdjęcia', exact: true }).selectOption('zone-1'); await gallery.getByRole('button', { name: 'Zapisz zdjęcia', exact: true }).click(); await expect(gallery.locator('.photo-card')).toHaveCount(1);
-  await card.getByRole('button', { name: 'Usuń strefę Rabata różana', exact: true }).click(); await card.getByRole('button', { name: 'Potwierdź usunięcie strefy', exact: true }).click(); await expect(gallery.locator('.photo-card')).toHaveCount(1); expect((await snapshot(page)).photos[0]).toMatchObject({ zoneId: null, zoneName: 'Rabata różana' }); expect(await assets(page)).toHaveLength(1);
+  await card.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click(); await card.getByRole('button', { name: 'Usuń strefę Rabata różana', exact: true }).click(); await card.getByRole('button', { name: 'Potwierdź usunięcie strefy', exact: true }).click(); await card.getByRole('tab',{name:'Galeria',exact:true}).click(); await expect(gallery.locator('.photo-card')).toHaveCount(1); expect((await snapshot(page)).photos[0]).toMatchObject({ zoneId: null, zoneName: 'Rabata różana' }); expect(await assets(page)).toHaveLength(1);
 });
 
 test('pełna kopia ZIP odtwarza zdjęcia i pozwala bezpiecznie wrócić do poprzednich danych', async ({ page, browser }) => {
@@ -147,7 +149,7 @@ test('migracja v5 i eksport JSON zachowują dane i metadane, bez udawania pełne
 });
 
 test('telefon: wybór aparatu, powiększenie i porównanie bez przewijania w poziomie', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 }); await seed(page); await page.getByRole('navigation', { name: 'Nawigacja mobilna' }).getByRole('button', { name: 'Ogrody', exact: true }).click(); await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click(); const card = page.getByRole('dialog', { name: 'Karta ogrodu: Ogród przy Lipowej', exact: true }); const gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true });
+  await page.setViewportSize({ width: 390, height: 844 }); await seed(page); await page.getByRole('navigation', { name: 'Nawigacja mobilna' }).getByRole('button', { name: 'Ogrody', exact: true }).click(); await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click(); const card = page.getByRole('dialog', { name: 'Karta ogrodu: Ogród przy Lipowej', exact: true }); await card.getByRole('tab',{name:'Galeria',exact:true}).click(); const gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true });
   await upload(gallery, [await image(page, 'przed.png')]); await upload(gallery, [await image(page, 'po.png')], 'after'); await gallery.getByRole('button', { name: 'Dodaj zdjęcia', exact: true }).click(); await expect(gallery.getByLabel('Aparat telefonu', { exact: true })).toHaveAttribute('capture', 'environment'); expect(await card.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true); await gallery.getByRole('button', { name: 'Anuluj dodawanie' }).click();
   await gallery.getByRole('button', { name: 'Wybierz PRZED', exact: true }).click(); await gallery.getByRole('button', { name: 'Wybierz PO', exact: true }).click(); await gallery.getByRole('button', { name: 'Porównaj PRZED i PO', exact: true }).click(); const compare = page.getByRole('dialog', { name: 'Porównanie PRZED i PO', exact: true }); await expect(compare.locator('img')).toHaveCount(2); expect(await compare.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

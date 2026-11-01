@@ -261,6 +261,7 @@ test('korekta z nieaktualnej karty nie odtwarza płatności usuniętej w drugiej
 
   // Both tabs share the same origin/storage, but the first retains its original edit snapshot.
   const otherPage = await page.context().newPage();
+  await otherPage.clock.install({time:new Date('2026-10-29T10:00:00+01:00')});
   const otherErrors: string[] = [];
   otherPage.on('pageerror', error => otherErrors.push(error.message));
   await otherPage.goto('/');

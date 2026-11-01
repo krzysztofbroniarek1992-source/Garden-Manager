@@ -46,6 +46,7 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
       name: 'Galeria i historia ogrodu',
       exact: true,
     });
+  await card.getByRole('tab',{name:'Galeria',exact:true}).click();
   await gallery
     .getByRole('button', { name: 'Dodaj zdjęcia', exact: true })
     .click();
