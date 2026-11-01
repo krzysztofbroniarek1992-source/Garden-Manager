@@ -64,6 +64,44 @@ async function setup() {
   };
 }
 describe("authoritative IndexedDB transactions", () => {
+  it("never rewinds the document sequence when restoring an older snapshot", async () => {
+    const f = await setup();
+    const report = await f.one.prepare("job-1", defaultReportOptions());
+    await f.one.save("job-1", report);
+    const expected = JSON.stringify((await f.a.read()).data);
+    await f.b.command((s) => s.restoreSnapshot(f.data, expected));
+    expect((await f.a.read()).data.reportSequence).toBe(1);
+    const next = await f.two.prepare("job-2", defaultReportOptions());
+    await f.two.save("job-2", next);
+    expect(next.record.number).not.toBe(report.record.number);
+    expect((await f.a.read()).data.reportSequence).toBe(2);
+  });
+
+  it("retains the exact v8 source and existing report-independent data during cutover", async () => {
+    const factory = new IDBFactory(),
+      storage = new StorageMock();
+    const old = fixture() as Partial<ReturnType<typeof fixture>>;
+    delete old.reportSequence;
+    const raw = JSON.stringify({ version: 8, data: old });
+    storage.setItem(STORAGE_KEY, raw);
+    const repo = new AtomicRepository(storage as unknown as Storage, factory);
+    const migrated = await repo.initialize();
+    expect(migrated.data).toEqual({ ...old, reportSequence: 0 });
+    expect(storage.getItem("garden-manager:backup:v8")).toBe(raw);
+    const original = await new Promise<unknown>((resolve, reject) => {
+      const request = factory.open("garden-manager-state", 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("state", "readonly");
+        const get = tx.objectStore("state").get("migration-source");
+        get.onsuccess = () => resolve(get.result);
+        tx.oncomplete = () => db.close();
+      };
+      request.onerror = () => reject(request.error);
+    });
+    expect(original).toBe(raw);
+  });
+
   it("migrates once without changing the v9 data or deleting the pre-cutover source", async () => {
     const f = await setup();
     expect((await f.a.read()).data).toEqual(f.data);

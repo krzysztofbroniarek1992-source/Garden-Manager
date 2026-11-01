@@ -156,14 +156,14 @@ export default function ReportPanel({
     record = historical ?? prepared?.record;
   const url = useMemo(
     () =>
-      bytes
+      bytes && (saved || historical)
         ? URL.createObjectURL(
             new Blob([bytes.slice().buffer as ArrayBuffer], {
               type: 'application/pdf',
             }),
           )
         : '',
-    [bytes],
+    [bytes, saved, historical],
   );
   useEffect(
     () => () => {
@@ -357,6 +357,8 @@ export default function ReportPanel({
             <div className="report-actions">
               <button
                 className="button secondary"
+                disabled={!saved && !historical}
+                title={!saved && !historical ? 'Najpierw zapisz raport, aby zatwierdzić numer dokumentu.' : undefined}
                 onClick={() => setShowPdf((v) => !v)}
               >
                 {showPdf ? 'Ukryj plik PDF' : 'Pokaż plik PDF'}
@@ -380,7 +382,7 @@ export default function ReportPanel({
                   : 'Zapisz raport i pobierz PDF'}
               </button>
             </div>
-            {showPdf && (
+            {showPdf && url && (
               <iframe
                 title="Podgląd pliku PDF"
                 className="report-pdf-frame"

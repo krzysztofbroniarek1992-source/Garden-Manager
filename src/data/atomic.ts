@@ -90,7 +90,10 @@ export class AtomicRepository {
             store.put(original, "migration-source");
             store.put(state, "current");
           }
-          if (!Number.isSafeInteger(state.revision) || state.revision < 0) throw new Error('Nieprawidłowy stan bezpiecznej pamięci. Oryginalne dane pozostają zachowane.');
+          if (!Number.isSafeInteger(state.revision) || state.revision < 0)
+            throw new Error(
+              "Nieprawidłowy stan bezpiecznej pamięci. Oryginalne dane pozostają zachowane.",
+            );
           validateData(state.data);
           result = action(state, store);
         } catch (e) {
@@ -140,6 +143,15 @@ export class AtomicRepository {
           const value = execute(store);
           if (value instanceof Promise)
             throw new Error("Komenda transakcji musi być synchroniczna.");
+          // Restoring an older backup must never make a previously issued
+          // document number available again, regardless of the calling port.
+          data = {
+            ...data,
+            reportSequence: Math.max(
+              state.data.reportSequence,
+              data.reportSequence,
+            ),
+          };
           validateData(data);
           const next = { revision: state.revision + 1, data };
           objectStore.put(next, "current");

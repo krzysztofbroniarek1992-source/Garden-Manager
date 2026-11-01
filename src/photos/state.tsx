@@ -30,7 +30,7 @@ export function PhotoProvider({ store, metadata, onChange, children }: { store: 
   const inFlight = useRef(false);
   const signature = metadata.map(p => `${p.id}:${p.assetId}:${p.deletedAt}`).join('|');
   useEffect(() => {
-    if (!service) return;
+    if (!service) { setReady(false); setError('Bezpieczna pamięć IndexedDB jest niedostępna. Zapis zdjęć i danych jest zablokowany.'); return; }
     let cancelled = false;
     service.reconcile().then(async changed => {
       const point = await service.recovery();
