@@ -30,9 +30,9 @@ export default function Clients() {
   }
 
 
-  function remove() {
+  async function remove() {
     if (!removing) return;
-    try { deleteClient(removing.id); setRemoving(null); }
+    try { await deleteClient(removing.id); setRemoving(null); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się usunąć klienta.'); }
   }
 

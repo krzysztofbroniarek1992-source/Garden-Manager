@@ -10,8 +10,8 @@ import {
 import { nextReportIdentity } from './commands';
 import { validateReportOptions } from './validation';
 export interface ReportDataPort {
-  snapshot(): Data;
-  saveVisitReport(jobId: string, record: VisitReport, expected: string): void;
+  snapshot(): Data | Promise<Data>;
+  saveVisitReport(jobId: string, record: VisitReport, expected: string): void | Promise<void>;
 }
 export type PdfGenerator = (
   record: VisitReport,
@@ -39,7 +39,7 @@ export class ReportService {
     options: ReportOptions,
   ): Promise<PreparedReport> {
     validateReportOptions(options);
-    const data = this.data.snapshot(),
+    const data = await this.data.snapshot(),
       snapshot = buildReportSnapshot(data, jobId, options),
       job = data.jobs.find((j) => j.id === jobId)!,
       expected = reportSourceSignature(data, jobId, options),
@@ -69,15 +69,15 @@ export class ReportService {
     };
   }
   async save(jobId: string, prepared: PreparedReport): Promise<void> {
-    const action = () => {
+    const action = async () => {
       if (!prepared.reused)
-        this.data.saveVisitReport(jobId, prepared.record, prepared.expected);
+        await this.data.saveVisitReport(jobId, prepared.record, prepared.expected);
     };
     // Share the existing photo/restore lock so two report saves, or a restore and
     // report save, cannot allocate a number from the same local snapshot.
     if (typeof navigator !== 'undefined' && navigator.locks) {
       await navigator.locks.request('garden-manager-photos', async () => {
-        action();
+        await action();
       });
       return;
     }
@@ -88,7 +88,7 @@ export class ReportService {
   async regenerate(record: VisitReport) {
     return this.generator(
       structuredClone(record),
-      this.data.snapshot(),
+      await this.data.snapshot(),
       this.assets,
     );
   }

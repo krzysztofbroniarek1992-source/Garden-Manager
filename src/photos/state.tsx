@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Data } from '../domain';
-import type { GardenStore } from '../data/store';
+import type { AsyncStore } from '../data/atomic';
 import { IndexedDbPhotoRepository } from './assets';
 import { BrowserPhotoProcessor } from './images';
 import { PhotoService } from './service';
@@ -22,7 +22,7 @@ interface PhotoContextValue {
   clearRecovery(id: string): Promise<void>;
 }
 const PhotoContext = createContext<PhotoContextValue | null>(null);
-export function PhotoProvider({ store, metadata, onChange, children }: { store: GardenStore | null; metadata: PhotoMetadata[]; onChange: (data: Data) => void; children: ReactNode }) {
+export function PhotoProvider({ store, metadata, onChange, children }: { store: AsyncStore | null; metadata: PhotoMetadata[]; onChange: (data: Data) => void; children: ReactNode }) {
   const [assets] = useState(() => new IndexedDbPhotoRepository());
   const service = useMemo(() => store ? new PhotoService(store, assets, new BrowserPhotoProcessor()) : null, [store, assets]);
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [progress, setProgress] = useState('');

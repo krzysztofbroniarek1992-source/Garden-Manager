@@ -128,7 +128,7 @@ export default function ReportPanel({
   jobId: string;
   onClose: () => void;
 }) {
-  const { data, saveVisitReport } = useGarden(),
+  const { data, saveVisitReport, snapshot } = useGarden(),
     photos = usePhotos(),
     job = data.jobs.find((j) => j.id === jobId);
   const [options, setOptions] = useState<ReportOptions>(defaultReportOptions),
@@ -145,12 +145,12 @@ export default function ReportPanel({
     () =>
       new ReportService(
         {
-          snapshot: () => new LocalRepository(localStorage).load(),
+          snapshot,
           saveVisitReport,
         },
         photos.assets,
       ),
-    [saveVisitReport, photos.assets],
+    [saveVisitReport, snapshot, photos.assets],
   );
   const bytes = historical ? historyBytes : prepared?.bytes,
     record = historical ?? prepared?.record;

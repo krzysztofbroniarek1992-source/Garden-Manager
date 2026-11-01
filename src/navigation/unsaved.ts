@@ -1,3 +1,4 @@
+import { hasPendingWrites } from '../data/pending';
 import { useEffect, useRef } from "react";
 
 const message = "Masz niezapisane zmiany. Odrzucić je i opuścić formularz?";
@@ -13,6 +14,7 @@ function visible(g: Guard) {
 }
 export function hasUnsaved(root?: HTMLElement | null) {
   if (suppressed) return false;
+  if (hasPendingWrites()) return true;
   return [...guards].some(
     (g) =>
       visible(g) &&
@@ -22,6 +24,7 @@ export function hasUnsaved(root?: HTMLElement | null) {
   );
 }
 export function confirmLeave(root?: HTMLElement | null) {
+  if (hasPendingWrites()) return false;
   return !hasUnsaved(root) || window.confirm(message);
 }
 export function requestLeave(action: () => void, root?: HTMLElement | null) {
@@ -55,10 +58,10 @@ export function useUnsavedChanges<T extends HTMLElement = HTMLFormElement>(
     confirm(action: () => void) {
       requestLeave(action, ref.current);
     },
-    save<TValue>(action: () => TValue): TValue {
+    async save<TValue>(action: () => TValue | Promise<TValue>): Promise<TValue> {
       guard.current.allowed = true;
       try {
-        return action();
+        return await action();
       } catch (error) {
         guard.current.allowed = false;
         throw error;

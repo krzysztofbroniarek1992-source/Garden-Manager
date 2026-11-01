@@ -25,9 +25,9 @@ export default function Gardens() {
   }
 
 
-  function remove() {
+  async function remove() {
     if (!removing) return;
-    try { deleteGarden(removing.id); setRemoving(null); }
+    try { await deleteGarden(removing.id); setRemoving(null); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się usunąć ogrodu.'); }
   }
 

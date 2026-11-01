@@ -34,14 +34,14 @@ function AssignmentForm({
     <Modal title="Zastosuj szablon prac" onClose={onClose}>
       <form
         className="checklist-form"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           try {
             const target: ChecklistTarget =
               kind === 'plan'
                 ? { kind, gardenId, zoneId: zoneId || null }
                 : { kind, jobId, zoneId: zoneId || null };
-            onApplied(applyWorkTemplate(template.id, target));
+            onApplied(await applyWorkTemplate(template.id, target));
           } catch (e) {
             setError((e as Error).message);
           }
@@ -184,9 +184,9 @@ export default function TemplateLibrary() {
             : c.gardenId === garden)),
     )
     .sort((a, b) => b.updatedAt - a.updatedAt);
-  const perform = (fn: () => void) => {
+  const perform = async (fn: () => void) => {
     try {
-      fn();
+      await fn();
       setError('');
     } catch (e) {
       setError((e as Error).message);
@@ -357,9 +357,9 @@ export default function TemplateLibrary() {
                 </button>
                 <button
                   className="button secondary"
-                  onClick={() =>
-                    perform(() => {
-                      copyWorkTemplate(t.id, t.revision);
+                  onClick={async () =>
+                    await perform(async () => {
+                      await copyWorkTemplate(t.id, t.revision);
                       setNotice(
                         `Utworzono niezależny szablon „${t.name.slice(0, 140)} — kopia”.`,
                       );
@@ -370,9 +370,9 @@ export default function TemplateLibrary() {
                 </button>
                 <button
                   className="button secondary"
-                  onClick={() =>
-                    perform(() =>
-                      archiveWorkTemplate(
+                  onClick={async () =>
+                    await perform(async () =>
+                      await archiveWorkTemplate(
                         t.id,
                         t.revision,
                         t.archivedAt === null,
@@ -450,9 +450,9 @@ export default function TemplateLibrary() {
             </button>
             <button
               className="button danger"
-              onClick={() =>
-                perform(() => {
-                  deleteWorkTemplate(removing.id, removing.revision);
+              onClick={async () =>
+                await perform(async () => {
+                  await deleteWorkTemplate(removing.id, removing.revision);
                   setRemoving(null);
                 })
               }

@@ -87,7 +87,7 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
     <PhotoGallery key={clientId} scope={{ clientId }} title="Galeria klienta"/>
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
-    {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); openJob(job.id); }}/>}
+    {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={async job => { await saveJob(job); setNewJob(null); openJob(job.id); }}/>}
   </section>;
 }
 
