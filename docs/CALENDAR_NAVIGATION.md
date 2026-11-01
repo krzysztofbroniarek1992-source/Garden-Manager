@@ -92,10 +92,18 @@ brak duplikatów i zapisów biznesowych oraz telefony 360/390/430 px.
 - Jedyny błąd pełnego przebiegu dotyczył istniejącego testu równoległego zapisu
   raportów PDF: dwie karty pobrały raporty z tym samym numerem. Ponowienie tego
   scenariusza dało 6/6 zaliczeń na gałęzi etapu 2 oraz 6/6 na niezmienionym
-  main `5b06761`, przy tych samych asercjach. Przyczyna niestabilności pozostaje
-  niewyjaśniona; nie potwierdzono związku ze zmianami nawigacji. Ryzyko dotyczy
-  równoległego generowania raportów, które wymaga osobnej diagnozy.
+  main `5b06761`, przy tych samych asercjach. Późniejsza weryfikacja z barierą
+  dwóch kart potwierdziła rzeczywisty, wcześniejszy błąd zapisu: opóźniona
+  widoczność stanu localStorage pozwala przyjąć dwa zapisy i utracić historię
+  jednego raportu, mimo Web Locks. Odtworzono go także bez montowania nawigacji.
 
-Nie zmieniano kodu raportów ani zapisu danych w celu usunięcia tej niestabilności.
+Nie zmieniano kodu raportów ani zapisu danych w celu usunięcia tego błędu.
 Dłuższe scenariusze migracji i generowania PDF w dwóch kartach mają limit 60 s;
 zachowano asercje unikalności numerów i odrzucania nieaktualnego podglądu.
+
+Ponowiona weryfikacja PR #13: 357/357 jednostkowych, TypeScript i świeży build
+poprawne, 45/45 E2E raportów i nawigacji oraz 8/8 PWA offline. Próba
+z kontrolowaną kolejką zapisu ujawniła
+16/30 podwójnych przyjęć na PR #13 i 10/30 na main. Udane E2E nie oznacza
+usunięcia tego wyścigu. [Przyczyna, reprodukcja, ryzyko i rekomendacja przed
+scaleniem](REPORT_NUMBERING_CONCURRENCY.md).

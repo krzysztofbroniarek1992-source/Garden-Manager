@@ -598,6 +598,11 @@ wystąpień, nie tworzy wizyt i nie uruchamia pomiaru czasu.
 Walidacja etapu 2: **357/357 jednostkowych**, **8/8 PWA offline**, TypeScript
 i build produkcyjny poprawne. E2E: **141/142** w pełnym przebiegu (wszystkie
 15 nowych scenariuszy nawigacji przeszło). Test równoległego zapisu PDF pobrał
-dwa raporty z tym samym numerem; ponowienia dały 6/6 zaliczeń na tej gałęzi
-oraz 6/6 na main. Przyczyna niestabilności pozostaje niewyjaśniona i jest
-opisana w dokumentacji; kod raportów i zapisu danych nie został zmieniony.
+dwa raporty z tym samym numerem. Weryfikacja przed scaleniem potwierdziła
+rzeczywisty błąd zapisu istniejący także na main: drugi zapis może odczytać
+starszy stan localStorage i zastąpić historię pierwszego raportu. Kontrolowana
+próba odtworzyła błąd 16/30 razy na PR #13 i 10/30 na main; zwykłe E2E
+raportów i nawigacji przeszły 45/45. Rekomendacja: wstrzymać scalenie do osobnej
+naprawy atomowości zapisu, bez rozszerzania PR-a nawigacji. [Raport weryfikacji
+i odtworzenie](docs/REPORT_NUMBERING_CONCURRENCY.md). Kod aplikacji i schemat
+danych pozostają bez zmian w ramach tej weryfikacji.
