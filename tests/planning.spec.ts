@@ -130,7 +130,10 @@ test('rozpoczęcie zadania tworzy jedną wizytę z istniejącym stoperem i rozli
   let saved = (await snapshot(page)).data;
   const newJob = saved.jobs.find(job => job.taskOccurrenceId === occurrenceId('s-1', '2026-10-31'))!;
   expect(saved.jobs).toHaveLength(data.jobs.length + 1); expect(newJob.seconds).toBe(13); expect(newJob.settlement).toBeNull(); expect(saved.payments).toEqual(data.payments);
-  await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); await page.reload();
+  await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
+  await expect(task).toBeVisible();
+  await task.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
+  await page.reload();
   await expect(page.locator('.calendar-month .calendar-event').filter({ hasText: 'Stałe koszenie' })).toHaveCount(1);
   await page.locator('.calendar-agenda').getByRole('button', { name: 'Stałe koszenie', exact: true }).click();
   await expect(detail.getByTestId('job-actual-time')).toHaveText('00:00:13');

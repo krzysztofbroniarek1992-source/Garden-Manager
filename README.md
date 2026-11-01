@@ -580,3 +580,17 @@ IndexedDB, JSON/ZIP, stopera i rozliczeń.
 Walidacja etapu: **341/341 jednostkowych**, **7/7 PWA offline**, TypeScript
 i build poprawne. E2E: 126/127 w pełnym przebiegu, następnie 6/6 testów płatności
 po doprecyzowaniu selektora; zweryfikowano wszystkie 127 scenariuszy.
+
+
+## Etap 2 — nawigacja kalendarza i harmonogramów
+
+Karta ogrodu otwiera konkretną serię lub jej termin w kalendarzu. Planowana
+czynność prowadzi do klienta, ogrodu i strefy, a powiązane zlecenie do źródłowego
+terminu i serii. Powrót ze zlecenia zachowuje szczegóły czynności.
+
+Adresy odtwarzają datę, widok i filtry kalendarza oraz otwarty termin, także
+po przesunięciu jego daty. Na pulpicie otwarcie szczegółów jest oddzielone
+od wyboru zlecenia do stopera. Samo przechodzenie między widokami nie zapisuje
+wystąpień, nie tworzy wizyt i nie uruchamia pomiaru czasu.
+
+[Przejścia, adresy, zgodność danych i zakres podglądu](docs/CALENDAR_NAVIGATION.md).
