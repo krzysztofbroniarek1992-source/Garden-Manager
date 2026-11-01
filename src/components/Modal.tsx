@@ -2,6 +2,10 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import './modal.css';
+import { requestLeave } from '../navigation/unsaved';
+import { useNavigation, ViewScope } from '../navigation/Navigation';
+import { useContext } from 'react';
+import { useCardNavigation } from '../features/card-navigation';
 
 const modalStack: HTMLElement[] = [];
 let previousBodyOverflow = '';
@@ -16,11 +20,17 @@ interface ModalProps {
 }
 
 export default function Modal({ title, onClose, children, wide, fullScreen=false, active=true }: ModalProps) {
+  const card = useCardNavigation();
+  active = active && card?.active !== false;
   const headingId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   const scroll = useRef(0);
-  close.current = onClose;
+  const { memory } = useNavigation();
+  const scope = useContext(ViewScope);
+  const scrollKey = `${scope}:modal:${title}`;
+  const requestClose = () => requestLeave(onClose, panel.current);
+  close.current = requestClose;
 
   useEffect(() => {
     if (!active) return;
@@ -34,7 +44,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
     ) ?? []).filter(element => element.getClientRects().length > 0);
     const initial = focusable().find(element => element.tagName !== 'BUTTON') ?? focusable()[0];
     initial?.focus({preventScroll:true});
-    element.scrollTop=scroll.current;
+    element.scrollTop=scroll.current || Number(memory.get(scrollKey) ?? 0);
     const handleKey = (event: KeyboardEvent) => {
       if (modalStack.at(-1) !== element) return;
       if (event.key === 'Escape') {
@@ -70,11 +80,11 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
   }, [active]);
 
   return createPortal(
-    <div hidden={!active} inert={!active} className={`gm-modal-backdrop${fullScreen?' gm-fullscreen-backdrop':''}`} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className={`gm-modal${wide ? ' gm-modal-wide' : ''}${fullScreen?' gm-modal-fullscreen':''}`} ref={panel} onScroll={event=>{if(active)scroll.current=event.currentTarget.scrollTop;}} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
+    <div hidden={!active} inert={!active} className={`gm-modal-backdrop${fullScreen?' gm-fullscreen-backdrop':''}`} onMouseDown={event => { if (event.target === event.currentTarget) requestClose(); }}>
+      <div className={`gm-modal${wide ? ' gm-modal-wide' : ''}${fullScreen?' gm-modal-fullscreen':''}`} ref={panel} onScroll={event=>{if(active){scroll.current=event.currentTarget.scrollTop;memory.set(scrollKey,scroll.current);}}} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
         <div className="gm-modal-heading">
           <div><span className="eyebrow">GARDEN MANAGER</span><h2 id={headingId}>{title}</h2></div>
-          <button className="icon-button" type="button" aria-label="Zamknij okno" onClick={onClose}><X size={21} /></button>
+          <button className="icon-button" type="button" aria-label="Zamknij okno" onClick={requestClose}><X size={21} /></button>
         </div>
         {children}
       </div>

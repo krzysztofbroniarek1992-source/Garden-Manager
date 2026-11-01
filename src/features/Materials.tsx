@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import { useGarden } from '../state';
 import { materialUnits, money, type CatalogMaterial } from '../domain';
@@ -22,12 +23,13 @@ function MaterialForm({ initial, onClose }: { initial: CatalogMaterial; onClose:
   const { saveCatalogMaterial } = useGarden();
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const patch = <K extends keyof CatalogMaterial>(key: K, value: CatalogMaterial[K]) => setDraft(current => ({ ...current, [key]: value }));
   function submit(event: FormEvent) {
     event.preventDefault();
-    try { saveCatalogMaterial(draft); onClose(); } catch (e) { setError((e as Error).message); }
+    try { guard.save(() => {saveCatalogMaterial(draft);onClose();}); } catch (e) { setError((e as Error).message); }
   }
-  return <Modal title={initial.name ? 'Edytuj materiał' : 'Nowy materiał'} onClose={onClose}><form onSubmit={submit}>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="form-grid">
+  return <Modal title={initial.name ? 'Edytuj materiał' : 'Nowy materiał'} onClose={onClose}><form ref={guard.ref} onSubmit={submit}>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="form-grid">
     <label className="field full-width">Nazwa materiału<input required maxLength={150} value={draft.name} onChange={e => patch('name', e.target.value)}/></label>
     <label className="field">Kategoria<input required maxLength={100} list="material-categories" value={draft.category} onChange={e => patch('category', e.target.value)}/><datalist id="material-categories">{['Podłoża', 'Kruszywa', 'Nawozy', 'Środki ochrony roślin', 'Rośliny', 'Inne'].map(c => <option key={c} value={c}/>)}</datalist></label>
     <label className="field">Jednostka miary<select value={draft.unit} onChange={e => patch('unit', e.target.value as CatalogMaterial['unit'])}>{materialUnits.map(unit => <option key={unit}>{unit}</option>)}</select></label>
@@ -35,5 +37,5 @@ function MaterialForm({ initial, onClose }: { initial: CatalogMaterial; onClose:
     <label className="field">Opakowanie (opcjonalnie)<input maxLength={100} placeholder="np. worek" value={draft.packageName} onChange={e => patch('packageName', e.target.value)}/></label>
     <label className="field">Ilość w opakowaniu ({draft.unit})<input type="number" min="0.000000001" step="any" value={draft.packageQuantity ?? ''} onChange={e => patch('packageQuantity', e.target.value === '' ? null : Number(e.target.value))}/></label>
     <label className="field full-width">Notatki<textarea maxLength={5000} value={draft.notes} onChange={e => patch('notes', e.target.value)}/></label>
-  </div><p className="gm-form-note">Cena dotyczy jednej jednostki miary, a ilość w opakowaniu służy do planowania zakupów. Zmiany katalogu nie zmieniają pozycji zapisanych w zleceniach.</p><div className="gm-modal-actions"><button type="button" className="button secondary" onClick={onClose}>Anuluj</button><button type="submit" className="button primary">Zapisz materiał</button></div></form></Modal>;
+  </div><p className="gm-form-note">Cena dotyczy jednej jednostki miary, a ilość w opakowaniu służy do planowania zakupów. Zmiany katalogu nie zmieniają pozycji zapisanych w zleceniach.</p><div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button type="submit" className="button primary">Zapisz materiał</button></div></form></Modal>;
 }

@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import TimeHistory from './TimeHistory';
 import { useState } from 'react';
 import Modal from '../components/Modal';
@@ -59,6 +60,7 @@ export default function VisitSummary({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [reporting, setReporting] = useState(false);
+  const guard = useUnsavedChanges<HTMLDivElement>(baseline !== JSON.stringify([work,remarks,zoneId]));
   if (!job || !garden || !client)
     return (
       <Modal title="Podsumowanie wizyty" onClose={onClose}>
@@ -80,7 +82,7 @@ export default function VisitSummary({
   const active = data.timer?.jobId === jobId;
   return (
     <Modal title="Podsumowanie wizyty" onClose={onClose} wide>
-      <div className="visit-summary">
+      <div ref={guard.ref} className="visit-summary">
         <div className="visit-summary-heading">
           <div>
             <h3>{job.title}</h3>
@@ -126,7 +128,7 @@ export default function VisitSummary({
         <section className="visit-summary-section">
           <div className="visit-summary-section-heading">
             <h4>Zakres zaplanowanych prac</h4>
-            <button className="button secondary" onClick={onEdit}>
+            <button className="button secondary" onClick={() => guard.confirm(onEdit)}>
               Edytuj zakres, czynności i materiały
             </button>
           </div>
@@ -221,7 +223,7 @@ export default function VisitSummary({
             <button
               className="button secondary"
               disabled={active}
-              onClick={onTime}
+              onClick={() => guard.confirm(onTime)}
             >
               Przejdź do korekty czasu
             </button>
@@ -238,7 +240,7 @@ export default function VisitSummary({
             <h4>Materiały i ilości</h4>
             <button
               className="button secondary"
-              onClick={() => onNavigate('billing')}
+              onClick={() => guard.confirm(() => onNavigate('billing'))}
             >
               Przejdź do materiałów i rozliczenia
             </button>
@@ -263,7 +265,7 @@ export default function VisitSummary({
             <h4>Checklisty i postęp</h4>
             <button
               className="button secondary"
-              onClick={() => onNavigate('checklists')}
+              onClick={() => guard.confirm(() => onNavigate('checklists'))}
             >
               Otwórz checklisty wizyty
             </button>
@@ -281,7 +283,7 @@ export default function VisitSummary({
             <h4>Dokumentacja fotograficzna</h4>
             <button
               className="button secondary"
-              onClick={() => onNavigate('photos')}
+              onClick={() => guard.confirm(() => onNavigate('photos'))}
             >
               Otwórz galerię wizyty
             </button>
@@ -308,7 +310,7 @@ export default function VisitSummary({
             <h4>Notatki wewnętrzne</h4>
             <button
               className="button secondary"
-              onClick={() => onNavigate('notes')}
+              onClick={() => guard.confirm(() => onNavigate('notes'))}
             >
               Otwórz notatki wizyty
             </button>
@@ -330,7 +332,7 @@ export default function VisitSummary({
             <button
               className="button secondary"
               disabled={job.status !== 'completed'}
-              onClick={onBilling}
+              onClick={() => guard.confirm(onBilling)}
             >
               Otwórz rozliczenie wizyty
             </button>

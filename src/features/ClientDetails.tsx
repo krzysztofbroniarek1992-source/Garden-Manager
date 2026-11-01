@@ -1,11 +1,10 @@
+import { useViewState } from '../navigation/Navigation';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
 import ClientForm from './ClientForm';
 import GardenForm from './GardenForm';
-import { lazy, Suspense } from 'react';
 import { useCardNavigation } from './card-navigation';
 import GroupedJobHistory from './GroupedJobHistory';
-const RelatedCards=lazy(()=>import('./RelatedCards'));
 import JobForm from './JobForm';
 import { localDate, type Garden } from '../domain';
 import { useState } from 'react';
@@ -22,19 +21,16 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
   const { data, saveJob } = useGarden();
   const now = useNow();
   const navigation=useCardNavigation();
-  const openGarden=(id:string)=>navigation?navigation.open({kind:'garden',id}):setSelectedGarden(id);
-  const openJob=(id:string,initialBilling=false)=>{if(navigation)navigation.open({kind:'job',id,initialBilling});else{setJobBilling(initialBilling);setSelectedJob(id);}};
-  const [selectedGarden, setSelectedGarden] = useState('');
+  const openGarden=(id:string)=>navigation?.open({kind:'garden',id});
+  const openJob=(id:string,initialBilling=false)=>navigation?.open({kind:'job',id,initialBilling});
   const [editClient, setEditClient] = useState(false);
   const [editGarden, setEditGarden] = useState<Garden | null>(null);
   const [newJob, setNewJob] = useState<Job | null>(null);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [gardenFilter, setGardenFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('');
-  const [workFilter, setWorkFilter] = useState<Job['status'] | ''>('');
-  const [jobBilling,setJobBilling]=useState(false);
-  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [from, setFrom] = useViewState('from', '');
+  const [to, setTo] = useViewState('to', '');
+  const [gardenFilter, setGardenFilter] = useViewState('gardenFilter', '');
+  const [paymentFilter, setPaymentFilter] = useViewState<PaymentFilter>('paymentFilter', '');
+  const [workFilter, setWorkFilter] = useViewState<Job['status'] | ''>('workFilter', '');
   const client = data.clients.find(item => item.id === clientId);
   const gardens = data.gardens.filter(item => item.clientId === clientId);
   const gardenIds = new Set(gardens.map(item => item.id));
@@ -89,11 +85,9 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
     </section>
     <ContextNotes scope={{ clientId }} title="Notatki klienta"/>
     <PhotoGallery key={clientId} scope={{ clientId }} title="Galeria klienta"/>
-    {selectedGarden && <Suspense fallback={<p role="status">Otwieranie ogrodu…</p>}><RelatedCards initial={{kind:'garden',id:selectedGarden}} originClientId={clientId} onClose={() => setSelectedGarden('')}/></Suspense>}
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
     {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); openJob(job.id); }}/>}
-    {selectedJob && <Suspense fallback={<p role="status">Otwieranie zlecenia…</p>}><RelatedCards initial={{kind:'job',id:selectedJob,initialBilling:jobBilling}} originClientId={clientId} onClose={() => setSelectedJob(null)}/></Suspense>}
   </section>;
 }
 

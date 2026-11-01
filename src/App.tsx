@@ -1,3 +1,7 @@
+import { useUnsavedChanges } from './navigation/unsaved'
+import RelatedCards from './features/RelatedCards'
+import { NavigationProvider, useNavigation, ViewScope } from './navigation/Navigation'
+import type { Page } from './navigation/routes'
 import Notes from './desk/Notes'
 import Todos from './desk/Todos'
 import DeskOverview, { DeskQuickActions } from './desk/Overview'
@@ -19,7 +23,6 @@ import './features/dashboard-finance.css'
 
 const TemplateLibrary = lazy(() => import('./checklists/Library'))
 
-type Page = 'dashboard' | 'clients' | 'gardens' | 'jobs' | 'calendar' | 'history' | 'materials' | 'calculators' | 'notes' | 'todos' | 'templates'
 const navigation = [
   { id: 'dashboard', label: 'Panel główny', short: 'Pulpit', icon: LayoutDashboard },
   { id: 'clients', label: 'Klienci', short: 'Klienci', icon: Users },
@@ -35,33 +38,30 @@ const navigation = [
 ] as const
 function ClipboardIcon({ size = 20 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/></svg> }
 
-export default function App() {
-  const [page, setPage] = useState<Page>(() => {
-    const hash = location.hash.slice(1)
-    return navigation.some(item => item.id === hash) ? hash as Page : 'dashboard'
-  })
+export default function App() { return <NavigationProvider><AppContent/></NavigationProvider> }
+function AppContent() {
+  const navigationState = useNavigation()
+  const page = navigationState.route.page
   const [settings, setSettings] = useState(false)
   const [online, setOnline] = useState(navigator.onLine)
   const [more, setMore] = useState(false)
   const { data, error } = useGarden()
-  const go = (value: Page) => { setPage(value); location.hash = value; setMore(false); window.scrollTo({ top: 0 }) }
+  const go = (value: Page) => { navigationState.go(value); setMore(false) }
   useEffect(() => {
-    const onHash = () => { const hash = location.hash.slice(1); if (navigation.some(n => n.id === hash)) setPage(hash as Page) }
     const onOnline = () => setOnline(navigator.onLine)
-    window.addEventListener('hashchange', onHash)
     window.addEventListener('online', onOnline); window.addEventListener('offline', onOnline)
-    return () => { window.removeEventListener('hashchange', onHash); window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOnline) }
+    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOnline) }
   }, [])
   return <div className="app-shell">
     <aside className="sidebar">
-      <a href="#dashboard" className="brand" onClick={() => go('dashboard')}><span className="brand-icon"><Leaf size={25}/></span><span>garden<span className="brand-light">manager</span><small>TWÓJ BIZNES. NATURALNIE.</small></span></a>
+      <a href="#dashboard" className="brand" onClick={event => {event.preventDefault();go('dashboard')}}><span className="brand-icon"><Leaf size={25}/></span><span>garden<span className="brand-light">manager</span><small>TWÓJ BIZNES. NATURALNIE.</small></span></a>
       <div className="workspace-label">PRZESTRZEŃ ROBOCZA</div>
       <nav aria-label="Nawigacja główna">{navigation.map(item => <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => go(item.id)}><item.icon size={20}/><span>{item.label}</span>{item.id === 'jobs' && <span className="nav-count">{data.jobs.filter(j => j.status !== 'completed').length}</span>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="demo-sidebar"><span className="demo-dot"/> Wersja demonstracyjna<p>Poznaj swój nowy rytm pracy.<br/>Dane zapisujemy na tym urządzeniu.</p><span className="version-tag">WERSJA 0.3.6</span></div><button className="nav-item" onClick={() => setSettings(true)}><Settings2 size={20}/>Ustawienia</button><div className="profile"><span className="avatar">OG</span><div><strong>Moja firma ogrodnicza</strong><small>Konto demonstracyjne</small></div><ShieldCheck size={17}/></div></div>
     </aside>
     <div className="app-body">
       <header className="topbar"><div className="breadcrumb"><span>Moja firma</span><ChevronRight size={15}/><strong>{navigation.find(n => n.id === page)?.label}</strong></div><div className="topbar-right"><span className="connection">{online ? <Wifi size={15}/> : <WifiOff size={15}/>}<span>{online ? 'Zapis lokalny' : 'Tryb offline'}</span></span><span className="topbar-divider"/><span className="demo-badge">DEMO · DANE TESTOWE</span><button className="avatar small" aria-label="Ustawienia konta demonstracyjnego" onClick={() => setSettings(true)}>OG</button></div></header>
-      <main id="main-content">{error && <div role="alert" className="error-banner">{error}</div>}{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'materials' ? <Materials/> : page === 'calculators' ? <Calculators/> : page === 'notes' ? <Notes/> : page === 'todos' ? <Todos/> : page === 'templates' ? <Suspense fallback={<p role="status">Otwieranie szablonów prac…</p>}><TemplateLibrary/></Suspense> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</main>
+      <main id="main-content">{navigationState.invalid && <div role="alert" className="error-banner">Nieprawidłowy adres widoku. Wybierz obiekt z listy.<button className="button secondary" onClick={() => go(page)}>Pokaż listę</button></div>}{error && <div role="alert" className="error-banner">{error}</div>}<ViewScope.Provider value={`page:${page}`}><div hidden={page === 'clients' && navigationState.route.cards[0]?.kind === 'client'} inert={navigationState.route.cards.length > 0}>{page === 'dashboard' ? <Dashboard go={go}/> : page === 'clients' ? <Clients/> : page === 'gardens' ? <Gardens/> : page === 'materials' ? <Materials/> : page === 'calculators' ? <Calculators/> : page === 'notes' ? <Notes/> : page === 'todos' ? <Todos/> : page === 'templates' ? <Suspense fallback={<p role="status">Otwieranie szablonów prac…</p>}><TemplateLibrary/></Suspense> : page === 'calendar' ? <Calendar onOpenJobs={() => go('jobs')}/> : <Jobs key={page} history={page === 'history'}/>}</div></ViewScope.Provider><RelatedCards/></main>
       <footer className="app-footer"><span><Leaf size={13}/> Garden Manager <span className="footer-version">0.3.6</span></span><span>Dobra organizacja. Więcej czasu na to, co rośnie.</span></footer>
     </div>
     {more && <div className="mobile-more"><button onClick={() => go('templates')}><ListChecks size={20}/>Szablony prac</button><button onClick={() => go('notes')}><StickyNote size={20}/>Notatki</button><button onClick={() => go('todos')}><ListTodo size={20}/>Do zrobienia</button><button onClick={() => go('materials')}><Package size={20}/>Materiały</button><button onClick={() => go('calculators')}><Calculator size={20}/>Kalkulatory</button><button onClick={() => { go('history') }}><History size={20}/>Historia prac</button><button onClick={() => {setSettings(true);setMore(false)}}><Settings2 size={20}/>Ustawienia</button></div>}
@@ -132,11 +132,12 @@ function Stat({label,value,note,icon,tone}:{label:string,value:string,note:strin
 function Settings({onClose}:{onClose:()=>void}) {
   const {data,setRate} = useGarden()
   const [rate,changeRate] = useState(String(data.settings.hourlyRate))
+  const guard = useUnsavedChanges(rate !== String(data.settings.hourlyRate))
   const [message,setMessage] = useState('')
   useEffect(() => { changeRate(String(data.settings.hourlyRate)); setMessage('') }, [data.photoRestoreId])
   const save=(e:FormEvent)=>{e.preventDefault();try{setRate(Number(rate));setMessage('Zapisano domyślną stawkę dla nowych zleceń.')}catch(e){setMessage((e as Error).message)}}
   const backup=()=>{const blob=new Blob([JSON.stringify({version:STORAGE_VERSION,data},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`garden-manager-${localDate()}.json`;link.click();URL.revokeObjectURL(url)}
-  return <Modal title="Ustawienia" onClose={onClose}><div className="settings-intro"><span className="badge badge-green">Tryb demonstracyjny</span><p className="muted">Jedna firma, jedno miejsce na Twoją pracę. Dane pozostają na tym urządzeniu.</p></div><form onSubmit={save}><label className="field">Domyślna stawka godzinowa (zł/h)<input type="number" min="0" max="100000" step="0.01" required value={rate} onChange={e=>changeRate(e.target.value)}/></label><p className="muted settings-help">Zmiana dotyczy nowych zleceń. Stawki w istniejących zleceniach pozostają zachowane.</p><button className="button primary" type="submit"><Check size={17}/>Zapisz ustawienia</button>{message && <p role="status" className="settings-message">{message}</p>}</form><div className="settings-backup"><h3>Kopia danych lokalnych</h3><p className="muted">Eksport JSON obejmuje wszystkie dane, notatki, przypomnienia, sprawy i metadane zdjęć, ale nie zawiera plików zdjęć. Do pełnego zabezpieczenia i odtworzenia użyj kopii ZIP poniżej.</p><button className="button secondary" onClick={backup}><ArrowDownToLine size={17}/>Eksportuj dane</button></div><FullBackupPanel/><div className="settings-backup"><h3>Synchronizacja Supabase</h3><p className="muted">Struktura bazy i zasady dostępu są przygotowane w repozytorium. Logowanie i synchronizacja to kolejny etap; obecna wersja działa bez konta.</p></div></Modal>
+  return <Modal title="Ustawienia" onClose={onClose}><div className="settings-intro"><span className="badge badge-green">Tryb demonstracyjny</span><p className="muted">Jedna firma, jedno miejsce na Twoją pracę. Dane pozostają na tym urządzeniu.</p></div><form ref={guard.ref} onSubmit={save}><label className="field">Domyślna stawka godzinowa (zł/h)<input type="number" min="0" max="100000" step="0.01" required value={rate} onChange={e=>changeRate(e.target.value)}/></label><p className="muted settings-help">Zmiana dotyczy nowych zleceń. Stawki w istniejących zleceniach pozostają zachowane.</p><button className="button primary" type="submit"><Check size={17}/>Zapisz ustawienia</button>{message && <p role="status" className="settings-message">{message}</p>}</form><div className="settings-backup"><h3>Kopia danych lokalnych</h3><p className="muted">Eksport JSON obejmuje wszystkie dane, notatki, przypomnienia, sprawy i metadane zdjęć, ale nie zawiera plików zdjęć. Do pełnego zabezpieczenia i odtworzenia użyj kopii ZIP poniżej.</p><button className="button secondary" onClick={backup}><ArrowDownToLine size={17}/>Eksportuj dane</button></div><FullBackupPanel/><div className="settings-backup"><h3>Synchronizacja Supabase</h3><p className="muted">Struktura bazy i zasady dostępu są przygotowane w repozytorium. Logowanie i synchronizacja to kolejny etap; obecna wersja działa bez konta.</p></div></Modal>
 }
 
 function Botanical(){return <svg className="botanical" viewBox="0 0 400 280" fill="none" aria-hidden="true"><circle cx="226" cy="140" r="112" fill="#e0e9d9" opacity=".55"/><circle cx="226" cy="140" r="92" stroke="#c7d4bf" strokeDasharray="3 7"/><path d="M218 258c13-88 26-145 24-221M229 173c-46-24-64-43-77-74M235 125c33-19 55-42 62-70M221 219c37-15 67-43 80-68" stroke="#51745a" strokeWidth="3" strokeLinecap="round"/><path d="M239 90c-46-8-64-33-53-60 37-3 64 17 53 60Z" fill="#557957"/><path d="M243 68c3-44 28-60 50-49 9 31-13 51-50 49Z" fill="#91ab77"/><path d="M233 139c-54 1-83-21-80-55 42-9 76 13 80 55Z" fill="#829d70"/><path d="M240 120c12-45 46-66 75-50-3 34-28 56-75 50Z" fill="#426c50"/><path d="M227 183c-53 2-88-24-83-58 46-7 76 13 83 58Z" fill="#365f47"/><path d="M229 179c14-38 44-53 73-41 1 32-28 51-73 41Z" fill="#a3b488"/><path d="M220 226c-51 3-91-21-87-58 47-5 79 19 87 58Z" fill="#67895d"/><path d="M224 220c17-40 53-57 82-38-4 35-38 52-82 38Z" fill="#446e50"/><path d="m150 99 80 42m-79 1 74 42m-83 0 77 42m28-108 53-39m-68 96 55-28m-59 69 61-26" stroke="#c7d6ac" strokeWidth="1.4" opacity=".55"/><path d="M84 235c1-42-2-65-23-88m23 63c-22-12-31-26-29-44 22 5 34 23 29 44Zm-1-17c18-22 22-41 10-57-17 15-21 34-10 57Z" fill="#9eb18a"/><circle cx="326" cy="105" r="5" fill="#e39c59"/><circle cx="111" cy="84" r="4" fill="#e39c59"/><path d="M322 219h16m-8-8v16" stroke="#9aac8c" strokeWidth="2"/></svg>}

@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -138,6 +139,8 @@ export default function ReportPanel({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [showPdf, setShowPdf] = useState(false);
+  const saved = prepared && job?.reports?.some(r => r.id === prepared.record.id);
+  const guard = useUnsavedChanges<HTMLDivElement>(!saved && (!!prepared || JSON.stringify(options) !== JSON.stringify(defaultReportOptions())));
   const service = useMemo(
     () =>
       new ReportService(
@@ -200,7 +203,7 @@ export default function ReportPanel({
   };
   return (
     <Modal title="Raport PDF dla klienta" onClose={onClose} wide>
-      <div className="report-builder">
+      <div ref={guard.ref} className="report-builder">
         <h3>{job.title}</h3>
         <p className="gm-form-note">
           Raport korzysta z zapisanego opisu wykonanych prac i danych wizyty.

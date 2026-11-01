@@ -1,3 +1,6 @@
+import { useNavigation, ViewScope } from '../navigation/Navigation';
+import { useContext } from 'react';
+import { requestLeave, useUnsavedChanges } from '../navigation/unsaved';
 import TimeHistory from '../reports/TimeHistory';
 import '../reports/reports.css';
 import { visitZone } from '../reports/model';
@@ -5,7 +8,7 @@ import type { VisitSection } from '../reports/VisitSummary';
 import { incompleteVisitChecklists } from '../checklists/model';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
-import { lazy, Suspense, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { CalendarDays, Check, CheckCheck, Clock3, CreditCard, MapPin, Pencil, Plus, ReceiptText, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import Modal from '../components/Modal';
 import PaymentBadge from '../components/PaymentBadge';
@@ -19,7 +22,6 @@ import './payments.css';
 import './billing.css';
 import { useCardNavigation, type RelatedCard } from './card-navigation';
 import './garden-details.css';
-const RelatedCards=lazy(()=>import('./RelatedCards'));
 
 const VisitSummary = lazy(() => import('../reports/VisitSummary'));
 const ChecklistPanel = lazy(() => import('../checklists/ChecklistPanel'));
@@ -33,14 +35,16 @@ type PaymentDraft = { payment: Payment; original: Payment | null; amount: string
 export default function JobDetails({ jobId, onClose, initialBilling = false, active=true }: { jobId: string; onClose: () => void; initialBilling?: boolean; active?:boolean }) {
   const { data, savePayment, deletePayment, saveJob, startTimer, pauseTimer, resumeTimer, stopTimer, completeJob } = useGarden();
   const now = useNow();
+  const controller=useNavigation(), scope=useContext(ViewScope);
+  useEffect(()=>{controller.memory.delete(`${scope}:billing-editor`);},[jobId]);
   const navigation=useCardNavigation();
-  const [related,setRelated]=useState<RelatedCard|null>(null);
-  const openRelated=(card:RelatedCard)=>navigation?navigation.open(card):setRelated(card);
+  const openRelated=(card:RelatedCard)=>navigation?.open(card);
   const detailsRef = useRef<HTMLDivElement>(null);
   const [summaryOpen,setSummaryOpen] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<PaymentDraft | null>(null);
+  const paymentGuard = useUnsavedChanges<HTMLElement>(draft !== null);
   const [pending, setPending] = useState<Payment | null>(null);
   const [removing, setRemoving] = useState<Payment | null>(null);
   const [error, setError] = useState('');
@@ -48,6 +52,13 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
   const [editingJob, setEditingJob] = useState(false);
   const [notice, setNotice] = useState('');
   const [panel, setPanel] = useState<'billing' | 'time' | null>(initialBilling ? 'billing' : null);
+  useEffect(() => {
+    if (!active) return;
+    const section = navigation?.section ?? (initialBilling ? 'billing' : undefined);
+    if (!section) return;
+    const frame = requestAnimationFrame(() => { const target=detailsRef.current?.querySelector<HTMLElement>(`[data-visit-section="${section}"]`); target?.scrollIntoView({block:'start'}); target?.focus({preventScroll:true}); });
+    return () => cancelAnimationFrame(frame);
+  }, [active, navigation?.section, initialBilling]);
   const job = data.jobs.find(item => item.id === jobId);
   if (!job) return <Modal title="Szczegóły zlecenia" onClose={onClose} active={active}><p className="muted">To zlecenie nie jest już dostępne. Zamknij panel i odśwież listę.</p></Modal>;
   const garden = data.gardens.find(item => item.id === job.gardenId);
@@ -71,7 +82,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
 
   function persist(payment: Payment) {
     try {
-      savePayment(payment, draft?.original ?? null);
+      paymentGuard.save(() => savePayment(payment, draft?.original ?? null));
       setNotice(draft?.existing ? 'Zapis płatności został poprawiony.' : 'Płatność została zapisana.');
       setDraft(null); setPending(null); setError('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać płatności.'); }
@@ -99,13 +110,13 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
   }
 
   const runVisit = (action: () => void) => { try { action(); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać wizyty.'); } };
-  const navigateSection = (section: VisitSection) => { setSummaryOpen(false); requestAnimationFrame(() => { const target=detailsRef.current?.querySelector<HTMLElement>(`[data-visit-section="${section}"]`); target?.scrollIntoView({behavior:'smooth',block:'start'}); target?.focus({preventScroll:true}); }); };
-  const closeForm = () => { setDraft(null); setPending(null); setError(''); };
-  return <><Modal title="Szczegóły zlecenia" onClose={onClose} active={active&&!related} wide><div className="payment-details" ref={detailsRef}>
+  const navigateSection = (section: VisitSection) => { setSummaryOpen(false); navigation?.setSection(section); requestAnimationFrame(() => {const target=detailsRef.current?.querySelector<HTMLElement>(`[data-visit-section="${section}"]`);target?.scrollIntoView({block:'start'});target?.focus({preventScroll:true});}); };
+  const closeForm = () => paymentGuard.confirm(() => { setDraft(null); setPending(null); setError(''); });
+  return <><Modal title="Szczegóły zlecenia" onClose={onClose} active={active} wide><div className="payment-details" ref={detailsRef}>
     <nav className="related-card-links" aria-label="Powiązania zlecenia">{navigation&&<button className="button secondary" onClick={onClose}>{navigation.backLabel}</button>}{garden&&<button className="button secondary" onClick={()=>openRelated({kind:'garden',id:garden.id})}>Ogród: {garden.name}</button>}{client&&<button className="button secondary" onClick={()=>openRelated({kind:'client',id:client.id})}>Klient: {client.name}</button>}</nav>
     <nav className="visit-card-nav" aria-label="Nawigacja karty wizyty"><button className="button primary" onClick={() => setSummaryOpen(true)}>Podsumowanie wizyty</button><button className="button secondary" onClick={() => navigateSection('work')}>Zakres i czas</button><button className="button secondary" onClick={() => navigateSection('billing')}>Materiały i rozliczenie</button><button className="button secondary" onClick={() => navigateSection('notes')}>Notatki</button><button className="button secondary" onClick={() => navigateSection('photos')}>Zdjęcia</button></nav>
     {incompleteVisitChecklists(data,job.id).length>0 && <p role="status" className="checklist-finish-warning">{job.status==='completed'?'Wizyta zakończona z niepełną checklistą.':'Checklista nie jest ukończona. Możesz zakończyć wizytę; niewykonane czynności i postęp pozostaną zachowane.'}</p>}
-    <div className="job-actions"><button className="button secondary" onClick={() => { checklistRef.current?.scrollIntoView({behavior:'smooth',block:'start'});checklistRef.current?.focus({preventScroll:true}); }}>Checklisty wizyty ({data.checklists.filter(c=>c.jobId===job.id).length})</button><button className="button secondary" onClick={() => { setCalculating(v => !v); setEditingJob(false); }}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => { setEditingJob(value => !value); setCalculating(false); }}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={(draft,expected) => { saveJob(draft,expected); setEditingJob(false); }}/>}
+    <div className="job-actions"><button className="button secondary" onClick={() => navigateSection('checklists')}>Checklisty wizyty ({data.checklists.filter(c=>c.jobId===job.id).length})</button><button className="button secondary" onClick={() => requestLeave(() => { setCalculating(v => !v); setEditingJob(false); }, detailsRef.current)}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => requestLeave(() => { setEditingJob(value => !value); setCalculating(false); }, detailsRef.current)}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={(draft,expected) => { saveJob(draft,expected); setEditingJob(false); }}/>}
     {calculating && <CalculatorPanel initialGardenId={job.gardenId} jobId={job.id}/>}
     <div data-visit-section="work" tabIndex={-1} className="payment-job-heading visit-section-target"><div><h3>{job.title}</h3><p>{client?.name}</p></div><span className={`badge status-${job.status}`}>{workLabels[job.status]}</span></div>
     <div className="payment-job-meta"><span><MapPin size={14}/>{garden?.name}{visitZone(data,job)&&` · ${visitZone(data,job)}`}{garden?.address && ` · ${garden.address}`}</span><span><CalendarDays size={14}/>{displayDate(job.date)}, {job.time}</span><span><Clock3 size={14}/>{duration(elapsedSeconds(job, data.timer, now))}</span></div>
@@ -136,13 +147,13 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
     {notice && <p className="payment-notice" role="status">{notice}</p>}
     {error && <div className="gm-form-error" role="alert">{error}</div>}
     {remaining <= 0 && !draft && <p className="payment-zero-note">{paid > 0 ? 'Cała bieżąca należność została opłacona.' : 'To zlecenie nie ma obecnie kwoty do zapłaty.'}</p>}
-    {draft && <section className="payment-form-panel" aria-label={draft.existing ? 'Edycja płatności' : 'Nowa płatność'}><div className="payment-form-heading"><h3>{draft.existing ? 'Edytuj płatność' : 'Nowa płatność'}</h3><button className="icon-button" aria-label="Anuluj formularz płatności" onClick={closeForm}><X size={18}/></button></div>{pending ? <div className="payment-confirm" role="group" aria-label="Potwierdzenie zmiany płatności"><strong>Potwierdź korektę wpisu</strong><p>Zmieniasz płatność z {moneyCents(draft.original?.amountCents ?? 0)} na <strong>{moneyCents(pending.amountCents)}</strong>, data {displayDate(pending.receivedDate)}, metoda: {methodLabels[pending.method]}.</p>{pending.note && <p>Notatka: {pending.note}</p>}<div className="payment-form-actions"><button className="button secondary" onClick={() => {setPending(null);setError('')}}>Wróć do edycji</button><button className="button primary" onClick={() => persist(pending)}>Potwierdź zmianę</button></div></div> : <form onSubmit={submit}><div className="form-grid"><label className="field">Kwota (zł)<input autoFocus required type="number" min="0.01" step="0.01" max={amountInput(maxAmount)} value={draft.amount} onChange={event => setDraft({ ...draft, amount: event.target.value })}/></label><label className="field">Data otrzymania<input required type="date" value={draft.payment.receivedDate} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, receivedDate: event.target.value } })}/></label><label className="field">Metoda płatności<select value={draft.payment.method} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, method: event.target.value as Payment['method'] } })}>{Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="field">Notatka (opcjonalnie)<input maxLength={1000} value={draft.payment.note} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, note: event.target.value } })} placeholder="np. pierwsza część zapłaty"/></label></div><p className="gm-form-note">Maksymalna kwota tego wpisu: {moneyCents(maxAmount)}. Pozostałe wpłaty zostaną zachowane.</p><div className="payment-form-actions"><button type="button" className="button secondary" onClick={closeForm}>Anuluj</button><button type="submit" className="button primary">{draft.existing ? 'Sprawdź zmianę' : 'Zapisz płatność'}</button></div></form>}</section>}
+    {draft && <section ref={paymentGuard.ref} className="payment-form-panel" aria-label={draft.existing ? 'Edycja płatności' : 'Nowa płatność'}><div className="payment-form-heading"><h3>{draft.existing ? 'Edytuj płatność' : 'Nowa płatność'}</h3><button className="icon-button" aria-label="Anuluj formularz płatności" onClick={closeForm}><X size={18}/></button></div>{pending ? <div className="payment-confirm" role="group" aria-label="Potwierdzenie zmiany płatności"><strong>Potwierdź korektę wpisu</strong><p>Zmieniasz płatność z {moneyCents(draft.original?.amountCents ?? 0)} na <strong>{moneyCents(pending.amountCents)}</strong>, data {displayDate(pending.receivedDate)}, metoda: {methodLabels[pending.method]}.</p>{pending.note && <p>Notatka: {pending.note}</p>}<div className="payment-form-actions"><button className="button secondary" onClick={() => {setPending(null);setError('')}}>Wróć do edycji</button><button className="button primary" onClick={() => persist(pending)}>Potwierdź zmianę</button></div></div> : <form onSubmit={submit}><div className="form-grid"><label className="field">Kwota (zł)<input autoFocus required type="number" min="0.01" step="0.01" max={amountInput(maxAmount)} value={draft.amount} onChange={event => setDraft({ ...draft, amount: event.target.value })}/></label><label className="field">Data otrzymania<input required type="date" value={draft.payment.receivedDate} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, receivedDate: event.target.value } })}/></label><label className="field">Metoda płatności<select value={draft.payment.method} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, method: event.target.value as Payment['method'] } })}>{Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="field">Notatka (opcjonalnie)<input maxLength={1000} value={draft.payment.note} onChange={event => setDraft({ ...draft, payment: { ...draft.payment, note: event.target.value } })} placeholder="np. pierwsza część zapłaty"/></label></div><p className="gm-form-note">Maksymalna kwota tego wpisu: {moneyCents(maxAmount)}. Pozostałe wpłaty zostaną zachowane.</p><div className="payment-form-actions"><button type="button" className="button secondary" onClick={closeForm}>Anuluj</button><button type="submit" className="button primary">{draft.existing ? 'Sprawdź zmianę' : 'Zapisz płatność'}</button></div></form>}</section>}
     {removing && <div className="payment-confirm payment-delete-confirm" role="group" aria-label="Potwierdzenie usunięcia płatności"><strong>Usunąć błędną płatność?</strong><p>Usuniesz wpis {moneyCents(removing.amountCents)} z {displayDate(removing.receivedDate)}. Saldo zlecenia zostanie przeliczone. Tej operacji nie można cofnąć.</p><div className="payment-form-actions"><button className="button secondary" onClick={() => {setRemoving(null);setError('')}}>Anuluj</button><button className="button danger" onClick={remove}>Potwierdź usunięcie</button></div></div>}
     {payments.length > 0 ? <div className="payment-history"><table><caption className="payment-sr-only">Zarejestrowane płatności zlecenia {job.title}</caption><thead><tr><th>Data</th><th>Kwota</th><th>Metoda / notatka</th><th><span className="payment-sr-only">Operacje</span></th></tr></thead><tbody>{payments.map(payment => <tr key={payment.id}><td data-label="Data">{displayDate(payment.receivedDate)}</td><td data-label="Kwota"><strong>{moneyCents(payment.amountCents)}</strong></td><td data-label="Metoda / notatka"><span>{methodLabels[payment.method]}</span>{payment.note && <small>{payment.note}</small>}<small className="payment-entry-id">ID: {payment.id}</small></td><td className="payment-entry-actions"><button className="icon-button" disabled={!!draft || !!removing || panel !== null} aria-label={`Edytuj płatność ${moneyCents(payment.amountCents)} z ${displayDate(payment.receivedDate)}`} onClick={() => begin(payment)} title="Edytuj płatność"><Pencil size={16}/></button><button className="icon-button" disabled={!!draft || !!removing || panel !== null} aria-label={`Usuń płatność ${moneyCents(payment.amountCents)} z ${displayDate(payment.receivedDate)}`} onClick={() => {setRemoving(payment);setNotice('');setError('')}} title="Usuń płatność"><Trash2 size={16}/></button></td></tr>)}</tbody></table></div> : !draft && <div className="payment-empty"><ReceiptText size={28}/><p>Nie zarejestrowano jeszcze żadnej płatności.</p><span>Zakończenie pracy nie oznacza jej opłacenia.</span></div>}
-    <div data-visit-section="checklists" ref={checklistRef} tabIndex={-1} className="checklist-gallery-target"><Suspense fallback={<p role="status">Otwieranie checklist…</p>}><ChecklistPanel target={{kind:'visit',jobId:job.id}} onOpenGallery={() => { galleryRef.current?.scrollIntoView({behavior:'smooth',block:'start'});galleryRef.current?.focus({preventScroll:true}); }}/></Suspense></div>
+    <div data-visit-section="checklists" ref={checklistRef} tabIndex={-1} className="checklist-gallery-target"><Suspense fallback={<p role="status">Otwieranie checklist…</p>}><ChecklistPanel target={{kind:'visit',jobId:job.id}} onOpenGallery={() => navigateSection('photos')}/></Suspense></div>
     <div data-visit-section="notes" tabIndex={-1} className="visit-section-target"><ContextNotes scope={{ jobId: job.id }} title="Notatki zlecenia i wizyty"/></div>
     <div data-visit-section="photos" ref={galleryRef} tabIndex={-1} className="checklist-gallery-target"><PhotoGallery key={job.id} scope={{ jobId: job.id }} title="Galeria zlecenia i wizyty"/></div>
     {summaryOpen && <Suspense fallback={<p role="status">Otwieranie podsumowania…</p>}><VisitSummary jobId={job.id} onClose={() => setSummaryOpen(false)} onNavigate={navigateSection} onEdit={() => { setSummaryOpen(false);setEditingJob(true);setCalculating(false); }} onTime={() => {setSummaryOpen(false);if(!draft&&!removing&&panel===null)setPanel('time');navigateSection('work');}} onBilling={() => {setSummaryOpen(false);navigateSection('billing');}}/></Suspense>}
     <div className="payment-ledger-footer"><Wallet size={15}/><span>Kwoty rozliczamy w groszach. Płatności częściowe sumują się tylko raz.</span><CreditCard size={15}/></div>
-  </div></Modal>{related&&<Suspense fallback={<p role="status">Otwieranie powiązanej karty…</p>}><RelatedCards initial={related} originJobId={jobId} onClose={()=>setRelated(null)}/></Suspense>}</>;
+  </div></Modal></>;
 }

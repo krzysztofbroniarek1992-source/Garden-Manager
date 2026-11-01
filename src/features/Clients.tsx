@@ -1,10 +1,10 @@
+import { useNavigation, useViewState } from '../navigation/Navigation';
 import ClientForm from './ClientForm';
 import { useState } from 'react';
 import { ArrowUpRight, Mail, Pencil, Phone, Plus, Search, Sprout, Trash2, Users, X } from 'lucide-react';
 import type { Client } from '../domain';
 import { useGarden } from '../state';
 import Modal from '../components/Modal';
-import ClientDetails from './ClientDetails';
 import './entities.css';
 import './client-details.css';
 
@@ -13,22 +13,15 @@ const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).m
 
 export default function Clients() {
   const { data, deleteClient } = useGarden();
-  const [query, setQuery] = useState('');
+  const navigation = useNavigation();
+  const [query, setQuery] = useViewState('query', '');
   const [editing, setEditing] = useState<Client | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [removing, setRemoving] = useState<Client | null>(null);
   const [error, setError] = useState('');
-  const [selectedClient, setSelectedClient] = useState<string | null>(() => new URLSearchParams(location.search).get('client'));
   const matches = data.clients.filter(client => `${client.name} ${client.phone} ${client.email}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl')));
 
-  function openClient(id: string | null) {
-    setSelectedClient(id);
-    const url = new URL(location.href);
-    if (id) url.searchParams.set('client', id);
-    else url.searchParams.delete('client');
-    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-    window.scrollTo({ top: 0 });
-  }
+  const openClient = (id: string) => navigation.open({ kind: 'client', id });
 
   function edit(client?: Client) {
     setError('');
@@ -43,7 +36,6 @@ export default function Clients() {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się usunąć klienta.'); }
   }
 
-  if (selectedClient) return <ClientDetails clientId={selectedClient} onBack={() => openClient(null)}/>;
 
   return <section className="entities-page">
     <div className="page-heading">

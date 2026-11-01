@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import type { Client } from '../domain';
 import { useGarden } from '../state';
@@ -6,18 +7,19 @@ export default function ClientForm({ initial, isNew, onClose }: { initial: Clien
   const { saveClient } = useGarden();
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(initial));
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
     try {
       if (!editing.name.trim()) throw new Error('Podaj imię i nazwisko lub nazwę firmy.');
-      saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() });
-      onClose();
+      guard.save(() => { saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() });
+      onClose(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać klienta.'); }
   }
 
  return <Modal title={isNew ? 'Nowy klient' : 'Edytuj klienta'} onClose={() => onClose()}>
-      <form onSubmit={submit}>
+      <form ref={guard.ref} onSubmit={submit}>
         {error && <p className="gm-form-error" role="alert">{error}</p>}
         <div className="form-grid">
           <label className="field full-width">Imię i nazwisko / nazwa firmy *<input required maxLength={150} name="name" autoComplete="name" value={editing.name} onChange={event => setEditing({ ...editing, name: event.target.value })} placeholder="np. Anna Kowalska" /></label>
@@ -26,7 +28,7 @@ export default function ClientForm({ initial, isNew, onClose }: { initial: Clien
           <label className="field full-width">Notatki<textarea maxLength={3000} value={editing.notes} onChange={event => setEditing({ ...editing, notes: event.target.value })} placeholder="Preferowany kontakt, wskazówki, ważne informacje…" /></label>
         </div>
         <p className="gm-form-note">* Pole wymagane. Ogrody przypiszesz w zakładce „Obiekty”.</p>
-        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => onClose()}>Anuluj</button><button className="button primary" type="submit">{isNew ? 'Dodaj klienta' : 'Zapisz zmiany'}</button></div>
+        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit">{isNew ? 'Dodaj klienta' : 'Zapisz zmiany'}</button></div>
       </form>
     </Modal>;
 }
