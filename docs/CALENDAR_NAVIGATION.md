@@ -79,3 +79,23 @@ Testy jednostkowe tras i projekcji: `src/navigation/*.test.ts`. Nowe E2E:
 PWA: `pwa-tests/calendar-navigation-offline.spec.ts`. Scenariusze obejmują
 przesunięcia, pominięcia, powroty, nowe linki, odświeżenie, ochronę szkiców,
 brak duplikatów i zapisów biznesowych oraz telefony 360/390/430 px.
+
+## Wyniki walidacji i znane ograniczenie regresji
+
+- Testy jednostkowe: 357/357 (12 plików).
+- TypeScript: `npx tsc -b --pretty false` zakończony poprawnie.
+- Produkcyjny build i 8/8 testów PWA offline: `npm run test:pwa -- --reporter=line`.
+  Cache obejmuje 20 zasobów. Pozostaje wcześniejsze ostrzeżenie o wielkości
+  odroczonego pakietu PDF/fontkit (około 717 kB).
+- E2E: 141/142 w pełnym przebiegu; wszystkie 15 nowych scenariuszy nawigacji
+  przeszło, w tym telefony 360/390/430 px.
+- Jedyny błąd pełnego przebiegu dotyczył istniejącego testu równoległego zapisu
+  raportów PDF: dwie karty pobrały raporty z tym samym numerem. Ponowienie tego
+  scenariusza dało 6/6 zaliczeń na gałęzi etapu 2 oraz 6/6 na niezmienionym
+  main `5b06761`, przy tych samych asercjach. Przyczyna niestabilności pozostaje
+  niewyjaśniona; nie potwierdzono związku ze zmianami nawigacji. Ryzyko dotyczy
+  równoległego generowania raportów, które wymaga osobnej diagnozy.
+
+Nie zmieniano kodu raportów ani zapisu danych w celu usunięcia tej niestabilności.
+Dłuższe scenariusze migracji i generowania PDF w dwóch kartach mają limit 60 s;
+zachowano asercje unikalności numerów i odrzucania nieaktualnego podglądu.

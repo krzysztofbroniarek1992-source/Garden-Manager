@@ -594,3 +594,10 @@ od wyboru zlecenia do stopera. Samo przechodzenie między widokami nie zapisuje
 wystąpień, nie tworzy wizyt i nie uruchamia pomiaru czasu.
 
 [Przejścia, adresy, zgodność danych i zakres podglądu](docs/CALENDAR_NAVIGATION.md).
+
+Walidacja etapu 2: **357/357 jednostkowych**, **8/8 PWA offline**, TypeScript
+i build produkcyjny poprawne. E2E: **141/142** w pełnym przebiegu (wszystkie
+15 nowych scenariuszy nawigacji przeszło). Test równoległego zapisu PDF pobrał
+dwa raporty z tym samym numerem; ponowienia dały 6/6 zaliczeń na tej gałęzi
+oraz 6/6 na main. Przyczyna niestabilności pozostaje niewyjaśniona i jest
+opisana w dokumentacji; kod raportów i zapisu danych nie został zmieniony.
