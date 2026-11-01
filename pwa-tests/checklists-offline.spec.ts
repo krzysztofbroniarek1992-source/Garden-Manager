@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from '../tests/navigation-helpers';
 import { test, expect } from '@playwright/test';
 import type { Data } from '../src/domain';
 
@@ -21,6 +22,7 @@ test('checklisty i biblioteka otwierają się po raz pierwszy offline, zapisują
       );
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await closeOpenDialogs(page);
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
   await nav.getByRole('button', { name: 'Szablony prac', exact: true }).click();
   await expect(page.locator('.work-template-card')).toHaveCount(4);
@@ -132,6 +134,7 @@ test('checklisty i biblioteka otwierają się po raz pierwszy offline, zapisują
   await expect(checklist.locator('.checklist-photo img')).toBeVisible();
   const original = await snapshot();
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await closeOpenDialogs(page);
   await page
     .locator('.job-title-button')
     .filter({ hasText: 'Pielęgnacja ogrodu' })
@@ -187,6 +190,7 @@ test('checklisty i biblioteka otwierają się po raz pierwszy offline, zapisują
     settings.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await closeOpenDialogs(page);
   const restored = await snapshot();
   expect(restored.checklists).toEqual(original.checklists);
   expect(restored.workTemplates).toEqual(original.workTemplates);

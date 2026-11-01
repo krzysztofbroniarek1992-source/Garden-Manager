@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import {
   test as base,
   expect,
@@ -108,6 +109,7 @@ async function snapshot(page: Page): Promise<Data> {
   );
 }
 async function job(page: Page, completed = true) {
+  await closeOpenDialogs(page);
   await page
     .getByRole('navigation', { name: 'Nawigacja główna' })
     .getByRole('button', {

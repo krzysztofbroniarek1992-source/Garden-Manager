@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 import { createDemoData } from '../src/data/demo';
 import { STORAGE_VERSION } from '../src/data/repository';
@@ -26,7 +27,7 @@ async function seed(page: Page, data = fixture()) {
   await page.reload();
 }
 async function snapshot(page: Page): Promise<{ version: number; data: Data }> { return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!)); }
-async function calendar(page: Page) { await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Kalendarz', exact: true }).click(); }
+async function calendar(page: Page) { await closeOpenDialogs(page); await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Kalendarz', exact: true }).click(); }
 async function day(page: Page, date: string) { await page.getByLabel('Przejdź do dnia', { exact: true }).fill(date); }
 async function openTask(page: Page, title = 'Stałe koszenie') {
   await page.locator('.calendar-agenda').getByRole('button', { name: title, exact: true }).click();

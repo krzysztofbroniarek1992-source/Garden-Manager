@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from '../tests/navigation-helpers';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createDemoData } from '../src/data/demo';
@@ -66,7 +67,7 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
       ),
     nav = page.getByRole('navigation', { name: 'Nawigacja główna' });
-  const open = async () => {
+  const open = async () => { await closeOpenDialogs(page);
     await nav
       .getByRole('button', { name: 'Historia prac', exact: true })
       .click();

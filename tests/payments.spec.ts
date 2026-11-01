@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 
@@ -62,6 +63,7 @@ async function snapshot(page: Page) {
 }
 
 async function navigate(page: Page, name: string) {
+  await closeOpenDialogs(page);
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 
@@ -111,7 +113,7 @@ test('migracja 0.1 zachowuje dane: wiele ogrodów, kilkanaście zleceń, filtry 
   expect(migrated.data.payments).toEqual([]);
   expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
   await openClient(page);
-  await expect(page.getByText('600 111 222', { exact: true })).toBeVisible();
+  await expect(page.locator('.client-details-page').getByText('600 111 222', { exact: true })).toBeVisible();
   await expect(page.locator('.client-jobs-table tbody tr')).toHaveCount(12);
   await expect(page.getByText('Nie należy do tego klienta', { exact: true })).toHaveCount(0);
   await assertMetrics(page, '0,00', '1000,00');
@@ -136,6 +138,7 @@ test('migracja 0.1 zachowuje dane: wiele ogrodów, kilkanaście zleceń, filtry 
 });
 
 test('dwie części płatności, korekta z potwierdzeniem, usunięcie i trwałe saldo', async ({ page }) => {
+  test.setTimeout(60_000); // Several complete CRUD flows, reload and restored-card navigation.
   await seedLegacy(page);
   await openClient(page);
   const detail = await openFirstJob(page);
@@ -173,6 +176,7 @@ test('dwie części płatności, korekta z potwierdzeniem, usunięcie i trwałe 
 });
 
 test('ujemna płatność i nadpłata są blokowane, zakończenie nie oznacza zapłaty', async ({ page }) => {
+  test.setTimeout(60_000); // Validation, deliberate draft discard and a full completion flow.
   await seedLegacy(page);
   await openClient(page);
   const detail = await openFirstJob(page);
