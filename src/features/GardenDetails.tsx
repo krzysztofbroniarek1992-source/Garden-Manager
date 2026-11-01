@@ -3,6 +3,7 @@ import { useUnsavedChanges } from '../navigation/unsaved';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
 import {
+  useRef,
   useEffect,
   lazy,
   Suspense,
@@ -50,6 +51,7 @@ export default function GardenDetails({
   const navigation = useCardNavigation(),
     now = useNow(),
     id = useId();
+  const workspaceRef=useRef<HTMLDivElement>(null);
   const garden = data.gardens.find((item) => item.id === gardenId);
   const section = (navigation?.section ?? 'overview') as Section;
   const [visited, setVisited] = useState(() => new Set<Section>(['overview',section]));
@@ -65,6 +67,11 @@ export default function GardenDetails({
   const [error, setError] = useState('');
   const [calculating, setCalculating] = useState<string | null>(null);
   useEffect(() => {setVisited(previous=>new Set([...previous,section]));},[section]);
+  useEffect(()=>{
+    if(!active || section!=='zones' || !navigation?.zoneId)return;
+    const frame=requestAnimationFrame(()=>{const target=Array.from(workspaceRef.current?.querySelectorAll<HTMLElement>('[data-zone-id]')??[]).find(el=>el.dataset.zoneId===navigation.zoneId);target?.scrollIntoView({block:'center'});target?.focus({preventScroll:true});});
+    return ()=>cancelAnimationFrame(frame);
+  },[active,section,navigation?.zoneId,garden?.zones]);
   const jobs = useMemo(
     () => data.jobs.filter((j) => j.gardenId === gardenId),
     [data.jobs, gardenId],
@@ -114,7 +121,7 @@ export default function GardenDetails({
       fullScreen
       active={active && calculating === null}
     >
-      <div className="garden-workspace">
+      <div ref={workspaceRef} className="garden-workspace">
         <div className="garden-workspace-header">
           <div>
             <button className="client-back" onClick={onClose}>
@@ -230,6 +237,7 @@ export default function GardenDetails({
               )}
               {key === 'zones' && (
                 <>
+                  {navigation?.zoneId && !garden.zones.some(z=>z.id===navigation.zoneId) && <p role="status">Wskazana strefa nie jest już dostępna. Pozostałe informacje ogrodu są zachowane.</p>}
                   {zone ? (
                     <ZoneForm
                       key={zone.id}
@@ -314,7 +322,9 @@ export default function GardenDetails({
                       <div className="zone-list">
                         {garden.zones.map((item) => (
                           <article
-                            className="tool-card zone-card"
+                            className={`tool-card zone-card${navigation?.zoneId===item.id?' zone-navigation-target':''}`}
+                            data-zone-id={item.id}
+                            tabIndex={-1}
                             key={item.id}
                           >
                             <h4>

@@ -6,6 +6,7 @@ export interface CardNavigation {
   back(): void;
   backLabel: string;
   section?: string;
+  zoneId?: string;
   setSection(value: string): void;
   active: boolean;
 }

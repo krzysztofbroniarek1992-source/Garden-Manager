@@ -81,3 +81,53 @@ describe("addresses without business operations", () => {
     expect(validRoute(null)).toBe(false);
   });
 });
+
+describe("calendar and planning addresses", () => {
+  it.each([
+    { kind: "schedule", id: "seria / żółta" },
+    { kind: "task", id: "seria:1", originalDate: "2026-10-31" },
+    { kind: "garden", id: "garden-1", section: "zones", zoneId: "strefa/1" },
+  ] as const)("round trips $kind", (card) => {
+    const route: Route = {
+      page: "calendar",
+      cards: [card],
+      calendar: {
+        date: "2026-11-03",
+        anchor: "2026-11-01",
+        view: "week",
+        gardenId: "garden-1",
+        kind: "work",
+        status: "cancelled",
+      },
+    };
+    expect(parseAddress(`http://localhost:5173/${address(route)}`)).toEqual({
+      route,
+      invalid: false,
+    });
+  });
+  it("distinguishes dates of the same series and returns to an existing occurrence", () => {
+    const first = {
+      kind: "task" as const,
+      id: "s",
+      originalDate: "2026-10-31",
+    };
+    const next = { kind: "task" as const, id: "s", originalDate: "2026-11-14" };
+    const route: Route = {
+      page: "calendar",
+      cards: [first, { kind: "schedule", id: "s" }, next],
+    };
+    expect(validRoute(route)).toBe(true);
+    expect(openCard(route, first).cards).toEqual([first]);
+  });
+  it.each([
+    "#calendar?task=s",
+    "#calendar?task=s&original=2026-02-30",
+    "#calendar?schedule=",
+    "#calendar?date=invalid&view=month",
+    "#calendar?date=2026-11-03&view=quarter",
+    "#calendar?date=2026-11-03&statusFilter=paid",
+    "#calendar?task=s&original=2026-10-31&job=j",
+  ])("safely rejects %s", (hash) => {
+    expect(parseAddress(`http://localhost:5173/${hash}`).invalid).toBe(true);
+  });
+});
