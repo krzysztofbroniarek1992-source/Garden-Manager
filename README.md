@@ -536,3 +536,29 @@ Przeszły TypeScript, build produkcyjny i `git diff --check`. Sprawdzono równie
 wygląd pobranego PDF oraz widok 390 px bez przewijania poziomego. Build zgłasza
 ostrzeżenie o wielkości odroczonego pakietu fontkit (717 kB); generator jest
 ładowany na żądanie i dostępny w cache offline.
+
+## Poprawki kart klientów i ogrodów po 0.3.6
+
+Z karty klienta otworzysz pełną kartę każdego ogrodu przez nazwę lub **Otwórz
+ogród**. Osobny przycisk nadal otwiera edycję. Karta ogrodu zajmuje cały ekran
+z siedmioma sekcjami, korzystając z istniejących modułów. Zachowano wejście
+z listy **Obiekty i ogrody** oraz przejścia klient → ogród → zlecenie i zlecenie
+→ ogród → klient, z zachowaniem kontekstu powrotu.
+
+Z ogrodu można dodać zlecenie istniejącym formularzem z uzupełnionym klientem
+i ogrodem, edytować je, sprawdzić wizytę i rozliczenie oraz bezpiecznie usunąć
+niechroniony wpis. Zlecenia z płatnościami, zatwierdzonym rozliczeniem,
+raportami lub terminem kalendarza pozostają chronione. Dokumentacja odłączona
+od usuniętego zlecenia pozostaje przy ogrodzie w dotychczasowych modułach.
+
+Historia klienta i ogrodu jest grupowana latami i zwijanymi miesiącami.
+Bieżący miesiąc jest domyślnie rozwinięty; widok pokazuje po 50 zleceń i pozwala
+doładować kolejne. Filtry, dokładny czas i podsumowania korzystają z istniejących
+zasad rozliczeń. Format pozostaje **v9**; migracja nie jest potrzebna.
+
+[Nawigacja, historia, zasady usuwania i ograniczenia](docs/CLIENT_GARDEN_NAVIGATION.md).
+
+Walidacja poprawek: **330/330 testów jednostkowych**, **112/112 przeglądarkowych**
+(w tym 16 nowych scenariuszy) i **6/6 produkcyjnej PWA offline**. TypeScript,
+build produkcyjny i `git diff --check` przeszły. Sprawdzono ekrany 360, 390 i
+430 px. Pozostaje wcześniejsze ostrzeżenie o wielkości odroczonego pakietu fontkit.

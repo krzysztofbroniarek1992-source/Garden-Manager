@@ -129,9 +129,10 @@ mechanizmu synchronizacji. Wszystkie dotychczasowe limity, sumy kontrolne, podgl
 i lokalny punkt odzyskiwania obowiązują nadal. JSON nie zawiera plików fotografii.
 
 Zwykła edycja zlecenia zachowuje nowszą historię raportów, czasu i podsumowanie.
-Usunięcie całego zlecenia po potwierdzeniu usuwa również jego historię raportów
-oraz zdarzeń czasu; komunikat usuwania o tym informuje. Licznik raportów nie jest
-cofany, więc numer nie zostanie użyty ponownie. Zakończenie, częściowe płatności,
+Po poprawkach kart klienta i ogrodu zlecenia z zapisanymi raportami, zatwierdzonym
+rozliczeniem lub wpłatami są chronione przed usunięciem. Pozostałe zlecenia można
+usunąć po sprawdzeniu skutków i potwierdzeniu; usuwa to również zdarzenia czasu.
+Licznik raportów nie jest cofany. Zakończenie, częściowe płatności,
 ryczałty i zatwierdzone należności zachowują dotychczasowe reguły.
 
 ## Weryfikacja
