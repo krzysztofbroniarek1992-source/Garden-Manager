@@ -105,7 +105,8 @@ test('strefy: zapis wymiarów, edycja, anulowanie i potwierdzenie usunięcia bez
   const after = (await snapshot(page)).data;
   expect(after.jobs).toEqual(before.jobs);
   expect(after.payments).toEqual(before.payments);
-  await card.getByRole('button', { name: /Pielęgnacja ogrodu/ }).click();
+  await card.getByRole('tab',{name:'Zlecenia i historia prac',exact:true}).click();
+  await card.getByRole('button', { name: 'Szczegóły zlecenia Pielęgnacja ogrodu', exact:true }).click();
   await expect(page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true })).toBeVisible();
 });
 
@@ -195,7 +196,8 @@ test('strefa → kalkulator → materiał: dokładność i oddzielne ceny, zamro
   expect(saved.jobs[0].seconds).toBe(13620);
   expect(saved.payments).toEqual(data.payments);
   await page.getByRole('button', { name: 'Wróć do karty ogrodu' }).click();
-  await garden.getByRole('button', { name: /Pielęgnacja ogrodu/ }).click();
+  await garden.getByRole('tab',{name:'Zlecenia i historia prac',exact:true}).click();
+  await garden.getByRole('button', { name: 'Szczegóły zlecenia Pielęgnacja ogrodu', exact:true }).click();
   const detail = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
   await expect(detail.getByTestId('payment-job-total')).toHaveText(/450,00\s*zł/);
   await expect(detail.locator('.payment-material-list')).toContainText(/zakup: 0,50\s*zł\/l/);
@@ -213,7 +215,8 @@ test('karta zlecenia otwiera kalkulator, który dopisuje materiał tylko do tego
   await seed(page);
   const before = (await snapshot(page)).data;
   const garden = await openGarden(page);
-  await garden.getByRole('button', { name: /Pielęgnacja ogrodu/ }).click();
+  await garden.getByRole('tab',{name:'Zlecenia i historia prac',exact:true}).click();
+  await garden.getByRole('button', { name: 'Szczegóły zlecenia Pielęgnacja ogrodu', exact:true }).click();
   const detail = page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true });
   await detail.getByRole('button', { name: 'Oblicz materiały', exact: true }).click();
   await detail.getByRole('combobox', { name: 'Kalkulator', exact: true }).selectOption('materials');

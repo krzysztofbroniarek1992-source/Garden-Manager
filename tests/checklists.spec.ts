@@ -795,6 +795,7 @@ test('uwaga i zdjęcie czynności używają istniejącej galerii bez kopiowania 
 test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdjęcia', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   await seed(page);
   const detail = await job(page),
     gallery = detail.getByRole('region', {

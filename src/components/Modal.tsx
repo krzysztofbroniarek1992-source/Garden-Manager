@@ -60,7 +60,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
     };
     document.addEventListener('keydown', handleKey);
     return () => {
-      scroll.current=element.scrollTop;
+      if (element.getClientRects().length) scroll.current=element.scrollTop;
       document.removeEventListener('keydown', handleKey);
       const index = modalStack.indexOf(element);
       if (index >= 0) modalStack.splice(index, 1);
@@ -71,7 +71,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
 
   return createPortal(
     <div hidden={!active} inert={!active} className={`gm-modal-backdrop${fullScreen?' gm-fullscreen-backdrop':''}`} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className={`gm-modal${wide ? ' gm-modal-wide' : ''}${fullScreen?' gm-modal-fullscreen':''}`} ref={panel} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
+      <div className={`gm-modal${wide ? ' gm-modal-wide' : ''}${fullScreen?' gm-modal-fullscreen':''}`} ref={panel} onScroll={event=>{if(active)scroll.current=event.currentTarget.scrollTop;}} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
         <div className="gm-modal-heading">
           <div><span className="eyebrow">GARDEN MANAGER</span><h2 id={headingId}>{title}</h2></div>
           <button className="icon-button" type="button" aria-label="Zamknij okno" onClick={onClose}><X size={21} /></button>

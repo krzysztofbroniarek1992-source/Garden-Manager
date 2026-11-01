@@ -761,6 +761,7 @@ test('notatka z galerii korzysta z istniejącego ID zdjęcia, a usuwanie notatki
   await form
     .getByRole('button', { name: 'Zapisz notatkę', exact: true })
     .click();
+  await card.getByRole('tab',{name:'Notatki i dokumentacja',exact:true}).click();
   await card
     .getByRole('region', { name: 'Notatki ogrodu', exact: true })
     .getByRole('button', { name: 'Problem róż', exact: true })

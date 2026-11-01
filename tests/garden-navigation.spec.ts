@@ -375,6 +375,24 @@ test('z klienta można otworzyć każdy ogród nazwą i przyciskiem, wracając d
       page.getByLabel('Filtr statusu wykonania', { exact: true }),
     ).toHaveValue('completed');
   }
+  // The direct client → visit route must return to this same filtered client.
+  await page
+    .getByRole('button', {
+      name: 'Szczegóły zlecenia Wizyta z wpłatą',
+      exact: true,
+    })
+    .click();
+  await detail(page)
+    .getByRole('button', { name: 'Ogród: Ogród przy domu', exact: true })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Karta ogrodu: Ogród przy domu', exact: true })
+    .getByRole('button', { name: 'Klient: Anna Ogrodowa', exact: true })
+    .click();
+  await expect(
+    page.getByLabel('Filtr statusu wykonania', { exact: true }),
+  ).toHaveValue('completed');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
     'hidden',
   );
@@ -430,12 +448,14 @@ test('klient → ogród → zlecenie → ogród zachowuje sekcję, filtr i rozwi
     .selectOption('completed');
   const october = list.locator('[data-month="2026-10"]');
   await october.locator('summary').click();
-  await october
-    .getByRole('button', {
-      name: 'Szczegóły zlecenia Ryczałt październikowy',
-      exact: true,
-    })
-    .click();
+  const openOctober = october.getByRole('button', {
+    name: 'Szczegóły zlecenia Ryczałt październikowy',
+    exact: true,
+  });
+  await openOctober.scrollIntoViewIfNeeded();
+  const scrollPosition = await card.evaluate((element) => element.scrollTop);
+  expect(scrollPosition).toBeGreaterThan(0);
+  await openOctober.click();
   await detail(page)
     .getByRole('button', { name: 'Ogród: Ogród przy domu', exact: true })
     .click();
@@ -446,6 +466,9 @@ test('klient → ogród → zlecenie → ogród zachowuje sekcję, filtr i rozwi
     card.getByLabel('Filtr statusu zleceń ogrodu', { exact: true }),
   ).toHaveValue('completed');
   await expect(october).toHaveAttribute('open', '');
+  await expect
+    .poll(() => card.evaluate((element) => element.scrollTop))
+    .toBe(scrollPosition);
   await expect(
     october.getByRole('button', {
       name: 'Szczegóły zlecenia Ryczałt październikowy',

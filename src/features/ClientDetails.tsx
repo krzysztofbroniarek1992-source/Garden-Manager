@@ -12,7 +12,6 @@ import { useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCheck, Clock3, FilterX, Mail, MapPin, Phone, Sprout, Wallet } from 'lucide-react';
 import { clientSummary, duration, moneyCents, settlementLabels, settlementStatus, type Job } from '../domain';
 import { useGarden, useNow } from '../state';
-import JobDetails from './JobDetails';
 import './client-details.css';
 
 const workLabels: Record<Job['status'], string> = { planned: 'Zaplanowane', 'in-progress': 'W trakcie', completed: 'Zakończone' };
@@ -94,7 +93,7 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
     {editClient && <ClientForm initial={client} isNew={false} onClose={() => setEditClient(false)}/>}
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
     {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); openJob(job.id); }}/>}
-    {selectedJob && <JobDetails jobId={selectedJob} initialBilling={jobBilling} onClose={() => setSelectedJob(null)}/>}
+    {selectedJob && <Suspense fallback={<p role="status">Otwieranie zlecenia…</p>}><RelatedCards initial={{kind:'job',id:selectedJob,initialBilling:jobBilling}} originClientId={clientId} onClose={() => setSelectedJob(null)}/></Suspense>}
   </section>;
 }
 

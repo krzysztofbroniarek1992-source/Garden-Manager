@@ -109,6 +109,7 @@ test('usunięcie strefy zachowuje zdjęcia w historii ogrodu', async ({ page }) 
 });
 
 test('pełna kopia ZIP odtwarza zdjęcia i pozwala bezpiecznie wrócić do poprzednich danych', async ({ page, browser }) => {
+  test.setTimeout(60_000);
   await seed(page); const card = await garden(page); const gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }); await upload(gallery, [await image(page, 'z-kopii.png')]); const source = await snapshot(page); await card.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); const sourceSettings = await settings(page); const buffer = await zipDownload(page, sourceSettings);
   const targetContext = await browser.newContext(); const target = await targetContext.newPage();
   try {

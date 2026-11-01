@@ -113,7 +113,7 @@ export default function GardenDetails({
       title={`Karta ogrodu: ${garden.name}`}
       onClose={onClose}
       fullScreen
-      active={active}
+      active={active && calculating === null}
     >
       <div className="garden-workspace">
         <div className="garden-workspace-header">

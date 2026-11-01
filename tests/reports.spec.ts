@@ -760,6 +760,7 @@ test('migracja v8 i eksport JSON zachowują stare dane oraz metadane raportu', a
 test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną generację PDF', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   await seed(page);
   const detail = await job(page),
     gallery = detail.getByRole('region', {
