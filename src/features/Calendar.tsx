@@ -1,3 +1,4 @@
+import { useNavigation } from '../navigation/Navigation';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays, MapPin, ArrowUpRight } from 'lucide-react';
 import { useGarden, useNow } from '../state';
@@ -5,7 +6,6 @@ import { localDate, type Job } from '../domain';
 import { addDays, addMonths, isDate, weekStart } from '../planning/dates';
 import { taskOccurrencesBetween } from '../planning/occurrences';
 import { taskStatusLabels, type TaskOccurrence } from '../planning/model';
-import JobDetails from './JobDetails';
 import JobForm from './JobForm';
 import TaskForm, { newTaskSchedule } from './TaskForm';
 import TaskDetails from './TaskDetails';
@@ -35,7 +35,8 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const { data, saveJob } = useGarden();
   const now = new Date(useNow());
   const today = localDate(now);
-  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const navigation = useNavigation();
+  const setSelectedJob = (id:string|null) => {if(id)navigation.open({kind:'job',id});};
   const [newJob, setNewJob] = useState<Job | null>(null);
   const [newTask, setNewTask] = useState<ReturnType<typeof newTaskSchedule> | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskOccurrence | null>(null);
@@ -106,7 +107,6 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
       <p className="muted">Przypomnienia i sprawy nie naliczają czasu ani należności.</p>
     </section></div>
     <PlanningReminders/><ScheduleManager/>
-    {selectedJob && <JobDetails jobId={selectedJob} onClose={() => setSelectedJob(null)}/>}
     {selectedTask && <TaskDetails scheduleId={selectedTask.scheduleId} originalDate={selectedTask.originalDate} onClose={() => setSelectedTask(null)}/>}
     {newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
     {newTask && <TaskForm initial={newTask} onClose={() => setNewTask(null)}/>}

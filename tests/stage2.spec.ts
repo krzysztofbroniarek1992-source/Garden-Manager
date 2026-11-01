@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 import { createDemoData } from '../src/data/demo';
 import { STORAGE_VERSION } from '../src/data/repository';
@@ -31,6 +32,7 @@ async function snapshot(page: Page): Promise<{ version: number; data: Data }> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!));
 }
 async function navigate(page: Page, name: string) {
+  await closeOpenDialogs(page);
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}(?: |$)`) }).click();
 }
 async function openGarden(page: Page) {

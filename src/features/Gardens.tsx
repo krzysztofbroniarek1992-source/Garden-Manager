@@ -1,6 +1,5 @@
+import { useNavigation, useViewState } from '../navigation/Navigation';
 import GardenForm from './GardenForm';
-import { lazy, Suspense } from 'react';
-const RelatedCards=lazy(()=>import('./RelatedCards'));
 import { useState } from 'react';
 import { ClipboardList, Leaf, MapPin, Pencil, Plus, Ruler, Search, Sprout, Trash2, UserRound, X } from 'lucide-react';
 import type { Garden } from '../domain';
@@ -10,8 +9,9 @@ import './entities.css';
 
 export default function Gardens() {
   const { data, deleteGarden } = useGarden();
-  const [selected, setSelected] = useState('');
-  const [query, setQuery] = useState('');
+  const navigation = useNavigation();
+  const setSelected = (id: string) => navigation.open({kind:'garden',id});
+  const [query, setQuery] = useViewState('query', '');
   const [editing, setEditing] = useState<Garden | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [removing, setRemoving] = useState<Garden | null>(null);
@@ -52,7 +52,6 @@ export default function Gardens() {
           <button className="button secondary garden-detail-link" aria-label={`Karta ogrodu ${garden.name}`} onClick={() => setSelected(garden.id)}>Karta ogrodu · {garden.zones.length} stref</button><div className="card-footer"><span><Ruler size={16}/><strong>{garden.area.toLocaleString('pl-PL')}</strong> m²</span><span><ClipboardList size={15}/>{jobs.length} {jobs.length === 1 ? 'zlecenie' : jobs.length > 1 && jobs.length < 5 ? 'zlecenia' : 'zleceń'}</span></div></div>
         </article>;
       })}</div>}
-    {selected && <Suspense fallback={<p role="status">Otwieranie ogrodu…</p>}><RelatedCards initial={{kind:'garden',id:selected}} onClose={() => setSelected('')}/></Suspense>}
     {editing && <GardenForm initial={editing} isNew={isNew} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć ogród?" onClose={() => setRemoving(null)}>
       {error && <p className="gm-form-error" role="alert">{error}</p>}

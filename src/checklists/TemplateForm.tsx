@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -13,6 +14,7 @@ export default function TemplateForm({
   const { saveWorkTemplate } = useGarden();
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const move = (index: number, direction: number) => {
     const items = [...draft.items];
     [items[index], items[index + direction]] = [
@@ -28,12 +30,12 @@ export default function TemplateForm({
       wide
     >
       <form
+        ref={guard.ref}
         className="checklist-form"
         onSubmit={(e) => {
           e.preventDefault();
           try {
-            saveWorkTemplate(draft);
-            onClose();
+            guard.save(() => {saveWorkTemplate(draft);onClose();});
           } catch (e) {
             setError((e as Error).message);
           }
@@ -157,7 +159,7 @@ export default function TemplateForm({
           Szablony nie określają dawek ani mieszanin.
         </p>
         <div className="gm-modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>
             Anuluj
           </button>
           <button type="submit" className="button primary">

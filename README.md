@@ -562,3 +562,21 @@ Walidacja poprawek: **330/330 testów jednostkowych**, **112/112 przeglądarkowy
 (w tym 16 nowych scenariuszy) i **6/6 produkcyjnej PWA offline**. TypeScript,
 build produkcyjny i `git diff --check` przeszły. Sprawdzono ekrany 360, 390 i
 430 px. Pozostaje wcześniejsze ostrzeżenie o wielkości odroczonego pakietu fontkit.
+
+
+## Wspólna historia i adresowanie kart — etap 1
+
+Istniejące karty klienta, ogrodu i zlecenia korzystają ze wspólnego kontrolera
+nawigacji. Wstecz/Dalej i przyciski powrotu obsługują ten sam stos, a URL
+odtwarza kartę i sekcję po odświeżeniu lub ponownym otwarciu. Dawne adresy
+`?client=…#clients` pozostają obsługiwane. Główne zakładki otwierają listy
+zbiorcze. Formularze z niezapisanymi zmianami wymagają potwierdzenia opuszczenia.
+
+Stan widoków pozostaje poza danymi firmy: bez zmian formatu v9, localStorage,
+IndexedDB, JSON/ZIP, stopera i rozliczeń.
+
+[Adresy, zachowanie historii, ochrona formularzy i ograniczenia](docs/NAVIGATION_HISTORY.md).
+
+Walidacja etapu: **341/341 jednostkowych**, **7/7 PWA offline**, TypeScript
+i build poprawne. E2E: 126/127 w pełnym przebiegu, następnie 6/6 testów płatności
+po doprecyzowaniu selektora; zweryfikowano wszystkie 127 scenariuszy.

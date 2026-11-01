@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 
 const test = base.extend<{ browserErrors: string[] }>({
@@ -10,6 +11,7 @@ const test = base.extend<{ browserErrors: string[] }>({
 });
 
 async function navigate(page: Page, name: string) {
+  await closeOpenDialogs(page);
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 async function readData(page: Page) {
@@ -122,11 +124,13 @@ test('zlecenie ryczałtowe, materiały, kalendarz, edycja i historia', async ({ 
 });
 
 test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STOP', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-11-03T09:00:00+01:00') });
+  const start = new Date('2026-11-03T09:00:00+01:00');
+  // Keep Date deterministic while intervals/rendering still run under browser load.
+  await page.clock.setFixedTime(start);
   await page.goto('/');
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-1');
   await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
-  await page.clock.fastForward(65_000);
+  await page.clock.setFixedTime(new Date(start.getTime() + 65_000));
   await expect(page.getByTestId('timer-display')).toHaveText('00:01:05');
   const running = await readData(page);
   expect(running.timer.jobId).toBe('job-1');
@@ -141,7 +145,7 @@ test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STO
   expect(job.seconds).toBeLessThan(70);
   expect(job.rate).toBe(120);
   const displayed = await page.getByTestId('timer-display').textContent();
-  await page.clock.fastForward(10_000);
+  await page.clock.setFixedTime(new Date(start.getTime() + 75_000));
   await expect(page.getByTestId('timer-display')).toHaveText(displayed!);
   await page.reload();
   await expect(page.getByTestId('timer-display')).toHaveText(displayed!);
@@ -153,7 +157,7 @@ test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STO
   await navigate(page, 'Panel główny');
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-3');
   await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
-  await page.clock.fastForward(30_000);
+  await page.clock.setFixedTime(new Date(start.getTime() + 105_000));
   await page.reload();
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   await expect(page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true })).toHaveValue('job-3');

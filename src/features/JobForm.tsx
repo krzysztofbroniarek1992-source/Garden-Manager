@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -12,13 +13,14 @@ export default function JobForm({ job, onClose, onSave, clientId: initialClientI
   const [clientId, setClientId] = useState(() => initialClientId ?? data.gardens.find(g => g.id === job.gardenId)?.clientId ?? '');
   const gardens = data.gardens.filter(g => g.clientId === clientId);
   const [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(original));
   const patch = <K extends keyof Job>(key: K, value: Job[K]) => setDraft(current => ({ ...current, [key]: value }));
   const patchMaterial = <K extends keyof Material>(id: string, key: K, value: Material[K]) => patch('materials', draft.materials.map(item => item.id === id ? { ...item, [key]: value } : item));
-  const submit = (event: FormEvent) => { event.preventDefault(); try { onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }, wasExisting ? original : undefined); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
+  const submit = (event: FormEvent) => { event.preventDefault(); try { guard.save(() => onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }, wasExisting ? original : undefined)); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
   const existing = data.jobs.some(item => item.id === job.id);
   let materialPreview = 'Sprawdź kwoty materiałów';
   try { materialPreview = moneyCents(materialsTotalCents(draft)); } catch { /* Invalid draft values are reported on save without crashing the form. */ }
-  const contents = <form onSubmit={submit}>
+  const contents = <form ref={guard.ref} onSubmit={submit}>
     {error && <div className="error-banner" role="alert">{error}</div>}
     {draft.settlement && <p className="job-frozen-price-note">To zlecenie ma zatwierdzoną należność. Edycja czasu, stawki lub materiałów nie zmieni jej samoczynnie. Nową cenę zatwierdzisz jawnie w szczegółach rozliczenia.</p>}
     <div className="form-grid"><label className="field full">Nazwa pracy<input autoFocus required maxLength={150} value={draft.title} onChange={e => patch('title', e.target.value)} placeholder="np. Jesienne porządki i pielęgnacja"/></label><label className="field full">Klient<select required value={clientId} onChange={e => { setClientId(e.target.value); const matches = data.gardens.filter(g => g.clientId === e.target.value); patch('gardenId', matches.length === 1 ? matches[0].id : ''); }}><option value="">Wybierz klienta</option>{data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="field full">Ogród i klient<select required value={draft.gardenId} onChange={e => patch('gardenId', e.target.value)}><option value="">Wybierz ogród</option>{gardens.map(g => <option key={g.id} value={g.id}>{g.name} — {data.clients.find(c => c.id === g.clientId)?.name}</option>)}</select></label><label className="field">Data<input required type="date" value={draft.date} onChange={e => patch('date', e.target.value)}/></label><label className="field">Godzina<input required type="time" value={draft.time} onChange={e => patch('time', e.target.value)}/></label><label className="field">Sposób rozliczenia<select value={draft.billing} onChange={e => patch('billing', e.target.value as Job['billing'])}><option value="hourly">Godzinowe</option><option value="fixed">Ryczałtowe</option></select></label>{draft.billing === 'hourly' ? <label className="field">Stawka (zł/h)<input required type="number" min="0" step="0.01" value={draft.rate} onChange={e => patch('rate', Number(e.target.value))}/></label> : <label className="field">Kwota ryczałtu (zł)<input required type="number" min="0" step="0.01" value={draft.fixedPrice} onChange={e => patch('fixedPrice', Number(e.target.value))}/></label>}<label className="field full">Notatka<textarea rows={2} maxLength={2000} value={draft.notes} onChange={e => patch('notes', e.target.value)} placeholder="Zakres prac, dojazd, ważne informacje…"/></label></div>
@@ -34,7 +36,7 @@ export default function JobForm({ job, onClose, onSave, clientId: initialClientI
       <button className="icon-button" type="button" aria-label={`Usuń materiał ${index + 1}`} onClick={() => patch('materials', draft.materials.filter(m => m.id !== item.id))}><Trash2 size={16}/></button>
     </div>)}</div>
     <div className="materials-total"><span>Materiały razem</span><strong>{materialPreview}</strong></div>
-    <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Anuluj</button><button type="submit" className="button primary">Zapisz zlecenie</button></div>
+    <div className="modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button type="submit" className="button primary">Zapisz zlecenie</button></div>
   </form>;
   return embedded ? contents : <Modal title={existing ? 'Edytuj zlecenie' : 'Nowe zlecenie'} onClose={onClose} wide>{contents}</Modal>;
 }

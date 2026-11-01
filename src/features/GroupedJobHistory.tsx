@@ -1,3 +1,4 @@
+import { useViewState } from '../navigation/Navigation';
 import { useId, useMemo, useState } from 'react';
 import { useGarden, useNow } from '../state';
 import {
@@ -26,18 +27,20 @@ export default function GroupedJobHistory({
   onEdit,
   onDelete,
   showGarden = false,
+  historyKey = 'history',
 }: {
   jobs: Job[];
   onOpen: (id: string, billing?: boolean) => void;
   onEdit?: (job: Job) => void;
   onDelete?: (id: string) => void;
   showGarden?: boolean;
+  historyKey?: string;
 }) {
   const { data } = useGarden(),
     now = useNow();
-  const [order, setOrder] = useState<'desc' | 'asc'>('desc');
+  const [order, setOrder] = useViewState<'desc' | 'asc'>(`${historyKey}:order`, 'desc');
   const currentMonth = localDate(new Date(now)).slice(0, 7);
-  const [openMonths, setOpenMonths] = useState(() => new Set([currentMonth]));
+  const [openMonths, setOpenMonths] = useViewState(`${historyKey}:months`, () => new Set([currentMonth]));
   const timing = jobs.some((j) => j.id === data.timer?.jobId) ? now : 0;
   const months = useMemo(
     () => groupJobHistory(jobs, data.timer, timing, order),
@@ -112,6 +115,7 @@ export default function GroupedJobHistory({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     showGarden={showGarden}
+                    historyKey={historyKey}
                   />
                 )}
               </details>
@@ -130,16 +134,18 @@ function MonthJobs({
   onEdit,
   onDelete,
   showGarden,
+  historyKey,
 }: {
   month: JobMonth;
   onOpen: (id: string, billing?: boolean) => void;
   onEdit?: (job: Job) => void;
   onDelete?: (id: string) => void;
   showGarden: boolean;
+  historyKey: string;
 }) {
   const { data } = useGarden(),
     now = useNow(),
-    [limit, setLimit] = useState(50);
+    [limit, setLimit] = useViewState(`${historyKey}:limit:${month.key}`, 50);
   const gardenNames = useMemo(
     () => new Map(data.gardens.map((g) => [g.id, g.name])),
     [data.gardens],

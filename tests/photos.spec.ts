@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page, type Locator } from '@playwright/test';
 import { createDemoData } from '../src/data/demo';
 import { STORAGE_VERSION } from '../src/data/repository';
@@ -24,6 +25,7 @@ async function image(page: Page, name = 'ogrod.png', color = '#337755', width = 
   return { name, mimeType: 'image/png', buffer: Buffer.from(bytes) };
 }
 async function garden(page: Page) {
+  await closeOpenDialogs(page);
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
   await page.getByRole('button', { name: 'Karta ogrodu Ogród przy Lipowej', exact: true }).click();
   const card=page.getByRole('dialog', { name: 'Karta ogrodu: Ogród przy Lipowej', exact: true });

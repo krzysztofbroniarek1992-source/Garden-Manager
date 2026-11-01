@@ -1,6 +1,9 @@
+import { useViewState } from '../navigation/Navigation';
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
 import {
+  useEffect,
   lazy,
   Suspense,
   useId,
@@ -14,7 +17,6 @@ import { formatQuantity } from '../gardening';
 import Modal from '../components/Modal';
 import GardenForm from './GardenForm';
 import { CalculatorPanel } from './Calculators';
-import JobDetails from './JobDetails';
 import JobForm from './JobForm';
 import JobDeleteDialog from './JobDeleteDialog';
 import GroupedJobHistory from './GroupedJobHistory';
@@ -49,13 +51,12 @@ export default function GardenDetails({
     now = useNow(),
     id = useId();
   const garden = data.gardens.find((item) => item.id === gardenId);
-  const [section, setSection] = useState<Section>('overview');
-  const [visited, setVisited] = useState(() => new Set<Section>(['overview']));
-  const [status, setStatus] = useState<Job['status'] | ''>('');
+  const section = (navigation?.section ?? 'overview') as Section;
+  const [visited, setVisited] = useState(() => new Set<Section>(['overview',section]));
+  const [status, setStatus] = useViewState<Job['status'] | ''>('status', '');
   const [editing, setEditing] = useState(false);
   const [zone, setZone] = useState<GardenZone | null>(null);
   const [removing, setRemoving] = useState<GardenZone | null>(null);
-  const [selectedJob, setSelectedJob] = useState('');
   const [jobDraft, setJobDraft] = useState<Job | null>(null),
     [deleting, setDeleting] = useState('');
   const [deskZone, setDeskZone] = useState<GardenZone | null>(null);
@@ -63,6 +64,7 @@ export default function GardenDetails({
   const [photoZone, setPhotoZone] = useState<GardenZone | null>(null);
   const [error, setError] = useState('');
   const [calculating, setCalculating] = useState<string | null>(null);
+  useEffect(() => {setVisited(previous=>new Set([...previous,section]));},[section]);
   const jobs = useMemo(
     () => data.jobs.filter((j) => j.gardenId === gardenId),
     [data.jobs, gardenId],
@@ -84,13 +86,10 @@ export default function GardenDetails({
     );
   const client = data.clients.find((c) => c.id === garden.clientId);
   const select = (next: Section) => {
-    setSection(next);
+    navigation?.setSection(next);
     setVisited((previous) => new Set([...previous, next]));
   };
-  const openJob = (jobId: string, initialBilling = false) =>
-    navigation
-      ? navigation.open({ kind: 'job', id: jobId, initialBilling })
-      : setSelectedJob(jobId);
+  const openJob = (id: string, initialBilling = false) => navigation?.open({kind:'job',id,initialBilling});
   const addJob = () =>
     setJobDraft({
       id: crypto.randomUUID(),
@@ -180,7 +179,7 @@ export default function GardenDetails({
           )}
         </nav>
         {(Object.keys(sections) as Section[])
-          .filter((key) => visited.has(key))
+          .filter((key) => visited.has(key) || key === section)
           .map((key) => (
             <section
               className="garden-tab-panel"
@@ -427,6 +426,7 @@ export default function GardenDetails({
                     </label>
                   </div>
                   <GroupedJobHistory
+                    historyKey="jobs"
                     jobs={filtered}
                     onOpen={openJob}
                     onEdit={setJobDraft}
@@ -456,7 +456,7 @@ export default function GardenDetails({
                     Kwoty pochodzą z dotychczasowych rozliczeń i wpłat. Wybierz
                     „Wizyta i rozliczenie”, aby otworzyć ich szczegóły.
                   </p>
-                  <GroupedJobHistory jobs={jobs} onOpen={openJob} />
+                  <GroupedJobHistory historyKey="billing" jobs={jobs} onOpen={openJob} />
                 </>
               )}
               {key === 'gallery' && (
@@ -478,9 +478,6 @@ export default function GardenDetails({
           isNew={false}
           onClose={() => setEditing(false)}
         />
-      )}
-      {selectedJob && (
-        <JobDetails jobId={selectedJob} onClose={() => setSelectedJob('')} />
       )}
       {jobDraft && (
         <JobForm
@@ -570,20 +567,20 @@ function ZoneForm({
 }) {
   const { saveZone } = useGarden();
   const [draft, setDraft] = useState(initial);
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const [error, setError] = useState('');
   const patch = <K extends keyof GardenZone>(key: K, value: GardenZone[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      saveZone(gardenId, draft);
-      onClose();
+      guard.save(() => {saveZone(gardenId, draft);onClose();});
     } catch (e) {
       setError((e as Error).message);
     }
   }
   return (
-    <form onSubmit={submit} className="zone-form">
+    <form ref={guard.ref} onSubmit={submit} className="zone-form">
       <h3>{initial.name ? 'Edycja strefy' : 'Nowa strefa'}</h3>
       {error && (
         <p role="alert" className="gm-form-error">
@@ -674,7 +671,7 @@ function ZoneForm({
         </label>
       </div>
       <div className="gm-modal-actions">
-        <button className="button secondary" type="button" onClick={onClose}>
+        <button className="button secondary" type="button" onClick={() => guard.confirm(onClose)}>
           Anuluj edycję strefy
         </button>
         <button className="button primary" type="submit">

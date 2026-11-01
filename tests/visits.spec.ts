@@ -1,3 +1,4 @@
+import { closeOpenDialogs } from './navigation-helpers';
 import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import type { Job, Payment } from '../src/domain';
@@ -55,6 +56,7 @@ async function snapshot(page: Page) {
 }
 
 async function navigate(page: Page, name: string) {
+  await closeOpenDialogs(page);
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 

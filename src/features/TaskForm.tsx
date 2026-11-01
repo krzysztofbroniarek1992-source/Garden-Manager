@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -19,11 +20,12 @@ export default function TaskForm({ initial, onClose, onDone = onClose }: { initi
   const { data, saveTaskSchedule } = useGarden();
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const patch = <K extends keyof TaskSchedule>(key: K, value: TaskSchedule[K]) => setDraft(current => ({ ...current, [key]: value }));
   const gardens = data.gardens.filter(g => !draft.clientId || g.clientId === draft.clientId);
   const garden = data.gardens.find(g => g.id === draft.gardenId);
-  const submit = (e: FormEvent) => { e.preventDefault(); try { saveTaskSchedule(draft); onDone(); } catch (e) { setError((e as Error).message); } };
-  return <Modal title={initial.revision ? 'Edytuj harmonogram' : 'Nowe zadanie'} onClose={onClose} wide><form onSubmit={submit}>
+  const submit = (e: FormEvent) => { e.preventDefault(); try { guard.save(() => {saveTaskSchedule(draft);onDone();}); } catch (e) { setError((e as Error).message); } };
+  return <Modal title={initial.revision ? 'Edytuj harmonogram' : 'Nowe zadanie'} onClose={onClose} wide><form ref={guard.ref} onSubmit={submit}>
     {error && <p role="alert" className="gm-form-error">{error}</p>}
     <p className="gm-form-note">Planowanie nie uruchamia stopera i nie tworzy należności. Pracę rozpoczniesz z konkretnego terminu.</p>
     {initial.revision > 0 && <p className="planning-note">Zmiana reguły dotyczy terminów bez zapisanych wyjątków. Przesunięte i pominięte terminy oraz istniejące zlecenia zostaną zachowane.</p>}
@@ -42,6 +44,6 @@ export default function TaskForm({ initial, onClose, onDone = onClose }: { initi
       <label className="field full-width">Opis i wymagania<textarea maxLength={5000} value={draft.notes} onChange={e => patch('notes', e.target.value)}/></label>
     </div>
     {draft.recurrence.frequency !== 'once' && <fieldset className="season-months"><legend>Miesiące realizacji</legend><div>{months.map((month, i) => <label key={month}><input type="checkbox" checked={draft.recurrence.months.includes(i + 1)} onChange={e => patch('recurrence', { ...draft.recurrence, months: e.target.checked ? [...draft.recurrence.months, i + 1].sort((a,b) => a-b) : draft.recurrence.months.filter(m => m !== i + 1) })}/>{month}</label>)}</div><p className="gm-form-note">Terminy liczymy od daty rozpoczęcia i pokazujemy tylko w zaznaczonych miesiącach. Dla prac dwa razy w roku wybierz powtarzanie co 1 miesiąc i zaznacz dwa miesiące.</p></fieldset>}
-    <div className="gm-modal-actions"><button className="button secondary" type="button" onClick={onClose}>Anuluj</button><button className="button primary" type="submit">Zapisz harmonogram</button></div>
+    <div className="gm-modal-actions"><button className="button secondary" type="button" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit">Zapisz harmonogram</button></div>
   </form></Modal>;
 }

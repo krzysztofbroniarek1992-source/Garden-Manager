@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -29,6 +30,7 @@ function AutoField({
 }) {
   const [draft, setDraft] = useState(value),
     [failed, setFailed] = useState(false);
+  const guard = useUnsavedChanges<HTMLLabelElement>(failed);
   const focused = useRef(false);
   useEffect(() => {
     if (!focused.current && !failed) setDraft(value);
@@ -56,7 +58,7 @@ function AutoField({
     'aria-invalid': failed,
   };
   return (
-    <label className="field">
+    <label ref={guard.ref} className="field">
       {label}
       {multiline ? <textarea {...props} rows={2} /> : <input {...props} />}{' '}
       {failed && (
@@ -138,6 +140,7 @@ export function ChecklistEditor({
     [title, setTitle] = useState(''),
     [removing, setRemoving] = useState(''),
     [deleting, setDeleting] = useState(false);
+  const itemGuard = useUnsavedChanges(title.trim().length > 0);
   if (!c) return <p>Checklista została usunięta. Otwórz aktualny wpis.</p>;
   const perform = (fn: () => void) => {
     try {
@@ -394,6 +397,7 @@ export function ChecklistEditor({
         })}
       </ol>
       <form
+        ref={itemGuard.ref}
         className="checklist-add-item"
         onSubmit={(e) => {
           e.preventDefault();
@@ -512,6 +516,7 @@ export default function ChecklistPanel({
         data.taskSchedules.find((s) => s.id === occurrence?.scheduleId)
           ?.checklistTemplateId && t.archivedAt === null,
   );
+  const blankGuard = useUnsavedChanges(blank && name.trim().length > 0);
   const perform = (fn: () => string) => {
     try {
       setSelected(fn());
@@ -638,6 +643,7 @@ export default function ChecklistPanel({
           onClose={() => setBlank(false)}
         >
           <form
+            ref={blankGuard.ref}
             className="checklist-form"
             onSubmit={(e) => {
               e.preventDefault();
@@ -670,7 +676,7 @@ export default function ChecklistPanel({
               <button
                 type="button"
                 className="button secondary"
-                onClick={() => setBlank(false)}
+                onClick={() => blankGuard.confirm(() => setBlank(false))}
               >
                 Anuluj
               </button>

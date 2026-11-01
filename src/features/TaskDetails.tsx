@@ -1,10 +1,10 @@
+import { useNavigation } from '../navigation/Navigation';
 import { useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
 import { localDate } from '../domain';
 import { resolveOccurrence } from '../planning/occurrences';
 import { taskStatus, taskStatusLabels } from '../planning/model';
-import JobDetails from './JobDetails';
 import TaskForm, { scheduleDescription } from './TaskForm';
 import './planning.css';
 
@@ -19,12 +19,12 @@ export default function TaskDetails({ scheduleId, originalDate, onClose }: { sch
   const [endingDate, setEndingDate] = useState(localDate());
   const [panel, setPanel] = useState<'move' | 'skip' | 'end' | null>(null);
   const [editing, setEditing] = useState(false);
-  const [jobId, setJobId] = useState('');
+  const navigation=useNavigation();
+  const setJobId=(id:string)=>{onClose();navigation.open({kind:'job',id});};
   const [applyChecklist,setApplyChecklist] = useState(true);
   const [error, setError] = useState('');
   if (!schedule || !original) return <Modal title="Szczegóły zadania" onClose={onClose}><p>Ten termin zmienił się. Zamknij szczegóły i wybierz aktualny termin.</p></Modal>;
   if (editing) return <TaskForm initial={schedule} onClose={() => setEditing(false)} onDone={onClose}/>;
-  if (jobId) return <JobDetails jobId={jobId} onClose={onClose}/>;
   let occurrence = original;
   try { occurrence = resolveOccurrence(data, scheduleId, originalDate); } catch { /* Keep the submitted snapshot visible if the series changed elsewhere. */ }
   const job = data.jobs.find(j => j.id === occurrence.jobId);

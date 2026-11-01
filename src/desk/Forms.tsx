@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -50,6 +51,7 @@ export function NoteForm({
   const { data, saveNote } = useGarden();
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const photos = data.photos.filter(
     (p) =>
       p.deletedAt === null &&
@@ -60,8 +62,7 @@ export function NoteForm({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     try {
-      saveNote(draft);
-      onDone();
+      guard.save(() => {saveNote(draft);onDone();});
     } catch (e) {
       setError((e as Error).message);
     }
@@ -213,7 +214,7 @@ export function NoteForm({
           Powiązane zdjęcie pozostaje w galerii. Plik nie jest kopiowany.
         </p>
         <div className="gm-modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>
             Anuluj
           </button>
           <button type="submit" className="button primary">
@@ -236,6 +237,7 @@ export function TodoForm({
   const { saveTodo } = useGarden();
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState('');
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   return (
     <Modal
       title={initial.revision ? 'Edytuj sprawę' : 'Nowa sprawa do załatwienia'}
@@ -243,12 +245,12 @@ export function TodoForm({
       wide
     >
       <form
+        ref={guard.ref}
         className="desk-form"
         onSubmit={(e) => {
           e.preventDefault();
           try {
-            saveTodo(draft);
-            onDone();
+            guard.save(() => {saveTodo(draft);onDone();});
           } catch (e) {
             setError((e as Error).message);
           }
@@ -334,7 +336,7 @@ export function TodoForm({
           Sprawa nie wymaga zlecenia i nie nalicza czasu ani należności.
         </p>
         <div className="gm-modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>
             Anuluj
           </button>
           <button type="submit" className="button primary">

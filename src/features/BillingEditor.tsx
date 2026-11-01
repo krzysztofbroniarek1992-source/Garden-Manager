@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import { Check, RotateCcw, ShieldCheck } from 'lucide-react';
 import { calculatedLaborCents, duration, elapsedSeconds, materialsTotalCents, moneyCents, paidCents, roundLaborTo50Cents, sumCents, toCents, type Job } from '../domain';
@@ -21,6 +22,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
   const [source, setSource] = useState<PriceSource>(original?.billing === 'fixed' ? 'fixed' : 'rounded');
   const [pending, setPending] = useState<{ cents: number; source: PriceSource } | null>(null);
   const [error, setError] = useState('');
+  const guard = useUnsavedChanges<HTMLElement>(amount !== inputAmount(suggested) || source !== (original?.billing === 'fixed' ? 'fixed' : 'rounded') || pending !== null);
   const paid = paidCents(jobId, data.payments);
   let preview: number | null = null;
   try {
@@ -32,8 +34,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
   const correction = original.settlement !== null;
   const persist = (cents: number, chosenSource: PriceSource) => {
     try {
-      approveSettlement(jobId, cents, chosenSource, original);
-      onDone();
+      guard.save(() => { approveSettlement(jobId, cents, chosenSource, original);onDone(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zatwierdzić ceny.'); }
   };
   const submit = (event: FormEvent) => {
@@ -49,7 +50,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Sprawdź cenę robocizny.'); }
   };
 
-  return <section className="billing-editor" aria-label={correction ? 'Korekta ceny robocizny' : 'Zatwierdzenie rozliczenia'}>
+  return <section ref={guard.ref} className="billing-editor" aria-label={correction ? 'Korekta ceny robocizny' : 'Zatwierdzenie rozliczenia'}>
     <div className="billing-editor-heading"><div><span className="eyebrow">ROBOCIZNA I MATERIAŁY OSOBNO</span><h3>{correction ? 'Skoryguj cenę robocizny' : 'Zatwierdź rozliczenie wizyty'}</h3></div><ShieldCheck size={22}/></div>
     {error && <p className="gm-form-error" role="alert">{error}</p>}
     <dl className="billing-proposal-lines">
@@ -69,7 +70,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
       <div className="billing-final-preview"><span>Ostateczna należność z materiałami</span><strong data-testid="proposal-final-total">{preview === null ? 'Sprawdź kwotę' : moneyCents(preview)}</strong></div>
       <p className="billing-explanation">Zatwierdzasz cenę robocizny. Materiały doliczamy osobno. Dokładny czas i pierwotne wyliczenie pozostają zapisane. Zatwierdzona należność nie zmieni się samoczynnie po korekcie czasu lub danych zlecenia.</p>
       {paid > 0 && <p className="billing-paid-note">Otrzymane płatności: {moneyCents(paid)}. Nowa należność musi pokrywać te wpłaty.</p>}
-      <div className="billing-form-actions"><button type="button" className="button secondary" onClick={onCancel}>Anuluj wycenę</button><button type="submit" className="button primary"><Check size={16}/>{correction ? 'Sprawdź korektę ceny' : 'Zatwierdź cenę robocizny'}</button></div>
+      <div className="billing-form-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onCancel)}>Anuluj wycenę</button><button type="submit" className="button primary"><Check size={16}/>{correction ? 'Sprawdź korektę ceny' : 'Zatwierdź cenę robocizny'}</button></div>
     </form>}
   </section>;
 }
