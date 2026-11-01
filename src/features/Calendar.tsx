@@ -1,5 +1,5 @@
 import { useNavigation, useViewState } from "../navigation/Navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -81,6 +81,10 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
     anchor: today,
     view: "month" as View,
   };
+  useEffect(() => {
+    if (!navigation.route.calendar && !navigation.invalid)
+      navigation.setCalendar({ date: today, anchor: today, view: "month" });
+  }, [navigation, today]);
   const { view, anchor, date: selected } = state;
   const [lastEvent, setLastEvent] = useViewState("calendar-event", "");
   const update = (patch: Partial<typeof state>) =>

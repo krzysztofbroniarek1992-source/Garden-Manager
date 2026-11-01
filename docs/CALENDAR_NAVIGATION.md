@@ -44,6 +44,8 @@ w obu kierunkach bez pomijania poziomu.
 
 URL odtwarza datę, okres, filtry i aktualne szczegóły po odświeżeniu lub otwarciu
 linku. Historia sesji zachowuje poprzednie karty, stan list oraz fokus wydarzenia.
+Wejście do kalendarza bez parametrów zapisuje dzisiejszy dzień i domyślny widok
+w bieżącym adresie, aby powrót po zmianie dnia nadal odtwarzał wybraną datę.
 Otworzenie linku w nowej karcie odtwarza jego cel i zapewnia bezpieczny powrót
 na widok zbiorczy, bez odtwarzania wcześniejszej sesji innej karty.
 Nieprawidłowe adresy i brakujące rekordy mają bezpieczny komunikat.

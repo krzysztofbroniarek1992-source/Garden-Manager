@@ -443,6 +443,33 @@ test("changing calendar controls addresses the view and preserves event focus af
   expect(await snapshot(page)).toBe(before);
 });
 
+test("the default calendar date is addressed before opening a card and survives the next day", async ({
+  page,
+}) => {
+  await page.goto("/#calendar");
+  const before = await snapshot(page);
+  await expect(page).toHaveURL(/#calendar\?date=2026-11-01&view=month$/);
+  await page
+    .locator(".planning-calendar-grid")
+    .getByRole("button", { name: /Nawigacyjna pielęgnacja/ })
+    .first()
+    .click();
+  await expect(task(page)).toBeVisible();
+  await page.clock.setFixedTime(new Date("2026-11-02T10:00:00+01:00"));
+  await page.reload();
+  await expect(task(page)).toBeVisible();
+  await task(page)
+    .getByRole("button", { name: "Wróć do kalendarza", exact: true })
+    .click();
+  await expect(page.getByLabel("Przejdź do dnia", { exact: true })).toHaveValue(
+    "2026-11-01",
+  );
+  await expect(
+    page.getByRole("button", { name: "Miesiąc", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(await snapshot(page)).toBe(before);
+});
+
 test("zone navigation does not steal focus from existing autosave editors", async ({
   page,
 }) => {

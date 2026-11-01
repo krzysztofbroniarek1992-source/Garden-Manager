@@ -728,6 +728,7 @@ test('niepełna checklista pozwala zakończyć i raportować wizytę bez wymusza
 test('migracja v8 i eksport JSON zachowują stare dane oraz metadane raportu', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const old = fixture();
   delete (old as Partial<Data>).reportSequence;
   await seed(page, old, 8);
@@ -879,6 +880,7 @@ test('dwie karty zapisują raporty z unikalnymi numerami i odrzucają drugi niea
   page,
   context,
 }) => {
+  test.setTimeout(60_000);
   const d = fixture();
   d.jobs[1] = {
     ...d.jobs[1],

@@ -28,6 +28,14 @@ test("offline calendar and series preserve moved identity, history and business 
   );
   await page.reload();
   await context.setOffline(true);
+  await page.goto("/#calendar");
+  await expect(page).toHaveURL(/#calendar\?date=2026-11-01&view=month$/);
+  await page.clock.setFixedTime(new Date("2026-11-02T10:00:00+01:00"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByLabel("Przejdź do dnia", { exact: true })).toHaveValue(
+    "2026-11-01",
+  );
+  await page.clock.setFixedTime(planningClock);
   await page.goto(
     "/#calendar?date=2026-11-03&view=week&gardenFilter=garden-1&kindFilter=work",
   );
