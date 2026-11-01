@@ -1,5 +1,6 @@
 import GardenForm from './GardenForm';
-import GardenDetails from './GardenDetails';
+import { lazy, Suspense } from 'react';
+const RelatedCards=lazy(()=>import('./RelatedCards'));
 import { useState } from 'react';
 import { ClipboardList, Leaf, MapPin, Pencil, Plus, Ruler, Search, Sprout, Trash2, UserRound, X } from 'lucide-react';
 import type { Garden } from '../domain';
@@ -44,14 +45,14 @@ export default function Gardens() {
         const jobs = data.jobs.filter(job => job.gardenId === garden.id);
         return <article key={garden.id} className="card entity-card garden-card">
           <div className={`garden-visual garden-visual-${index % 3}`} aria-hidden="true"><div className="garden-circle garden-circle-one" /><div className="garden-circle garden-circle-two" /><Leaf className="garden-visual-leaf" size={70} strokeWidth={1} /><span>PRZESTRZEŃ POD OPIEKĄ</span></div>
-          <div className="garden-card-content"><div className="garden-title-row"><h3>{garden.name}</h3><div className="entity-card-actions"><button className="icon-button" title="Edytuj ogród" aria-label={`Edytuj ogród ${garden.name}`} onClick={() => edit(garden)}><Pencil size={16}/></button><button className="icon-button entity-delete" title="Usuń ogród" aria-label={`Usuń ogród ${garden.name}`} onClick={() => { setError(''); setRemoving(garden); }}><Trash2 size={16}/></button></div></div>
+          <div className="garden-card-content"><div className="garden-title-row"><h3><button className="garden-name-button" onClick={()=>setSelected(garden.id)}>{garden.name}</button></h3><div className="entity-card-actions"><button className="icon-button" title="Edytuj ogród" aria-label={`Edytuj ogród ${garden.name}`} onClick={() => edit(garden)}><Pencil size={16}/></button><button className="icon-button entity-delete" title="Usuń ogród" aria-label={`Usuń ogród ${garden.name}`} onClick={() => { setError(''); setRemoving(garden); }}><Trash2 size={16}/></button></div></div>
           <div className="client-contact"><UserRound size={15} /><span>{clientName(garden.clientId)}</span></div>
           <div className="client-contact garden-address"><MapPin size={15} /><span>{garden.address}</span></div>
           {garden.notes && <p className="garden-notes">{garden.notes}</p>}
           <button className="button secondary garden-detail-link" aria-label={`Karta ogrodu ${garden.name}`} onClick={() => setSelected(garden.id)}>Karta ogrodu · {garden.zones.length} stref</button><div className="card-footer"><span><Ruler size={16}/><strong>{garden.area.toLocaleString('pl-PL')}</strong> m²</span><span><ClipboardList size={15}/>{jobs.length} {jobs.length === 1 ? 'zlecenie' : jobs.length > 1 && jobs.length < 5 ? 'zlecenia' : 'zleceń'}</span></div></div>
         </article>;
       })}</div>}
-    {selected && <GardenDetails gardenId={selected} onClose={() => setSelected('')}/>}
+    {selected && <Suspense fallback={<p role="status">Otwieranie ogrodu…</p>}><RelatedCards initial={{kind:'garden',id:selected}} onClose={() => setSelected('')}/></Suspense>}
     {editing && <GardenForm initial={editing} isNew={isNew} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć ogród?" onClose={() => setRemoving(null)}>
       {error && <p className="gm-form-error" role="alert">{error}</p>}

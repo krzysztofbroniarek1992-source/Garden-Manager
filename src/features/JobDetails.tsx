@@ -17,6 +17,9 @@ import TimeCorrection from './TimeCorrection';
 import { CalculatorPanel } from './Calculators';
 import './payments.css';
 import './billing.css';
+import { useCardNavigation, type RelatedCard } from './card-navigation';
+import './garden-details.css';
+const RelatedCards=lazy(()=>import('./RelatedCards'));
 
 const VisitSummary = lazy(() => import('../reports/VisitSummary'));
 const ChecklistPanel = lazy(() => import('../checklists/ChecklistPanel'));
@@ -27,9 +30,12 @@ const amountInput = (cents: number) => `${BigInt(cents) / 100n}.${String(BigInt(
 
 type PaymentDraft = { payment: Payment; original: Payment | null; amount: string; existing: boolean };
 
-export default function JobDetails({ jobId, onClose, initialBilling = false }: { jobId: string; onClose: () => void; initialBilling?: boolean }) {
+export default function JobDetails({ jobId, onClose, initialBilling = false, active=true }: { jobId: string; onClose: () => void; initialBilling?: boolean; active?:boolean }) {
   const { data, savePayment, deletePayment, saveJob, startTimer, pauseTimer, resumeTimer, stopTimer, completeJob } = useGarden();
   const now = useNow();
+  const navigation=useCardNavigation();
+  const [related,setRelated]=useState<RelatedCard|null>(null);
+  const openRelated=(card:RelatedCard)=>navigation?navigation.open(card):setRelated(card);
   const detailsRef = useRef<HTMLDivElement>(null);
   const [summaryOpen,setSummaryOpen] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -43,7 +49,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
   const [notice, setNotice] = useState('');
   const [panel, setPanel] = useState<'billing' | 'time' | null>(initialBilling ? 'billing' : null);
   const job = data.jobs.find(item => item.id === jobId);
-  if (!job) return <Modal title="Szczegóły zlecenia" onClose={onClose}><p className="muted">To zlecenie nie jest już dostępne. Zamknij panel i odśwież listę.</p></Modal>;
+  if (!job) return <Modal title="Szczegóły zlecenia" onClose={onClose} active={active}><p className="muted">To zlecenie nie jest już dostępne. Zamknij panel i odśwież listę.</p></Modal>;
   const garden = data.gardens.find(item => item.id === job.gardenId);
   const client = data.clients.find(item => item.id === garden?.clientId);
   const payments = data.payments.filter(item => item.jobId === job.id).sort((a, b) => b.receivedDate.localeCompare(a.receivedDate) || a.id.localeCompare(b.id));
@@ -95,10 +101,11 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
   const runVisit = (action: () => void) => { try { action(); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać wizyty.'); } };
   const navigateSection = (section: VisitSection) => { setSummaryOpen(false); requestAnimationFrame(() => { const target=detailsRef.current?.querySelector<HTMLElement>(`[data-visit-section="${section}"]`); target?.scrollIntoView({behavior:'smooth',block:'start'}); target?.focus({preventScroll:true}); }); };
   const closeForm = () => { setDraft(null); setPending(null); setError(''); };
-  return <Modal title="Szczegóły zlecenia" onClose={onClose} wide><div className="payment-details" ref={detailsRef}>
+  return <><Modal title="Szczegóły zlecenia" onClose={onClose} active={active&&!related} wide><div className="payment-details" ref={detailsRef}>
+    <nav className="related-card-links" aria-label="Powiązania zlecenia">{navigation&&<button className="button secondary" onClick={onClose}>{navigation.backLabel}</button>}{garden&&<button className="button secondary" onClick={()=>openRelated({kind:'garden',id:garden.id})}>Ogród: {garden.name}</button>}{client&&<button className="button secondary" onClick={()=>openRelated({kind:'client',id:client.id})}>Klient: {client.name}</button>}</nav>
     <nav className="visit-card-nav" aria-label="Nawigacja karty wizyty"><button className="button primary" onClick={() => setSummaryOpen(true)}>Podsumowanie wizyty</button><button className="button secondary" onClick={() => navigateSection('work')}>Zakres i czas</button><button className="button secondary" onClick={() => navigateSection('billing')}>Materiały i rozliczenie</button><button className="button secondary" onClick={() => navigateSection('notes')}>Notatki</button><button className="button secondary" onClick={() => navigateSection('photos')}>Zdjęcia</button></nav>
     {incompleteVisitChecklists(data,job.id).length>0 && <p role="status" className="checklist-finish-warning">{job.status==='completed'?'Wizyta zakończona z niepełną checklistą.':'Checklista nie jest ukończona. Możesz zakończyć wizytę; niewykonane czynności i postęp pozostaną zachowane.'}</p>}
-    <div className="job-actions"><button className="button secondary" onClick={() => { checklistRef.current?.scrollIntoView({behavior:'smooth',block:'start'});checklistRef.current?.focus({preventScroll:true}); }}>Checklisty wizyty ({data.checklists.filter(c=>c.jobId===job.id).length})</button><button className="button secondary" onClick={() => { setCalculating(v => !v); setEditingJob(false); }}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => { setEditingJob(value => !value); setCalculating(false); }}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={draft => { saveJob(draft); setEditingJob(false); }}/>}
+    <div className="job-actions"><button className="button secondary" onClick={() => { checklistRef.current?.scrollIntoView({behavior:'smooth',block:'start'});checklistRef.current?.focus({preventScroll:true}); }}>Checklisty wizyty ({data.checklists.filter(c=>c.jobId===job.id).length})</button><button className="button secondary" onClick={() => { setCalculating(v => !v); setEditingJob(false); }}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => { setEditingJob(value => !value); setCalculating(false); }}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={() => { try { ownTimer ? (data.timer?.paused ? resumeTimer() : pauseTimer()) : startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={() => runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={() => { try { completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={(draft,expected) => { saveJob(draft,expected); setEditingJob(false); }}/>}
     {calculating && <CalculatorPanel initialGardenId={job.gardenId} jobId={job.id}/>}
     <div data-visit-section="work" tabIndex={-1} className="payment-job-heading visit-section-target"><div><h3>{job.title}</h3><p>{client?.name}</p></div><span className={`badge status-${job.status}`}>{workLabels[job.status]}</span></div>
     <div className="payment-job-meta"><span><MapPin size={14}/>{garden?.name}{visitZone(data,job)&&` · ${visitZone(data,job)}`}{garden?.address && ` · ${garden.address}`}</span><span><CalendarDays size={14}/>{displayDate(job.date)}, {job.time}</span><span><Clock3 size={14}/>{duration(elapsedSeconds(job, data.timer, now))}</span></div>
@@ -137,5 +144,5 @@ export default function JobDetails({ jobId, onClose, initialBilling = false }: {
     <div data-visit-section="photos" ref={galleryRef} tabIndex={-1} className="checklist-gallery-target"><PhotoGallery key={job.id} scope={{ jobId: job.id }} title="Galeria zlecenia i wizyty"/></div>
     {summaryOpen && <Suspense fallback={<p role="status">Otwieranie podsumowania…</p>}><VisitSummary jobId={job.id} onClose={() => setSummaryOpen(false)} onNavigate={navigateSection} onEdit={() => { setSummaryOpen(false);setEditingJob(true);setCalculating(false); }} onTime={() => {setSummaryOpen(false);if(!draft&&!removing&&panel===null)setPanel('time');navigateSection('work');}} onBilling={() => {setSummaryOpen(false);navigateSection('billing');}}/></Suspense>}
     <div className="payment-ledger-footer"><Wallet size={15}/><span>Kwoty rozliczamy w groszach. Płatności częściowe sumują się tylko raz.</span><CreditCard size={15}/></div>
-  </div></Modal>;
+  </div></Modal>{related&&<Suspense fallback={<p role="status">Otwieranie powiązanej karty…</p>}><RelatedCards initial={related} originJobId={jobId} onClose={()=>setRelated(null)}/></Suspense>}</>;
 }

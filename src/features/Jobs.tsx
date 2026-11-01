@@ -2,7 +2,7 @@ import '../checklists/checklists.css';
 import { incompleteVisitChecklists } from '../checklists/model';
 import { useState } from 'react';
 import { Plus, Search, MapPin, CalendarDays, Clock3, Pencil, Play, Pause, Square, Check, Trash2, X, ReceiptText, ListChecks } from 'lucide-react';
-import Modal from '../components/Modal';
+import JobDeleteDialog from './JobDeleteDialog';
 import JobForm from './JobForm';
 import PaymentBadge from '../components/PaymentBadge';
 import JobDetails from './JobDetails';
@@ -12,7 +12,7 @@ import './jobs.css';
 
 const statusLabels = { planned: 'Zaplanowane', 'in-progress': 'W trakcie', completed: 'Zakończone' };
 export default function Jobs({ history = false }: { history?: boolean }) {
-  const { data, saveJob, deleteJob, startTimer, stopTimer, pauseTimer, resumeTimer, completeJob } = useGarden();
+  const { data, saveJob, startTimer, stopTimer, pauseTimer, resumeTimer, completeJob } = useGarden();
   const now = useNow();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Job | null>(null);
@@ -70,7 +70,7 @@ export default function Jobs({ history = false }: { history?: boolean }) {
       </article>;
     })}{!jobs.length && <div className="card empty-state"><ReceiptText size={36}/><h2>{search ? 'Brak wyników' : history ? 'Historia dopiero się zaczyna' : 'Wszystko pod kontrolą'}</h2><p className="muted">{search ? 'Zmień wyszukiwaną frazę.' : history ? 'Tutaj zobaczysz zakończone zlecenia.' : 'Dodaj zlecenie i zaplanuj kolejny dzień pracy.'}</p>{!history && !search && <button className="button primary" onClick={create}><Plus size={16}/> Dodaj zlecenie</button>}</div>}</div>
     {editing && <JobForm job={editing} onClose={() => setEditing(null)} onSave={job => { saveJob(job); setEditing(null); }}/ >}
-    {deleting && <Modal title="Usunąć zlecenie?" onClose={() => setDeleting(null)}>{error && <div className="error-banner" role="alert">{error}</div>}<p>Usunięcie zlecenia skasuje jego czas, historię przerw, raporty i rozliczenie. Tej operacji nie można cofnąć.</p><div className="modal-actions"><button className="button secondary" onClick={() => setDeleting(null)}>Anuluj</button><button className="button danger" onClick={() => run(() => { deleteJob(deleting); setDeleting(null); })}>Usuń zlecenie</button></div></Modal>}
+    {deleting && <JobDeleteDialog jobId={deleting} onClose={()=>setDeleting(null)}/>}
     {detail && <JobDetails jobId={detail.jobId} initialBilling={detail.initialBilling} onClose={() => setDetail(null)}/>}
   </>;
 }

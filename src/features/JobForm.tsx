@@ -3,16 +3,18 @@ import { Plus, Trash2 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
 import { materialUnits, materialsTotalCents, moneyCents, type Job, type Material } from '../domain';
-export default function JobForm({ job, onClose, onSave, clientId: initialClientId, embedded = false }: { job: Job; clientId?: string; embedded?: boolean; onClose: () => void; onSave: (job: Job) => void }) {
+export default function JobForm({ job, onClose, onSave, clientId: initialClientId, embedded = false }: { job: Job; clientId?: string; embedded?: boolean; onClose: () => void; onSave: (job: Job, expected?: Job) => void }) {
   const { data } = useGarden();
   const [catalogQuery, setCatalogQuery] = useState('');
   const [draft, setDraft] = useState(job);
+  const [original] = useState(job);
+  const [wasExisting] = useState(() => data.jobs.some(item => item.id === job.id));
   const [clientId, setClientId] = useState(() => initialClientId ?? data.gardens.find(g => g.id === job.gardenId)?.clientId ?? '');
   const gardens = data.gardens.filter(g => g.clientId === clientId);
   const [error, setError] = useState('');
   const patch = <K extends keyof Job>(key: K, value: Job[K]) => setDraft(current => ({ ...current, [key]: value }));
   const patchMaterial = <K extends keyof Material>(id: string, key: K, value: Material[K]) => patch('materials', draft.materials.map(item => item.id === id ? { ...item, [key]: value } : item));
-  const submit = (event: FormEvent) => { event.preventDefault(); try { onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
+  const submit = (event: FormEvent) => { event.preventDefault(); try { onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }, wasExisting ? original : undefined); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
   const existing = data.jobs.some(item => item.id === job.id);
   let materialPreview = 'Sprawdź kwoty materiałów';
   try { materialPreview = moneyCents(materialsTotalCents(draft)); } catch { /* Invalid draft values are reported on save without crashing the form. */ }
