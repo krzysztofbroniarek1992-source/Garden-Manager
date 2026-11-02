@@ -29,16 +29,32 @@ function AutoField({
   trim?: boolean;
 }) {
   const [draft, setDraft] = useState(value),
-    [failed, setFailed] = useState(false);
-  const guard = useUnsavedChanges<HTMLLabelElement>(failed);
+    [failed, setFailed] = useState(false),
+    [saving, setSaving] = useState(false);
+  const guard = useUnsavedChanges<HTMLLabelElement>(failed || saving);
   const focused = useRef(false);
+  const desired = useRef(value);
+  const inFlight = useRef(new Map<string, Promise<boolean>>());
   useEffect(() => {
-    if (!focused.current && !failed) setDraft(value);
-  }, [value, failed]);
-  const save = async (next: string) => {
-    const success = await onSave(next);
-    setFailed(!success);
-    return success;
+    if (!focused.current && !failed && !saving) setDraft(value);
+  }, [value, failed, saving]);
+  const save = (next: string): Promise<boolean> => {
+    desired.current = next;
+    const existing = inFlight.current.get(next);
+    if (existing) return existing;
+    setSaving(true);
+    const operation = Promise.resolve().then(() => onSave(next)).then(success => {
+      if (desired.current === next) setFailed(!success);
+      return success;
+    }, () => {
+      if (desired.current === next) setFailed(true);
+      return false;
+    }).finally(() => {
+      inFlight.current.delete(next);
+      if (!inFlight.current.size) setSaving(false);
+    });
+    inFlight.current.set(next, operation);
+    return operation;
   };
   const props = {
     'aria-label': label,
@@ -49,7 +65,9 @@ function AutoField({
     },
     onBlur: async () => {
       focused.current = false;
-      if (draft !== value && await save(draft)) setDraft(trim ? draft.trim() : draft);
+      const next = draft;
+      if (next !== value && await save(next) && !focused.current)
+        setDraft(current => current === next ? (trim ? next.trim() : next) : current);
     },
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setDraft(e.target.value);
@@ -142,9 +160,10 @@ export function ChecklistEditor({
     [deleting, setDeleting] = useState(false);
   const itemGuard = useUnsavedChanges(title.trim().length > 0);
   if (!c) return <p>Checklista została usunięta. Otwórz aktualny wpis.</p>;
-  const perform = async (fn: () => void) => {
+  const perform = async (fn: () => void, savingGuard?: typeof itemGuard) => {
     try {
-      await fn();
+      if (savingGuard) await savingGuard.save(fn);
+      else await fn();
       setError('');
       setNotice('Zmiany zapisane na tym urządzeniu.');
       return true;
@@ -401,8 +420,10 @@ export function ChecklistEditor({
         className="checklist-add-item"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await perform(async () => await addChecklistItem(c.id, c.revision, title)))
+          await perform(async () => {
+            await addChecklistItem(c.id, c.revision, title);
             setTitle('');
+          }, itemGuard);
         }}
       >
         <label className="field">
@@ -648,7 +669,7 @@ export default function ChecklistPanel({
             onSubmit={async (e) => {
               e.preventDefault();
               try {
-                const id = await createBlankChecklist(target, name);
+                const id = await blankGuard.save(() => createBlankChecklist(target, name));
                 setBlank(false);
                 setName('');
                 setSelected(id);
