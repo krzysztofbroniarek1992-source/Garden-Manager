@@ -1,6 +1,7 @@
 # Etap 2 — nawigacja kalendarza i harmonogramów
 
-Podstawa: scalony etap 1, PR #12, main `5b06761`. Zmiana rozwija ten sam
+Podstawa: scalony etap 1, PR #12 oraz main `68e91a4` ze scalonym PR #14.
+Zmiana rozwija ten sam
 NavigationProvider i istniejące formularze, kalendarz oraz modele planowania.
 Nie dodaje kolekcji biznesowych ani funkcji etapów 3–6.
 
@@ -62,7 +63,9 @@ powtórnego rozpoczynania. Wyjątki, pominięcia, reguły powtarzania, zatwierdz
 kwoty, płatności i czas pracy zachowują dotychczasową logikę. Zmienione formularze
 wyjątków korzystają z ochrony niezapisanych zmian z etapu 1.
 
-Format pozostaje v9, z tym samym localStorage, IndexedDB oraz JSON/ZIP.
+Format pozostaje v9, z kompatybilnymi kopiami JSON/ZIP. Wspólnym źródłem
+zapisu jest transakcyjne IndexedDB z PR #14; `garden-manager:v1` pozostaje
+kopią zgodności w localStorage. Baza plików zdjęć pozostaje bez zmian.
 Stan nawigacji jest odrębny od danych firmy. Nie dodano automatycznych cykli
 zabiegów liczonych od rzeczywistego wykonania ani synchronizacji.
 
@@ -80,30 +83,36 @@ PWA: `pwa-tests/calendar-navigation-offline.spec.ts`. Scenariusze obejmują
 przesunięcia, pominięcia, powroty, nowe linki, odświeżenie, ochronę szkiców,
 brak duplikatów i zapisów biznesowych oraz telefony 360/390/430 px.
 
-## Wyniki walidacji i znane ograniczenie regresji
+## Integracja z atomowym zapisem PR #14
 
-- Testy jednostkowe: 357/357 (12 plików).
-- TypeScript: `npx tsc -b --pretty false` zakończony poprawnie.
-- Produkcyjny build i 8/8 testów PWA offline: `npm run test:pwa -- --reporter=line`.
-  Cache obejmuje 20 zasobów. Pozostaje wcześniejsze ostrzeżenie o wielkości
-  odroczonego pakietu PDF/fontkit (około 717 kB).
-- E2E: 141/142 w pełnym przebiegu; wszystkie 15 nowych scenariuszy nawigacji
-  przeszło, w tym telefony 360/390/430 px.
-- Jedyny błąd pełnego przebiegu dotyczył istniejącego testu równoległego zapisu
-  raportów PDF: dwie karty pobrały raporty z tym samym numerem. Ponowienie tego
-  scenariusza dało 6/6 zaliczeń na gałęzi etapu 2 oraz 6/6 na niezmienionym
-  main `5b06761`, przy tych samych asercjach. Późniejsza weryfikacja z barierą
-  dwóch kart potwierdziła rzeczywisty, wcześniejszy błąd zapisu: opóźniona
-  widoczność stanu localStorage pozwala przyjąć dwa zapisy i utracić historię
-  jednego raportu, mimo Web Locks. Odtworzono go także bez montowania nawigacji.
+Wszystkie zmienione operacje oczekują na asynchroniczną komendę istniejącego
+store. Dotyczy to dodania zlecenia z kalendarza, rozpoczęcia rzeczywistej pracy,
+przesunięcia i pominięcia terminu oraz kończenia serii w obu istniejących widokach.
+Identyfikator zlecenia trafia do nawigacji dopiero po zakończeniu transakcji.
+Nie ma nowego źródła danych, odczytów localStorage do zapisu ani zmiany reguł
+biznesowych. Pliki modelu, komend planowania, rozliczeń, stopera i numerowania
+raportów pozostają takie jak na main po PR #14.
 
-Nie zmieniano kodu raportów ani zapisu danych w celu usunięcia tego błędu.
-Dłuższe scenariusze migracji i generowania PDF w dwóch kartach mają limit 60 s;
-zachowano asercje unikalności numerów i odrzucania nieaktualnego podglądu.
+Formularze używają asynchronicznego `guard.save`: zamknięcie następuje po zapisie,
+a błąd przywraca ochronę szkicu. W trakcie zapisu wspólna ochrona z PR #14
+blokuje zmianę karty i przywraca adres po próbie Wstecz. Formularz pozostaje
+widoczny, z zachowaną treścią. Szczegóły czynności pokazują trwający zapis
+oraz blokują ponowne wysłanie tej samej operacji. Nie zmieniono kontrolera
+historii ani parametrów kalendarza podczas integracji.
 
-Ponowiona weryfikacja PR #13: 357/357 jednostkowych, TypeScript i świeży build
-poprawne, 45/45 E2E raportów i nawigacji oraz 8/8 PWA offline. Próba
-z kontrolowaną kolejką zapisu ujawniła
-16/30 podwójnych przyjęć na PR #13 i 10/30 na main. Udane E2E nie oznacza
-usunięcia tego wyścigu. [Przyczyna, reprodukcja, ryzyko i rekomendacja przed
-scaleniem](REPORT_NUMBERING_CONCURRENCY.md).
+`tests/calendar-atomic-navigation.spec.ts` używa bariery z prawdziwych żądań
+IndexedDB, bez opierania kolejności na opóźnieniu. Pięć scenariuszy sprawdza
+Wstecz i Zamknij w trakcie przesunięcia, błąd zapisu i ponowienie z zachowaniem
+szkicu, otwieranie zlecenia po rozpoczęciu, nowe zlecenie z kalendarza oraz
+zakończenie serii. Asercje obejmują brak duplikatów, właściwy termin pierwotny,
+powrót do dnia i widoku, odświeżenie i brak ubocznych zmian finansowych.
+
+Testy kalendarza odczytują kopię dopiero po potwierdzeniu zapisu. Testy przygotowujące
+nową instalację przed migracją jawnie resetują bazę testową; nie traktują
+podmiany localStorage po migracji jako komendy aplikacji.
+
+Historyczna diagnoza błędu numerów PDF pozostaje w
+[REPORT_NUMBERING_CONCURRENCY.md](REPORT_NUMBERING_CONCURRENCY.md). Błąd naprawiono
+w osobnym PR #14, a jego deterministyczne testy są częścią regresji tego PR-a.
+Granice gwarancji, zamykanie starych kart przy aktualizacji i wymagania odtwarzania
+plików zdjęć nadal opisuje [ATOMIC_PERSISTENCE.md](ATOMIC_PERSISTENCE.md).

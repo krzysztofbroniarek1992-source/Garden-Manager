@@ -23,22 +23,38 @@ function AutoField({
 }: {
   label: string;
   value: string;
-  onSave: (value: string) => boolean;
+  onSave: (value: string) => Promise<boolean>;
   multiline?: boolean;
   maxLength: number;
   trim?: boolean;
 }) {
   const [draft, setDraft] = useState(value),
-    [failed, setFailed] = useState(false);
-  const guard = useUnsavedChanges<HTMLLabelElement>(failed);
+    [failed, setFailed] = useState(false),
+    [saving, setSaving] = useState(false);
+  const guard = useUnsavedChanges<HTMLLabelElement>(failed || saving);
   const focused = useRef(false);
+  const desired = useRef(value);
+  const inFlight = useRef(new Map<string, Promise<boolean>>());
   useEffect(() => {
-    if (!focused.current && !failed) setDraft(value);
-  }, [value, failed]);
-  const save = (next: string) => {
-    const success = onSave(next);
-    setFailed(!success);
-    return success;
+    if (!focused.current && !failed && !saving) setDraft(value);
+  }, [value, failed, saving]);
+  const save = (next: string): Promise<boolean> => {
+    desired.current = next;
+    const existing = inFlight.current.get(next);
+    if (existing) return existing;
+    setSaving(true);
+    const operation = Promise.resolve().then(() => onSave(next)).then(success => {
+      if (desired.current === next) setFailed(!success);
+      return success;
+    }, () => {
+      if (desired.current === next) setFailed(true);
+      return false;
+    }).finally(() => {
+      inFlight.current.delete(next);
+      if (!inFlight.current.size) setSaving(false);
+    });
+    inFlight.current.set(next, operation);
+    return operation;
   };
   const props = {
     'aria-label': label,
@@ -47,9 +63,11 @@ function AutoField({
     onFocus: () => {
       focused.current = true;
     },
-    onBlur: () => {
+    onBlur: async () => {
       focused.current = false;
-      if (draft !== value && save(draft)) setDraft(trim ? draft.trim() : draft);
+      const next = draft;
+      if (next !== value && await save(next) && !focused.current)
+        setDraft(current => current === next ? (trim ? next.trim() : next) : current);
     },
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setDraft(e.target.value);
@@ -142,9 +160,10 @@ export function ChecklistEditor({
     [deleting, setDeleting] = useState(false);
   const itemGuard = useUnsavedChanges(title.trim().length > 0);
   if (!c) return <p>Checklista została usunięta. Otwórz aktualny wpis.</p>;
-  const perform = (fn: () => void) => {
+  const perform = async (fn: () => void, savingGuard?: typeof itemGuard) => {
     try {
-      fn();
+      if (savingGuard) await savingGuard.save(fn);
+      else await fn();
       setError('');
       setNotice('Zmiany zapisane na tym urządzeniu.');
       return true;
@@ -192,8 +211,8 @@ export function ChecklistEditor({
             value={c.name}
             maxLength={150}
             trim
-            onSave={(name) =>
-              perform(() => editChecklist(c.id, c.revision, { name }))
+            onSave={async (name) =>
+              await perform(async () => await editChecklist(c.id, c.revision, { name }))
             }
           />
           <AutoField
@@ -201,8 +220,8 @@ export function ChecklistEditor({
             value={c.category}
             maxLength={100}
             trim
-            onSave={(category) =>
-              perform(() => editChecklist(c.id, c.revision, { category }))
+            onSave={async (category) =>
+              await perform(async () => await editChecklist(c.id, c.revision, { category }))
             }
           />
           <AutoField
@@ -210,8 +229,8 @@ export function ChecklistEditor({
             value={c.description}
             multiline
             maxLength={5000}
-            onSave={(description) =>
-              perform(() => editChecklist(c.id, c.revision, { description }))
+            onSave={async (description) =>
+              await perform(async () => await editChecklist(c.id, c.revision, { description }))
             }
           />
         </div>
@@ -234,9 +253,9 @@ export function ChecklistEditor({
                     checked={item.status === 'done'}
                     disabled={item.status === 'not-applicable'}
                     aria-label={`Wykonano: ${item.title}`}
-                    onChange={(e) =>
-                      perform(() =>
-                        editChecklistItem(c.id, c.revision, item.id, {
+                    onChange={async (e) =>
+                      await perform(async () =>
+                        await editChecklistItem(c.id, c.revision, item.id, {
                           status: e.target.checked ? 'done' : 'pending',
                         }),
                       )
@@ -251,9 +270,9 @@ export function ChecklistEditor({
                   <select
                     aria-label={`Status: ${item.title}`}
                     value={item.status}
-                    onChange={(e) =>
-                      perform(() =>
-                        editChecklistItem(c.id, c.revision, item.id, {
+                    onChange={async (e) =>
+                      await perform(async () =>
+                        await editChecklistItem(c.id, c.revision, item.id, {
                           status: e.target.value as typeof item.status,
                         }),
                       )
@@ -277,9 +296,9 @@ export function ChecklistEditor({
                 value={item.note}
                 multiline
                 maxLength={2000}
-                onSave={(note) =>
-                  perform(() =>
-                    editChecklistItem(c.id, c.revision, item.id, { note }),
+                onSave={async (note) =>
+                  await perform(async () =>
+                    await editChecklistItem(c.id, c.revision, item.id, { note }),
                   )
                 }
               />
@@ -290,9 +309,9 @@ export function ChecklistEditor({
                   value={item.title}
                   maxLength={150}
                   trim
-                  onSave={(title) =>
-                    perform(() =>
-                      editChecklistItem(c.id, c.revision, item.id, { title }),
+                  onSave={async (title) =>
+                    await perform(async () =>
+                      await editChecklistItem(c.id, c.revision, item.id, { title }),
                     )
                   }
                 />
@@ -301,9 +320,9 @@ export function ChecklistEditor({
                   <select
                     aria-label={`Zdjęcie: ${item.title}`}
                     value={item.photoId ?? ''}
-                    onChange={(e) =>
-                      perform(() =>
-                        editChecklistItem(c.id, c.revision, item.id, {
+                    onChange={async (e) =>
+                      await perform(async () =>
+                        await editChecklistItem(c.id, c.revision, item.id, {
                           photoId: e.target.value || null,
                         }),
                       )
@@ -333,9 +352,9 @@ export function ChecklistEditor({
                     className="button secondary"
                     disabled={!index}
                     aria-label={`Przesuń ${item.title} w górę`}
-                    onClick={() =>
-                      perform(() =>
-                        moveChecklistItem(c.id, c.revision, item.id, -1),
+                    onClick={async () =>
+                      await perform(async () =>
+                        await moveChecklistItem(c.id, c.revision, item.id, -1),
                       )
                     }
                   >
@@ -345,9 +364,9 @@ export function ChecklistEditor({
                     className="button secondary"
                     disabled={index === c.items.length - 1}
                     aria-label={`Przesuń ${item.title} w dół`}
-                    onClick={() =>
-                      perform(() =>
-                        moveChecklistItem(c.id, c.revision, item.id, 1),
+                    onClick={async () =>
+                      await perform(async () =>
+                        await moveChecklistItem(c.id, c.revision, item.id, 1),
                       )
                     }
                   >
@@ -378,10 +397,10 @@ export function ChecklistEditor({
                     </button>
                     <button
                       className="button danger"
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          perform(() =>
-                            removeChecklistItem(c.id, c.revision, item.id),
+                          await perform(async () =>
+                            await removeChecklistItem(c.id, c.revision, item.id),
                           )
                         )
                           setRemoving('');
@@ -399,10 +418,12 @@ export function ChecklistEditor({
       <form
         ref={itemGuard.ref}
         className="checklist-add-item"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          if (perform(() => addChecklistItem(c.id, c.revision, title)))
+          await perform(async () => {
+            await addChecklistItem(c.id, c.revision, title);
             setTitle('');
+          }, itemGuard);
         }}
       >
         <label className="field">
@@ -447,8 +468,8 @@ export function ChecklistEditor({
           </button>
           <button
             className="button danger"
-            onClick={() => {
-              if (perform(() => deleteChecklist(c.id, c.revision)))
+            onClick={async () => {
+              if (await perform(async () => await deleteChecklist(c.id, c.revision)))
                 onDeleted?.();
             }}
           >
@@ -517,9 +538,9 @@ export default function ChecklistPanel({
           ?.checklistTemplateId && t.archivedAt === null,
   );
   const blankGuard = useUnsavedChanges(blank && name.trim().length > 0);
-  const perform = (fn: () => string) => {
+  const perform = async (fn: () => Promise<string>) => {
     try {
-      setSelected(fn());
+      setSelected(await fn());
       setError('');
     } catch (e) {
       setError((e as Error).message);
@@ -554,8 +575,8 @@ export default function ChecklistPanel({
       {suggestion && (
         <button
           className="button secondary"
-          onClick={() =>
-            perform(() => applyWorkTemplate(suggestion.id, target))
+          onClick={async () =>
+            await perform(async () => await applyWorkTemplate(suggestion.id, target))
           }
         >
           Zastosuj szablon harmonogramu: {suggestion.name}
@@ -580,7 +601,7 @@ export default function ChecklistPanel({
         <button
           className="button secondary"
           disabled={!templateId}
-          onClick={() => perform(() => applyWorkTemplate(templateId, target))}
+          onClick={async () => await perform(async () => await applyWorkTemplate(templateId, target))}
         >
           Zastosuj szablon
         </button>
@@ -609,7 +630,7 @@ export default function ChecklistPanel({
           <button
             className="button secondary"
             disabled={!planId}
-            onClick={() => perform(() => applyGardenPlan(planId, target.jobId))}
+            onClick={async () => await perform(async () => await applyGardenPlan(planId, target.jobId))}
           >
             Skopiuj plan do wizyty
           </button>
@@ -645,10 +666,10 @@ export default function ChecklistPanel({
           <form
             ref={blankGuard.ref}
             className="checklist-form"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               try {
-                const id = createBlankChecklist(target, name);
+                const id = await blankGuard.save(() => createBlankChecklist(target, name));
                 setBlank(false);
                 setName('');
                 setSelected(id);

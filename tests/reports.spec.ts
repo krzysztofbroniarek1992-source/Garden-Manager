@@ -1,3 +1,5 @@
+import { settled, setChecked } from './atomic-fixture';
+import { resetCanonical, changeCanonical } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import {
   test as base,
@@ -93,7 +95,8 @@ function fixture(completed = true) {
 async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
   await page.clock.install({ time: clock });
   await page.goto('/');
-  await page.evaluate(
+  await resetCanonical(page);
+await page.evaluate(
     ({ data, version }) =>
       localStorage.setItem(
         'garden-manager:v1',
@@ -101,10 +104,10 @@ async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
       ),
     { data, version },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  return page.evaluate(
+  await settled(page); return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -301,7 +304,7 @@ test('publiczny opis, zalecenia i strefa zapisują się bez zmiany stopera i roz
   expect(after.jobs[0].settlement).toEqual(before.jobs[0].settlement);
   expect(after.payments).toEqual(before.payments);
   expect(after.timer).toEqual(before.timer);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(
     (await summary(page)).getByLabel('Uwagi i zalecenia dla klienta', {
       exact: true,
@@ -345,7 +348,7 @@ test('PDF zawiera polskie znaki i publiczny opis, domyślnie bez finansów i pry
   expect(saved.jobs[0].reports).toHaveLength(1);
   expect(saved.jobs[0].settlement).toEqual(before.jobs[0].settlement);
   expect(saved.payments).toEqual(before.payments);
-  expect(
+  await settled(page); expect(
     await page.evaluate(() => localStorage.getItem('garden-manager:v1')),
   ).not.toMatch(/base64|data:image|JVBER/);
 });
@@ -379,24 +382,19 @@ test('jawne opcje finansów, checklist i zaleceń oraz wyłączenie czasu i mate
   };
   await seed(page, d);
   const panel = await builder(page);
-  await panel
-    .getByRole('checkbox', { name: 'Pokaż ceny i należności', exact: true })
-    .check();
-  await panel
-    .getByRole('checkbox', { name: 'Pokaż checklisty i statusy', exact: true })
-    .check();
-  await panel
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Pokaż ceny i należności', exact: true }), true);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Pokaż checklisty i statusy', exact: true }), true);
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Dołącz uwagi i zalecenia dla klienta',
       exact: true,
-    })
-    .check();
-  await panel
-    .getByRole('checkbox', { name: 'Pokaż czas pracy', exact: true })
-    .uncheck();
-  await panel
-    .getByRole('checkbox', { name: 'Pokaż materiały i ilości', exact: true })
-    .uncheck();
+    }), true);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Pokaż czas pracy', exact: true }), false);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Pokaż materiały i ilości', exact: true }), false);
   const paper = await prepare(panel);
   await expect(paper).toContainText('Zatwierdzone rozliczenie');
   await expect(paper).toContainText('Zalecenie: podlewać róże.');
@@ -426,18 +424,15 @@ test('raport ze zdjęciami PRZED/PO oraz logo korzysta z istniejących identyfik
   await upload(page, gallery, 'przed.png', 'before');
   await upload(page, gallery, 'po.png', 'after');
   const panel = await builder(page, await summary(page, detail));
-  await panel
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Dołącz wybrane zdjęcia PRZED/PO',
       exact: true,
-    })
-    .check();
-  await panel
-    .getByRole('checkbox', { name: 'Dołącz zdjęcie przed.png', exact: true })
-    .check();
-  await panel
-    .getByRole('checkbox', { name: 'Dołącz zdjęcie po.png', exact: true })
-    .check();
+    }), true);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Dołącz zdjęcie przed.png', exact: true }), true);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Dołącz zdjęcie po.png', exact: true }), true);
   await panel.getByText('Opcjonalne logo firmy', { exact: true }).click();
   await panel
     .getByLabel('Dodaj logo do galerii wizyty', { exact: true })
@@ -529,15 +524,13 @@ test('brak zdjęcia w IndexedDB pokazuje błąd i nie zapisuje uszkodzonego rapo
     photo.assetId,
   );
   const panel = await builder(page, await summary(page, detail));
-  await panel
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Dołącz wybrane zdjęcia PRZED/PO',
       exact: true,
-    })
-    .check();
-  await panel
-    .getByRole('checkbox', { name: 'Dołącz zdjęcie brak.png', exact: true })
-    .check();
+    }), true);
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Dołącz zdjęcie brak.png', exact: true }), true);
   await panel
     .getByRole('button', { name: 'Przygotuj podgląd raportu', exact: true })
     .click();
@@ -614,15 +607,10 @@ test('zmiana płatności po podglądzie blokuje zapis starego rozliczenia i zach
 }) => {
   await seed(page);
   const panel = await builder(page);
-  await panel
-    .getByRole('checkbox', { name: 'Pokaż ceny i należności', exact: true })
-    .check();
+  await setChecked(panel
+    .getByRole('checkbox', { name: 'Pokaż ceny i należności', exact: true }), true);
   await prepare(panel);
-  await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('garden-manager:v1')!);
-    raw.data.payments[0].amountCents = 11000;
-    localStorage.setItem('garden-manager:v1', JSON.stringify(raw));
-  });
+  await changeCanonical(page, {payment:{id:'p',amountCents:11000}});
   await panel
     .getByRole('button', { name: 'Zapisz raport i pobierz PDF', exact: true })
     .click();
@@ -732,7 +720,7 @@ test('migracja v8 i eksport JSON zachowują stare dane oraz metadane raportu', a
   const old = fixture();
   delete (old as Partial<Data>).reportSequence;
   await seed(page, old, 8);
-  const migrated = await page.evaluate(() => ({
+  await settled(page); const migrated = await page.evaluate(() => ({
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v8')!),
     current: JSON.parse(localStorage.getItem('garden-manager:v1')!),
   }));
@@ -773,18 +761,16 @@ test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną g
   await upload(page, gallery, 'zip-przed.png');
   const s = await summary(page, detail);
   let panel = await builder(page, s);
-  await panel
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Dołącz wybrane zdjęcia PRZED/PO',
       exact: true,
-    })
-    .check();
-  await panel
+    }), true);
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Dołącz zdjęcie zip-przed.png',
       exact: true,
-    })
-    .check();
+    }), true);
   await prepare(panel);
   const originalPdf = await download(
     page,
@@ -820,12 +806,11 @@ test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną g
       mimeType: 'application/zip',
       buffer: zip.bytes,
     });
-  await set
+  await setChecked(set
     .getByRole('checkbox', {
       name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.',
       exact: true,
-    })
-    .check();
+    }), true);
   await set.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ');
   await set
     .getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })
@@ -833,7 +818,7 @@ test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną g
   await expect(
     set.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).jobs).toEqual(original.jobs);
   expect((await snapshot(page)).payments).toEqual(original.payments);
   panel = await builder(page);

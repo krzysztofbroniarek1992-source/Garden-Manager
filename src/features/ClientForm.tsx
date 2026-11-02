@@ -8,12 +8,12 @@ export default function ClientForm({ initial, isNew, onClose }: { initial: Clien
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
   const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(initial));
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
     try {
       if (!editing.name.trim()) throw new Error('Podaj imię i nazwisko lub nazwę firmy.');
-      guard.save(() => { saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() });
+      await guard.save(async () => { await saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() });
       onClose(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać klienta.'); }
   }

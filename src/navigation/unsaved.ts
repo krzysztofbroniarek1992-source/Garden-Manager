@@ -1,3 +1,4 @@
+import { hasPendingWrites } from "../data/pending";
 import { useEffect, useRef } from "react";
 
 const message = "Masz niezapisane zmiany. Odrzucić je i opuścić formularz?";
@@ -13,6 +14,7 @@ function visible(g: Guard) {
 }
 export function hasUnsaved(root?: HTMLElement | null) {
   if (suppressed) return false;
+  if (hasPendingWrites()) return true;
   return [...guards].some(
     (g) =>
       visible(g) &&
@@ -22,6 +24,7 @@ export function hasUnsaved(root?: HTMLElement | null) {
   );
 }
 export function confirmLeave(root?: HTMLElement | null) {
+  if (hasPendingWrites()) return false;
   return !hasUnsaved(root) || window.confirm(message);
 }
 export function requestLeave(action: () => void, root?: HTMLElement | null) {
@@ -55,13 +58,40 @@ export function useUnsavedChanges<T extends HTMLElement = HTMLFormElement>(
     confirm(action: () => void) {
       requestLeave(action, ref.current);
     },
-    save<TValue>(action: () => TValue): TValue {
+    async save<TValue>(
+      action: () => TValue | Promise<TValue>,
+    ): Promise<TValue> {
       guard.current.allowed = true;
+      const focus =
+        typeof document !== "undefined"
+          ? (document.activeElement as HTMLElement | null)
+          : null;
+      // Lock the submitted form only; autosave fields retain their own drafts.
+      const element = ref.current ?? focus?.closest<HTMLElement>("form");
+      const previousInert = element?.inert ?? false;
+      const previousDisabled = element?.getAttribute("aria-disabled");
+      if (element) {
+        element.inert = true;
+        element.setAttribute("aria-disabled", "true");
+      }
       try {
-        return action();
+        return await action();
       } catch (error) {
         guard.current.allowed = false;
         throw error;
+      } finally {
+        if (element) {
+          element.inert = previousInert;
+          if (previousDisabled == null)
+            element.removeAttribute("aria-disabled");
+          else element.setAttribute("aria-disabled", previousDisabled);
+          if (
+            focus?.isConnected &&
+            !element.closest("[hidden], [inert]") &&
+            document.activeElement === document.body
+          )
+            focus.focus({ preventScroll: true });
+        }
       }
     },
   };

@@ -2,7 +2,7 @@ import { useCardNavigation } from "./card-navigation";
 import { occurrenceDate } from "../navigation/planning-links";
 import { useUnsavedChanges } from "../navigation/unsaved";
 import { useNavigation } from "../navigation/Navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import Modal from "../components/Modal";
 import { useGarden } from "../state";
 import { localDate } from "../domain";
@@ -50,6 +50,8 @@ export default function TaskDetails({
   const cardNavigation = useCardNavigation();
   const [applyChecklist, setApplyChecklist] = useState(true);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false);
   const guard = useUnsavedChanges<HTMLDivElement>(
     (panel === "move" &&
       (targetDate !== original?.date || time !== original?.time)) ||
@@ -85,19 +87,31 @@ export default function TaskDetails({
   const checklistTemplate = data.workTemplates.find(
     (t) => t.id === schedule.checklistTemplateId,
   );
-  const perform = (action: () => void) => {
+  const perform = async (action: () => void | Promise<void>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSaving(true);
     try {
-      action();
+      await action();
       setError("");
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
     }
   };
-  const move = (e: FormEvent) => {
+  const move = async (e: FormEvent) => {
     e.preventDefault();
-    perform(() => {
-      guard.save(() => {
-        moveTaskOccurrence(scheduleId, originalDate, targetDate, time, version);
+    await perform(async () => {
+      await guard.save(async () => {
+        await moveTaskOccurrence(
+          scheduleId,
+          originalDate,
+          targetDate,
+          time,
+          version,
+        );
         onClose();
       });
     });
@@ -250,6 +264,7 @@ export default function TaskDetails({
             </p>
           </>
         )}
+        {saving && <p role="status">Zapisywanie zmian…</p>}
         {error && (
           <p role="alert" className="gm-form-error">
             {error}
@@ -264,11 +279,11 @@ export default function TaskDetails({
             status === "planned" && (
               <button
                 className="button primary"
-                disabled={!gardenId}
+                disabled={saving || !gardenId}
                 onClick={() =>
-                  perform(() =>
+                  perform(async () =>
                     setJobId(
-                      beginTaskOccurrence(
+                      await beginTaskOccurrence(
                         scheduleId,
                         originalDate,
                         gardenId,
@@ -288,6 +303,7 @@ export default function TaskDetails({
             <>
               <button
                 className="button secondary"
+                disabled={saving}
                 onClick={() => {
                   setPanel("move");
                   setError("");
@@ -297,6 +313,7 @@ export default function TaskDetails({
               </button>
               <button
                 className="button secondary"
+                disabled={saving}
                 onClick={() => {
                   setPanel("skip");
                   setError("");
@@ -306,12 +323,17 @@ export default function TaskDetails({
               </button>
             </>
           )}
-          <button className="button secondary" onClick={() => setEditing(true)}>
+          <button
+            className="button secondary"
+            disabled={saving}
+            onClick={() => setEditing(true)}
+          >
             Edytuj całą serię
           </button>
           {!schedule.endedOn && schedule.recurrence.frequency !== "once" && (
             <button
               className="button secondary"
+              disabled={saving}
               onClick={() => {
                 setPanel("end");
                 setError("");
@@ -353,7 +375,11 @@ export default function TaskDetails({
               >
                 Anuluj przesunięcie
               </button>
-              <button className="button primary" type="submit">
+              <button
+                className="button primary"
+                type="submit"
+                disabled={saving}
+              >
                 Zapisz przesunięcie
               </button>
             </div>
@@ -379,9 +405,10 @@ export default function TaskDetails({
               </button>
               <button
                 className="button danger"
+                disabled={saving}
                 onClick={() =>
-                  perform(() => {
-                    skipTaskOccurrence(scheduleId, originalDate, version);
+                  perform(async () => {
+                    await skipTaskOccurrence(scheduleId, originalDate, version);
                     onClose();
                   })
                 }
@@ -394,11 +421,11 @@ export default function TaskDetails({
         {panel === "end" && (
           <form
             className="planning-confirm"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              perform(() => {
-                guard.save(() => {
-                  endTaskSchedule(
+              await perform(async () => {
+                await guard.save(async () => {
+                  await endTaskSchedule(
                     scheduleId,
                     endingDate,
                     version.scheduleRevision,

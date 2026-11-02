@@ -217,9 +217,9 @@ export default function Todos() {
               <button
                 className="button secondary"
                 aria-label={`${todo.status === 'completed' ? 'Oznacz jako niewykonane' : 'Wykonaj sprawę'} ${todo.title}`}
-                onClick={() => {
+                onClick={async () => {
                   try {
-                    changeTodoStatus(
+                    await changeTodoStatus(
                       todo.id,
                       todo.revision,
                       todo.status === 'completed' ? 'open' : 'completed',

@@ -8,14 +8,14 @@ export default function GardenForm({ initial, isNew, onClose }: { initial: Garde
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
   const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(initial));
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
     try {
       if (!editing.name.trim()) throw new Error('Podaj nazwę ogrodu.');
       if (!editing.address.trim()) throw new Error('Podaj adres ogrodu.');
       if (!editing.clientId) throw new Error('Najpierw dodaj klienta w zakładce „Klienci”.');
-      guard.save(() => { saveGarden({ ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() });
+      await guard.save(async () => { await saveGarden({ ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() });
       onClose(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać ogrodu.'); }
   }

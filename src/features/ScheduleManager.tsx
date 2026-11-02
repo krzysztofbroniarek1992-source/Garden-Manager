@@ -95,11 +95,11 @@ export default function ScheduleManager({
         <Modal title="Zakończyć serię?" onClose={() => setEnding(null)}>
           <form
             ref={guard.ref}
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               try {
-                guard.save(() => {
-                  endTaskSchedule(ending.id, date, ending.revision);
+                await guard.save(async () => {
+                  await endTaskSchedule(ending.id, date, ending.revision);
                   setEnding(null);
                 });
               } catch (e) {

@@ -299,9 +299,9 @@ export default function GardenDetails({
                             </button>
                             <button
                               className="button danger"
-                              onClick={() => {
+                              onClick={async () => {
                                 try {
-                                  deleteZone(gardenId, removing.id);
+                                  await deleteZone(gardenId, removing.id);
                                   setRemoving(null);
                                   setError('');
                                 } catch (cause) {
@@ -496,8 +496,8 @@ export default function GardenDetails({
           job={jobDraft}
           clientId={garden.clientId}
           onClose={() => setJobDraft(null)}
-          onSave={(draft, expected) => {
-            saveJob(draft, expected);
+          onSave={async (draft, expected) => {
+            await saveJob(draft, expected);
             setJobDraft(null);
             select('jobs');
             openJob(draft.id);
@@ -582,10 +582,10 @@ function ZoneForm({
   const [error, setError] = useState('');
   const patch = <K extends keyof GardenZone>(key: K, value: GardenZone[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      guard.save(() => {saveZone(gardenId, draft);onClose();});
+      await guard.save(async () => {await saveZone(gardenId, draft);onClose();});
     } catch (e) {
       setError((e as Error).message);
     }

@@ -555,8 +555,8 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
         <JobForm
           job={newJob}
           onClose={() => setNewJob(null)}
-          onSave={(job) => {
-            saveJob(job);
+          onSave={async (job) => {
+            await saveJob(job);
             setNewJob(null);
             setSelectedJob(job.id);
           }}

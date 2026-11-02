@@ -117,11 +117,11 @@ export default function DeskOverview() {
                   <button
                     className="button secondary"
                     aria-label={`Wykonaj ${row.kind === 'note' ? 'przypomnienie' : 'sprawę'} ${row.title}`}
-                    onClick={() => {
+                    onClick={async () => {
                       try {
                         row.kind === 'note'
-                          ? changeReminder(row.id, row.revision, 'completed')
-                          : changeTodoStatus(row.id, row.revision, 'completed');
+                          ? await changeReminder(row.id, row.revision, 'completed')
+                          : await changeTodoStatus(row.id, row.revision, 'completed');
                         setError('');
                       } catch (e) {
                         setError((e as Error).message);

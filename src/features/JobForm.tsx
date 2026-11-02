@@ -16,7 +16,7 @@ export default function JobForm({ job, onClose, onSave, clientId: initialClientI
   const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(original));
   const patch = <K extends keyof Job>(key: K, value: Job[K]) => setDraft(current => ({ ...current, [key]: value }));
   const patchMaterial = <K extends keyof Material>(id: string, key: K, value: Material[K]) => patch('materials', draft.materials.map(item => item.id === id ? { ...item, [key]: value } : item));
-  const submit = (event: FormEvent) => { event.preventDefault(); try { guard.save(() => onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }, wasExisting ? original : undefined)); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
+  const submit = async (event: FormEvent) => { event.preventDefault(); try { await guard.save(async () => await onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim(), activities: draft.activities.map(item => item.trim()).filter(Boolean) }, wasExisting ? original : undefined)); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zlecenia.'); } };
   const existing = data.jobs.some(item => item.id === job.id);
   let materialPreview = 'Sprawdź kwoty materiałów';
   try { materialPreview = moneyCents(materialsTotalCents(draft)); } catch { /* Invalid draft values are reported on save without crashing the form. */ }

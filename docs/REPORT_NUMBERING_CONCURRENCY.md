@@ -1,6 +1,10 @@
 # Weryfikacja numeracji PDF przed scaleniem PR #13
 
-## Wniosek i rekomendacja
+> Raport archiwalny sprzed PR #14. Opisany błąd naprawiono w scalonym PR #14
+> (`68e91a4`); PR #13 integruje już atomowy zapis. Aktualne wyniki integracji
+> znajdują się w [CALENDAR_NAVIGATION.md](CALENDAR_NAVIGATION.md).
+
+## Wniosek historyczny i rekomendacja sprzed PR #14
 
 To rzeczywisty błąd współbieżnego zapisu, istniejący przed PR #13. Test E2E
 ujawnił poprawnie naruszenie unikalności numerów dwóch różnych wizyt. Zwykłe
@@ -13,7 +17,7 @@ raportu w historii. Nie należy uznawać udanych ponowień E2E za usunięcie pro
 PR #13 pozostaje otwarty; nie zmieniono kodu aplikacji, schematu danych,
 rozliczeń ani stopera w ramach tej weryfikacji.
 
-## Jak działa obecny mechanizm
+## Mechanizm sprzed PR #14
 
 1. `ReportService.prepare()` odczytuje stan i wylicza numer podglądu jako
    `BO/rok/(reportSequence + 1)`. Nowa wersja raportu tej samej wizyty zachowuje

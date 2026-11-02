@@ -59,10 +59,10 @@ export function NoteForm({
         ((!draft.clientId || p.clientId === draft.clientId) &&
           (!draft.gardenId || p.gardenId === draft.gardenId))),
   );
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      guard.save(() => {saveNote(draft);onDone();});
+      await guard.save(async () => {await saveNote(draft);onDone();});
     } catch (e) {
       setError((e as Error).message);
     }
@@ -247,10 +247,10 @@ export function TodoForm({
       <form
         ref={guard.ref}
         className="desk-form"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           try {
-            guard.save(() => {saveTodo(draft);onDone();});
+            await guard.save(async () => {await saveTodo(draft);onDone();});
           } catch (e) {
             setError((e as Error).message);
           }

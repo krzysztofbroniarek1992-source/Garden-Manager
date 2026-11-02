@@ -1,3 +1,4 @@
+import { settled, resetCanonical } from "../tests/atomic-fixture";
 import { test, expect } from "@playwright/test";
 import {
   planningClock,
@@ -17,6 +18,7 @@ test("offline calendar and series preserve moved identity, history and business 
   await expect
     .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
     .toBe(true);
+  await resetCanonical(page);
   await page.evaluate(
     ({ key, version, data }) =>
       localStorage.setItem(key, JSON.stringify({ version, data })),
@@ -26,12 +28,12 @@ test("offline calendar and series preserve moved identity, history and business 
       data: planningNavigationData(),
     },
   );
-  await page.reload();
+  await settled(page); await page.reload();
   await context.setOffline(true);
   await page.goto("/#calendar");
   await expect(page).toHaveURL(/#calendar\?date=2026-11-01&view=month$/);
   await page.clock.setFixedTime(new Date("2026-11-02T10:00:00+01:00"));
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await settled(page); await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByLabel("Przejdź do dnia", { exact: true })).toHaveValue(
     "2026-11-01",
   );
@@ -39,7 +41,9 @@ test("offline calendar and series preserve moved identity, history and business 
   await page.goto(
     "/#calendar?date=2026-11-03&view=week&gardenFilter=garden-1&kindFilter=work",
   );
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await settled(page); await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(".app-shell").waitFor();
+  await settled(page);
   const before = await page.evaluate(
     (key) => localStorage.getItem(key),
     STORAGE_KEY,
@@ -90,7 +94,7 @@ test("offline calendar and series preserve moved identity, history and business 
   ).toHaveAttribute("aria-pressed", "true");
   await page.goForward();
   await expect(task).toBeVisible();
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await settled(page); await page.reload({ waitUntil: "domcontentloaded" });
   await expect(task).toContainText("2026-11-03");
   expect(
     await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY),

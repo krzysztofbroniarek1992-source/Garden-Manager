@@ -20,7 +20,7 @@ export default function Jobs({ history = false }: { history?: boolean }) {
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
   const setDetail = (value: {jobId:string;initialBilling:boolean}) => navigation.open({kind:'job',id:value.jobId,initialBilling:value.initialBilling});
-  const run = (action: () => void) => { try { action(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zmian.'); } };
+  const run = async (action: () => void) => { try { await action(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zmian.'); } };
   const create = () => {
     if (!data.gardens.length) { setError('Najpierw dodaj klienta i ogród w zakładce Obiekty.'); return; }
     setEditing({ id: crypto.randomUUID(), gardenId: data.gardens[0].id, title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null });
@@ -64,13 +64,13 @@ export default function Jobs({ history = false }: { history?: boolean }) {
             {measuring ? <>
               {paused ? <button className="button primary visit-control" onClick={() => run(resumeTimer)}><Play size={16} fill="currentColor"/> WZNÓW — Kontynuuj wizytę</button> : <button className="button secondary visit-control" onClick={() => run(pauseTimer)}><Pause size={16} fill="currentColor"/> PAUZA — Przerwa bez naliczania</button>}
               <button className="button stop-button visit-control" onClick={() => run(stopTimer)}><Square size={16} fill="currentColor"/> STOP — Zakończ pomiar</button>
-            </> : <button className="button primary visit-control" disabled={!!data.timer} onClick={() => run(() => startTimer(job.id))} title={data.timer ? 'Zakończ aktywny lub wstrzymany pomiar przed rozpoczęciem kolejnej wizyty.' : 'Od wyjścia z samochodu do spakowania sprzętu'}><Play size={16} fill="currentColor"/> START — Rozpocznij wizytę</button>}
-            <button className="button secondary" onClick={() => run(() => { completeJob(job.id); navigation.open({kind:'job',id:job.id,section:'billing',editBilling:true}); })}><Check size={16}/> Zakończ</button>
+            </> : <button className="button primary visit-control" disabled={!!data.timer} onClick={() => run(async () => await startTimer(job.id))} title={data.timer ? 'Zakończ aktywny lub wstrzymany pomiar przed rozpoczęciem kolejnej wizyty.' : 'Od wyjścia z samochodu do spakowania sprzętu'}><Play size={16} fill="currentColor"/> START — Rozpocznij wizytę</button>}
+            <button className="button secondary" onClick={() => run(async () => { await completeJob(job.id); navigation.open({kind:'job',id:job.id,section:'billing',editBilling:true}); })}><Check size={16}/> Zakończ</button>
           </>}<button className="icon-button" title="Edytuj zlecenie" aria-label={`Edytuj ${job.title}`} onClick={() => setDetail({jobId: job.id, initialBilling: false})}><Pencil size={17}/></button><button className="icon-button" title="Usuń zlecenie" aria-label={`Usuń ${job.title}`} disabled={measuring} onClick={() => { setError(''); setDeleting(job.id); }}><Trash2 size={17}/></button></div>
         </div>
       </article>;
     })}{!jobs.length && <div className="card empty-state"><ReceiptText size={36}/><h2>{search ? 'Brak wyników' : history ? 'Historia dopiero się zaczyna' : 'Wszystko pod kontrolą'}</h2><p className="muted">{search ? 'Zmień wyszukiwaną frazę.' : history ? 'Tutaj zobaczysz zakończone zlecenia.' : 'Dodaj zlecenie i zaplanuj kolejny dzień pracy.'}</p>{!history && !search && <button className="button primary" onClick={create}><Plus size={16}/> Dodaj zlecenie</button>}</div>}</div>
-    {editing && <JobForm job={editing} onClose={() => setEditing(null)} onSave={job => { saveJob(job); setEditing(null); }}/ >}
+    {editing && <JobForm job={editing} onClose={() => setEditing(null)} onSave={async job => { await saveJob(job); setEditing(null); }}/ >}
     {deleting && <JobDeleteDialog jobId={deleting} onClose={()=>setDeleting(null)}/>}
   </>;
 }

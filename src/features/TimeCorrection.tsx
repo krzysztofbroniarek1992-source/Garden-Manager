@@ -17,9 +17,9 @@ export default function TimeCorrection({ jobId, onDone, onCancel }: { jobId: str
   const [error, setError] = useState('');
   const guard = useUnsavedChanges<HTMLElement>(hours !== String(Math.floor(initialSeconds/3600)) || minutes !== String(Math.floor(initialSeconds%3600/60)) || seconds !== String(Math.floor(initialSeconds%60)) || pending !== null);
   if (!original) return <p className="gm-form-error" role="alert">Nie znaleziono zlecenia.</p>;
-  const save = () => {
+  const save = async () => {
     if (pending === null) return;
-    try { guard.save(() => {correctJobTime(jobId, pending, initialSeconds);onDone();}); }
+    try { await guard.save(async () => {await correctJobTime(jobId, pending, initialSeconds);onDone();}); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się poprawić czasu pracy.'); }
   };
   const submit = (event: FormEvent) => {

@@ -1,3 +1,4 @@
+import { settled, resetCanonical } from "./atomic-fixture";
 import { createBlankChecklist } from "../src/checklists/commands";
 import { test as base, expect, type Page } from "@playwright/test";
 import { STORAGE_KEY, STORAGE_VERSION } from "../src/data/repository";
@@ -31,8 +32,11 @@ const series = (p: Page) =>
   });
 const job = (p: Page) =>
   p.getByRole("dialog", { name: "Szczegóły zlecenia", exact: true });
-const snapshot = (p: Page) =>
-  p.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+const snapshot = async (p: Page) => {
+  await p.locator('.app-shell').waitFor();
+  await settled(p);
+  return p.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+};
 const taskURL =
   "/#calendar?task=series-navigation&original=2026-10-31&date=2026-11-03&view=week&gardenFilter=garden-1&kindFilter=work";
 test.beforeEach(async ({ page }) => {
@@ -480,6 +484,7 @@ test("zone navigation does not steal focus from existing autosave editors", asyn
     planningClock.getTime(),
   );
   await page.goto(taskURL);
+  await resetCanonical(page);
   await page.evaluate(
     ({ key, version, data }) =>
       localStorage.setItem(key, JSON.stringify({ version, data })),

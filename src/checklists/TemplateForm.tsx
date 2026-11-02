@@ -32,10 +32,10 @@ export default function TemplateForm({
       <form
         ref={guard.ref}
         className="checklist-form"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           try {
-            guard.save(() => {saveWorkTemplate(draft);onClose();});
+            await guard.save(async () => {await saveWorkTemplate(draft);onClose();});
           } catch (e) {
             setError((e as Error).message);
           }
