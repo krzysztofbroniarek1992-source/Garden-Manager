@@ -200,12 +200,17 @@ const snapshot = async (page: Page): Promise<Data> => {
   await settled(page);
   return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
 };
+async function goToGardens(page: Page) {
+  await page.goto('/');
+  const desktop = page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true });
+  const mobile = page.getByRole('navigation', { name: 'Nawigacja mobilna' }).getByRole('button', { name: 'Ogrody', exact: true });
+  await desktop.or(mobile).click();
+}
 async function openGarden(
   page: Page,
   name = 'Ogród przy domu',
 ): Promise<Locator> {
-  await page.goto('/');
-  await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
+  await goToGardens(page);
   await page
     .getByRole('button', { name: `Karta ogrodu ${name}`, exact: true })
     .click();
@@ -405,8 +410,7 @@ test('lista ogrodów otwiera tę samą pełną kartę i zachowuje wyszukiwanie p
   page,
 }) => {
   await seed(page);
-  await page.goto('/');
-  await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
+  await goToGardens(page);
   await page.getByLabel('Szukaj ogrodów', { exact: true }).fill('przy domu');
   await page
     .getByRole('button', { name: 'Karta ogrodu Ogród przy domu', exact: true })
