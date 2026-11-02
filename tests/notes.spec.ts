@@ -1,3 +1,5 @@
+import { settled, setChecked } from './atomic-fixture';
+import { resetCanonical } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import {
   test as base,
@@ -75,7 +77,8 @@ function todo(data: Data, patch: Partial<Todo> = {}): Todo {
 async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
   await page.clock.install({ time: clock });
   await page.goto('/');
-  await page.evaluate(
+  await resetCanonical(page);
+await page.evaluate(
     ({ data, version }) =>
       localStorage.setItem(
         'garden-manager:v1',
@@ -86,7 +89,8 @@ async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
   await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  return page.evaluate(
+  await settled(page);
+return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -870,12 +874,11 @@ test('pełny ZIP i JSON zawierają notatki, przypomnienia, sprawy i relacje foto
       exact: true,
     }),
   ).toBeVisible();
-  await panel
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.',
       exact: true,
-    })
-    .check();
+    }), true);
   await panel.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ');
   await panel
     .getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })
@@ -903,7 +906,8 @@ test('migracja v6 zachowuje dotychczasowe dane i oryginalny zapis', async ({
   delete old.todos;
   delete old.deskTombstones;
   await seed(page, old, 6);
-  const stored = await page.evaluate(() => ({
+  await settled(page);
+const stored = await page.evaluate(() => ({
     main: JSON.parse(localStorage.getItem('garden-manager:v1')!),
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v6')!),
   }));

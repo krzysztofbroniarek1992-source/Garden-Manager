@@ -1,3 +1,4 @@
+import { settled } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
@@ -52,7 +53,8 @@ async function seed02(page: Page, data = fixture()) {
 }
 
 async function snapshot(page: Page) {
-  return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+  await settled(page);
+return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
 }
 
 async function navigate(page: Page, name: string) {
@@ -288,7 +290,8 @@ test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego z
   const original = await seed02(page);
   const migrated = await snapshot(page);
   expect(migrated.version).toBe(STORAGE_VERSION);
-  expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
+  await settled(page);
+expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
   const old = fixture();
   expect(migrated.data.clients).toEqual(old.clients);
   expect(migrated.data.gardens).toEqual(old.gardens.map(garden => ({ ...garden, zones: [] })));

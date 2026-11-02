@@ -4,6 +4,7 @@ import type { Dialog, Page } from "@playwright/test";
  * restores core cards, so close those views explicitly before using the menu.
  * Unsaved-change rejection itself is tested in shared-navigation.spec.ts. */
 export async function closeOpenDialogs(page: Page) {
+  await page.locator(".app-shell").waitFor();
   const discard = async (dialog: Dialog) => {
     await dialog.accept();
   };

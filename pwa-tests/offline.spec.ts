@@ -1,3 +1,4 @@
+import { settled } from '../tests/atomic-fixture';
 import { expect, test } from '@playwright/test';
 
 test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalog, harmonogramy, wyjątki oraz aktywny stoper', async ({ page, context, request }) => {
@@ -74,7 +75,8 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await page.clock.fastForward(18_000);
   await page.getByRole('button', { name: 'PAUZA — Przerwa bez naliczania', exact: true }).click();
   const pausedDisplay = await page.getByTestId('timer-display').textContent();
-  const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  await settled(page);
+const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(paused.timer).toMatchObject({ jobId: 'job-1', paused: true });
   await page.clock.fastForward(120_000);
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -82,7 +84,8 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await page.getByRole('button', { name: 'WZNÓW — Kontynuuj wizytę', exact: true }).click();
   await page.clock.fastForward(15_000);
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
-  const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  await settled(page);
+const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(persisted.timer).toBeNull();
   expect(persisted.taskSchedules[0]).toMatchObject({ title: 'Koszenie offline', recurrence: { frequency: 'days', interval: 14 } });
   expect(persisted.taskOccurrences[0]).toMatchObject({ originalDate: '2026-11-03', date: '2026-11-04', status: 'planned', jobId: null });

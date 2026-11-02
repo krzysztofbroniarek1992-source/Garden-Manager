@@ -1,3 +1,5 @@
+import { settled, setChecked } from './atomic-fixture';
+import { resetCanonical } from './atomic-fixture';
 import {
   test as base,
   expect,
@@ -183,7 +185,8 @@ async function seed(page: Page, d = fixture()) {
   validateData(d);
   await page.clock.install({ time: clock });
   await page.goto('/');
-  await page.evaluate(
+  await resetCanonical(page);
+await page.evaluate(
     ({ data, version }) =>
       localStorage.setItem(
         'garden-manager:v1',
@@ -193,10 +196,10 @@ async function seed(page: Page, d = fixture()) {
   );
   await page.reload();
 }
-const snapshot = (page: Page): Promise<Data> =>
-  page.evaluate(
-    () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
-  );
+const snapshot = async (page: Page): Promise<Data> => {
+  await settled(page);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+};
 async function openGarden(
   page: Page,
   name = 'Ogród przy domu',
@@ -298,7 +301,7 @@ test('zmiana zlecenia w drugiej karcie unieważnia otwarte potwierdzenie usunię
     name: 'Usunąć zlecenie?',
     exact: true,
   });
-  await confirm.getByRole('checkbox').check();
+  await setChecked(confirm.getByRole('checkbox'), true);
   const second = await context.newPage();
   await second.clock.install({ time: clock });
   const other = await openGarden(second);
@@ -706,7 +709,7 @@ test('świadome usunięcie niezatwierdzonego zlecenia zachowuje zdjęcia, notatk
   await expect(
     confirm.getByRole('button', { name: 'Usuń zlecenie', exact: true }),
   ).toBeDisabled();
-  await confirm.getByRole('checkbox').check();
+  await setChecked(confirm.getByRole('checkbox'), true);
   await confirm
     .getByRole('button', { name: 'Usuń zlecenie', exact: true })
     .click();
@@ -835,7 +838,8 @@ test('sama nawigacja, zakładki i podsumowania nie zmieniają stopera, danych an
     .getByRole('button', { name: 'Zamknij okno', exact: true })
     .click();
   expect(await snapshot(page)).toEqual(before);
-  expect(
+  await settled(page);
+expect(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).version,
     ),

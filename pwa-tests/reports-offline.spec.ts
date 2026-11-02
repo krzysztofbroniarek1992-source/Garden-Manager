@@ -1,3 +1,5 @@
+import { settled, setChecked } from '../tests/atomic-fixture';
+import { resetCanonical } from '../tests/atomic-fixture';
 import { closeOpenDialogs } from '../tests/navigation-helpers';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -50,7 +52,8 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
     activities: ['Żółć, Łódź — pielęgnacja róż i łąki. ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż'],
     notes: 'PRIVATE_OFFLINE_NOTE',
   };
-  await page.evaluate(
+  await resetCanonical(page);
+await page.evaluate(
     ({ data, version }) =>
       localStorage.setItem(
         'garden-manager:v1',
@@ -62,7 +65,8 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
-  const snapshot = (): Promise<Data> =>
+  await settled(page);
+const snapshot = (): Promise<Data> =>
       page.evaluate(
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
       ),
@@ -126,18 +130,16 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
     name: 'Raport PDF dla klienta',
     exact: true,
   });
-  await report
+  await setChecked(report
     .getByRole('checkbox', {
       name: 'Dołącz wybrane zdjęcia PRZED/PO',
       exact: true,
-    })
-    .check();
-  await report
+    }), true);
+  await setChecked(report
     .getByRole('checkbox', {
       name: 'Dołącz zdjęcie raport-przed.png',
       exact: true,
-    })
-    .check();
+    }), true);
   await report
     .getByRole('button', { name: 'Przygotuj podgląd raportu', exact: true })
     .click();
@@ -184,12 +186,11 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
       mimeType: 'application/zip',
       buffer: zip,
     });
-  await settings
+  await setChecked(settings
     .getByRole('checkbox', {
       name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.',
       exact: true,
-    })
-    .check();
+    }), true);
   await settings.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ');
   await settings
     .getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })
@@ -219,7 +220,8 @@ test('pierwszy raport PDF offline ma polskie znaki i zdjęcie, a pełny ZIP odtw
   expect(await pdfText(regenerated)).toBe(text);
   expect((await snapshot()).jobs[0].reports).toHaveLength(1);
   expect((await snapshot()).reportSequence).toBe(1);
-  expect(
+  await settled(page);
+expect(
     await page.evaluate(() => localStorage.getItem('garden-manager:v1')),
   ).not.toMatch(/base64|data:image|JVBER/);
   expect(errors).toEqual([]);

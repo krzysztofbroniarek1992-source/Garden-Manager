@@ -1,3 +1,4 @@
+import { settled, setChecked } from '../tests/atomic-fixture';
 import { test, expect } from '@playwright/test';
 import type { Data } from '../src/domain';
 
@@ -15,7 +16,8 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
   const nav = page.getByRole('navigation', { name: 'Nawigacja główna' });
-  const snapshot = (): Promise<Data> =>
+  await settled(page);
+const snapshot = (): Promise<Data> =>
     page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
     );
@@ -71,12 +73,11 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
   await form
     .getByLabel('Tytuł notatki', { exact: true })
     .fill('Obserwacja offline');
-  await form
+  await setChecked(form
     .getByRole('checkbox', {
       name: 'Dodaj przypomnienie do notatki',
       exact: true,
-    })
-    .check();
+    }), true);
   await form
     .getByLabel('Data przypomnienia', { exact: true })
     .fill('2026-11-02');
@@ -175,12 +176,11 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
       mimeType: 'application/zip',
       buffer: Buffer.concat(chunks),
     });
-  await settings
+  await setChecked(settings
     .getByRole('checkbox', {
       name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.',
       exact: true,
-    })
-    .check();
+    }), true);
   await settings.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ');
   await settings
     .getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })

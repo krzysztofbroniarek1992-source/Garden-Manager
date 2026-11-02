@@ -1,3 +1,4 @@
+import { settled } from '../tests/atomic-fixture';
 import { test, expect } from "@playwright/test";
 
 test("addressed core cards restore offline with native history and no business writes", async ({
@@ -29,7 +30,8 @@ test("addressed core cards restore offline with native history and no business w
   await garden
     .getByRole("tab", { name: "Zlecenia i historia prac", exact: true })
     .click();
-  const before = await page.evaluate(() =>
+  await settled(page);
+const before = await page.evaluate(() =>
     localStorage.getItem("garden-manager:v1"),
   );
   await context.setOffline(true);
@@ -57,7 +59,8 @@ test("addressed core cards restore offline with native history and no business w
   await expect(garden).toBeVisible();
   await page.goForward();
   await expect(job).toBeVisible();
-  expect(
+  await settled(page);
+expect(
     await page.evaluate(() => localStorage.getItem("garden-manager:v1")),
   ).toBe(before);
 });

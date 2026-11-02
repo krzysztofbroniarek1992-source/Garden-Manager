@@ -1,3 +1,4 @@
+import { settled, setChecked } from '../tests/atomic-fixture';
 import { closeOpenDialogs } from '../tests/navigation-helpers';
 import { test, expect } from '@playwright/test';
 
@@ -16,7 +17,8 @@ test('zdjęcia, miniatury i pełna kopia ZIP działają offline oraz po odtworze
   await card.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); await page.getByRole('button', { name: 'Ustawienia konta demonstracyjnego', exact: true }).click();
   const settings = page.getByRole('dialog', { name: 'Ustawienia', exact: true }), event = page.waitForEvent('download'); await settings.getByRole('button', { name: 'Pobierz pełną kopię ZIP', exact: true }).click(); const stream = await (await event).createReadStream(); const chunks: Buffer[] = []; for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
   await settings.getByLabel('Wczytaj pełną kopię ZIP', { exact: true }).setInputFiles({ name: 'offline.zip', mimeType: 'application/zip', buffer: Buffer.concat(chunks) }); await expect(settings.getByLabel('Wpisz ODTWÓRZ', { exact: true })).toBeVisible();
-  await settings.getByRole('checkbox', { name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.', exact: true }).check(); await settings.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ'); await settings.getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true }).click(); await expect(settings.getByText(/Dane i zdjęcia zostały odtworzone/)).toBeVisible();
+  await setChecked(settings.getByRole('checkbox', { name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.', exact: true }), true); await settings.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ'); await settings.getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true }).click(); await expect(settings.getByText(/Dane i zdjęcia zostały odtworzone/)).toBeVisible();
   await page.reload({ waitUntil: 'domcontentloaded' }); card = await open(); await expect.poll(() => card.locator('.photo-card img').evaluateAll(images => images.length === 1 && images.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
-  expect(await page.evaluate(() => localStorage.getItem('garden-manager:v1'))).not.toMatch(/base64|data:image/); expect(errors).toEqual([]);
+  await settled(page);
+expect(await page.evaluate(() => localStorage.getItem('garden-manager:v1'))).not.toMatch(/base64|data:image/); expect(errors).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import { settled } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 
@@ -15,7 +16,8 @@ async function navigate(page: Page, name: string) {
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 async function readData(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  await settled(page);
+return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
 }
 async function addClient(page: Page, name: string) {
   await page.getByRole('button', { name: 'Dodaj klienta', exact: true }).click();
