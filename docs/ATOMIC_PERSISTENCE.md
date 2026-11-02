@@ -105,8 +105,8 @@ nie są automatycznie importowane do nowego źródła. Nie deklarujemy bezpiecze
 mieszanej pracy starej i nowej wersji. Gwarancja obejmuje aktualne karty
 współdzielące tę samą bazę/origin, a nie odrębne instalacje lub urządzenia. Transakcja nie zmienia też reguł
 rozstrzygania edycji tego samego pola: pozostają obecne rewizje, CAS i semantyka
-komend. Chroni natomiast świeży wspólny stan przed zastąpieniem starym snapshotem. PR #13 pozostaje osobnym PR-em i wymaga
-późniejszego uaktualnienia do nowej asynchronicznej granicy zapisu.
+komend. Chroni natomiast świeży wspólny stan przed zastąpieniem starym snapshotem. PR #13 integruje tę asynchroniczną granicę zapisu z kalendarzem i harmonogramami;
+zakres i weryfikację opisuje [CALENDAR_NAVIGATION.md](CALENDAR_NAVIGATION.md).
 
 Naprawa zapobiega przyszłym kolizjom. Nie przenumerowuje pobranych wcześniej
 PDF-ów ani nie odzyskuje automatycznie metadanych, które zostały już nadpisane.

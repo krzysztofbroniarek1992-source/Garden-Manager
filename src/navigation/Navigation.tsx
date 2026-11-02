@@ -14,6 +14,8 @@ import {
   parseAddress,
   routeKey,
   validRoute,
+  validCalendar,
+  type CalendarState,
   type Card,
   type Page,
   type Route,
@@ -42,6 +44,8 @@ interface Navigation {
   go(page: Page): void;
   back(): void;
   section(value: string): void;
+  setCalendar(state: CalendarState, onlyIfMissing?: boolean): void;
+  openCalendar(state: CalendarState, card?: Card): void;
   memory: Map<string, unknown>;
 }
 const Context = createContext<Navigation | null>(null);
@@ -120,7 +124,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     };
   });
   const [entry, setEntry] = useState(initial.entry);
-  const [invalid, setInvalid] = useState(initial.invalid);
+  const invalidRef = useRef(initial.invalid);
+  const [invalid, setInvalidState] = useState(initial.invalid);
+  const setInvalid = (value: boolean) => {
+    invalidRef.current = value;
+    setInvalidState(value);
+  };
   const current = useRef(entry);
   const memory = useRef(readMemory(history.state));
   const positions = useRef(
@@ -187,9 +196,25 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const oldRestoration = history.scrollRestoration;
     history.scrollRestoration = "manual";
-    // Canonicalize legacy addresses without adding a fake previous screen.
-    write(current.current, true);
-    setInvalid(initial.invalid);
+    // IndexedDB boot is asynchronous. An address can change after render but
+    // before this effect: canonicalize the live URL rather than a stale route.
+    const parsed = parseAddress(location.href);
+    // Our own canonical URL loses malformed input. Keep its error across effect
+    // replay, but let a newer external address replace the old error as well.
+    const addressInvalid =
+      location.href === handledURL.current
+        ? invalidRef.current
+        : parsed.invalid;
+    const saved = readEntry(history.state);
+    const live =
+      saved && address(saved.route) === address(parsed.route)
+        ? saved
+        : { ...current.current, route: parsed.route };
+    current.current = live;
+    setEntry(live);
+    // Preserve legacy addresses and history context without adding a new step.
+    write(live, true);
+    setInvalid(addressInvalid);
     const pop = () => {
       handledURL.current = location.href;
       const saved = readEntry(history.state),
@@ -291,6 +316,43 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         } else navigate(openCard(r, card), index >= 0);
       });
     },
+    setCalendar: (state, onlyIfMissing = false) => {
+      // A replayed mount effect may carry the old, empty calendar state.
+      // Default addressing must recheck the live route, including a hash change
+      // that has not reached our listener yet. Explicit controls remain unchanged.
+      if (
+        onlyIfMissing &&
+        (current.current.route.page !== "calendar" ||
+          current.current.route.calendar ||
+          handledURL.current !== location.href)
+      )
+        return;
+      if (validCalendar(state))
+        navigate({ ...current.current.route, calendar: state }, true);
+    },
+    openCalendar: (state, card) => {
+      if (!validCalendar(state) || moving.current) return;
+      requestLeave(() => {
+        const source = current.current.route.cards.at(-1);
+        const returnLabel =
+          source?.kind === "garden"
+            ? "Wróć do ogrodu"
+            : source?.kind === "task"
+              ? "Wróć do czynności"
+              : source?.kind === "schedule"
+                ? "Wróć do harmonogramu"
+                : source?.kind === "job"
+                  ? "Wróć do zlecenia"
+                  : undefined;
+        navigate({
+          page: "calendar",
+          cards: [],
+          calendar: state,
+          ...(returnLabel ? { returnLabel } : {}),
+        });
+        if (card) navigate(openCard(current.current.route, card));
+      });
+    },
     go: (page) => {
       setInvalid(false);
       navigate({ page, cards: [] });
@@ -313,7 +375,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     section: (section) => {
       const r = current.current.route,
         card = r.cards.at(-1);
-      if (!card || card.kind === "client") return;
+      if (!card || (card.kind !== "garden" && card.kind !== "job")) return;
       const next = {
         ...r,
         cards: [...r.cards.slice(0, -1), { ...card, section }],

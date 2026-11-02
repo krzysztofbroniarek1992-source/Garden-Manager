@@ -620,6 +620,7 @@ test('plan ogrodu i strefy nie tworzy wizyty, a kopia planu ma niezależny post�
 test('harmonogram wskazuje szablon, a lista powstaje dopiero przy rozpoczęciu rzeczywistej pracy', async ({
   page,
 }) => {
+  test.setTimeout(60_000); // Complete template/start flow with the separate task return step.
   await seed(page);
   await nav(page, 'Kalendarz');
   await page
@@ -682,6 +683,8 @@ test('harmonogram wskazuje szablon, a lista powstaje dopiero przy rozpoczęciu r
     jobId: saved.timer?.jobId,
   });
   await close(detail);
+  await expect(task).toBeVisible();
+  await close(task);
   await page
     .locator('.calendar-agenda')
     .getByRole('button', { name: 'Praca z checklistą', exact: true })

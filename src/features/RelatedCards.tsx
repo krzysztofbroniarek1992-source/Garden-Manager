@@ -1,3 +1,6 @@
+import TaskDetails from "./TaskDetails";
+import ScheduleDetails from "./ScheduleDetails";
+import { cardKey } from "../navigation/routes";
 import Modal from "../components/Modal";
 import GardenDetails from "./GardenDetails";
 import ClientDetails from "./ClientDetails";
@@ -29,6 +32,8 @@ export default function RelatedCards() {
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
       return `Wróć do ogrodu ${data.gardens.find((g) => g.id === parent.id)?.name ?? ""}`;
+    if (parent.kind === "task") return "Wróć do czynności";
+    if (parent.kind === "schedule") return "Wróć do harmonogramu";
     return "Wróć do zlecenia";
   };
   return (
@@ -42,12 +47,13 @@ export default function RelatedCards() {
           section: "section" in card ? card.section : undefined,
           setSection: navigation.section,
           active,
+          zoneId: card.kind === "garden" ? card.zoneId : undefined,
         };
         const inline =
           card.kind === "client" && index === 0 && page === "clients";
         return (
           <ViewScope.Provider
-            key={`${data.photoRestoreId ?? "local"}:${card.kind}:${card.id}`}
+            key={`${data.photoRestoreId ?? "local"}:${cardKey(card)}`}
             value={frameScope(page, card)}
           >
             <CardNavigationContext.Provider value={context}>
@@ -67,6 +73,17 @@ export default function RelatedCards() {
                   }
                   onClose={navigation.back}
                   active={active}
+                />
+              ) : card.kind === "task" ? (
+                <TaskDetails
+                  scheduleId={card.id}
+                  originalDate={card.originalDate}
+                  onClose={navigation.back}
+                />
+              ) : card.kind === "schedule" ? (
+                <ScheduleDetails
+                  scheduleId={card.id}
+                  onClose={navigation.back}
                 />
               ) : inline ? (
                 <div hidden={!active} inert={!active}>

@@ -1,5 +1,8 @@
 # Wspólna nawigacja i historia widoków — etap 1
 
+Rozszerzenie o kalendarz i planowanie opisuje [etap 2](CALENDAR_NAVIGATION.md).
+Poniższy dokument zachowuje zakres i wyniki etapu 1.
+
 Podstawa: `main`, PR #11, commit `c907898`. Zakres obejmuje istniejące karty
 klienta, ogrodu i zlecenia. Nie dodaje połączeń z etapów 2–6.
 
