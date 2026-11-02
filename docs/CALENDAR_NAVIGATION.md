@@ -130,3 +130,27 @@ błędnego adresu po kanonizacji URL i ponowieniu efektu inicjalizacji. Stan bł
 jest teraz zachowywany dla adresu kanonizowanego przez kontroler, a nowy adres
 zewnętrzny może go zastąpić. Test inicjalizacji obejmuje także przejście z błędnego
 adresu do poprawnego kalendarza; istniejąca regresja sprawdza przycisk „Pokaż listę”.
+
+## Końcowe wyniki po wznowieniu
+
+Integracja main z PR #14, asynchroniczne zapisy i testy formularzy były zapisane
+przed przerwaniem. Poprzednie pełne E2E dało 155/156; po wznowieniu naprawiono
+zanik komunikatu i przycisku powrotu z błędnego adresu oraz rozszerzono testy
+inicjalizacji. Nie ponawiano integracji ani nie odrzucano istniejących zmian.
+
+| Kontrola | Wynik |
+| --- | --- |
+| `npm test` | 373/373, 14 plików |
+| Pełne E2E Chromium | 157/157 w jednym przebiegu |
+| Produkcyjna PWA offline | 9/9 |
+| `npx tsc -b --pretty false` | poprawnie |
+| `npm run build` w zestawie PWA | poprawnie |
+
+Pełny zestaw E2E wykonano z `--output=/tmp/garden-pr13-complete-e2e-results`,
+a PWA z `--output=/tmp/garden-pr13-complete-pwa-results`; artefakty poza katalogiem
+źródeł nie wywołują przeładowań Vite. Podczas końcowych E2E nie zmieniano plików.
+Kontrola celowana po ostatniej poprawce: 18/18, w tym wszystkie szerokości telefonu.
+
+Brak wykrytych pozostałych błędów. Nadal obowiązują ograniczenia wdrożenia
+z PR #14, w tym zamknięcie starszych kart/PWA i oddzielne odtwarzanie plików zdjęć.
+Etapy 3–6 nie zostały rozpoczęte. Rekomendacja: PR #13 gotowy do ręcznego scalenia.

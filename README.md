@@ -606,6 +606,11 @@ szkic. Podczas zapisu zachowana jest ochrona nawigacji Wstecz i zamknięcia kart
 PDF pozostaje [raportem archiwalnym](docs/REPORT_NUMBERING_CONCURRENCY.md);
 naprawę zapisu zawiera już main.
 
+Walidacja integracji PR #13: **373/373 jednostkowych**, **157/157 E2E Chromium**
+w pełnym przebiegu oraz **9/9 PWA offline**. TypeScript i build produkcyjny
+przeszły. Naprawiono także zachowanie bieżącego adresu podczas uruchamiania
+asynchronicznego i trwałość komunikatu błędnego adresu przy kanonizacji URL.
+
 ## Naprawa współbieżnego zapisu raportów PDF
 
 Dane firmy są zapisywane transakcyjnie w IndexedDB. Komendy używają świeżego
