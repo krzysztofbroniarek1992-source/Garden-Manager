@@ -4,7 +4,7 @@ import {
   planningNavigationData,
 } from "./planning-navigation-fixture";
 import { snapshot } from "./atomic-report-helpers";
-for (const initial of ["dashboard", "calendar"])
+for (const initial of ["dashboard", "calendar", "bad-view"])
   test(`the live calendar URL wins over the initial ${initial} render before navigation effects`, async ({
     page,
   }) => {
@@ -41,5 +41,6 @@ for (const initial of ["dashboard", "calendar"])
     await expect(
       page.getByRole("button", { name: "Tydzień", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("alert")).toHaveCount(0);
     expect(await snapshot(page)).toEqual(data);
   });

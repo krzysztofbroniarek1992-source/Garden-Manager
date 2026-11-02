@@ -124,3 +124,9 @@ plików zdjęć nadal opisuje [ATOMIC_PERSISTENCE.md](ATOMIC_PERSISTENCE.md).
 aby zmienić hash przed efektem inicjalizacji nawigacji. Obie kontrolowane próby
 przed poprawką gubiły adres; test sprawdza zachowanie daty, widoku, filtrów oraz
 niezmienione dane po poprawce. Nie opiera się na losowym opóźnieniu.
+
+Podczas końcowej regresji po integracji ujawniono jeszcze zanik komunikatu
+błędnego adresu po kanonizacji URL i ponowieniu efektu inicjalizacji. Stan błędu
+jest teraz zachowywany dla adresu kanonizowanego przez kontroler, a nowy adres
+zewnętrzny może go zastąpić. Test inicjalizacji obejmuje także przejście z błędnego
+adresu do poprawnego kalendarza; istniejąca regresja sprawdza przycisk „Pokaż listę”.

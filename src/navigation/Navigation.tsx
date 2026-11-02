@@ -124,7 +124,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     };
   });
   const [entry, setEntry] = useState(initial.entry);
-  const [invalid, setInvalid] = useState(initial.invalid);
+  const invalidRef = useRef(initial.invalid);
+  const [invalid, setInvalidState] = useState(initial.invalid);
+  const setInvalid = (value: boolean) => {
+    invalidRef.current = value;
+    setInvalidState(value);
+  };
   const current = useRef(entry);
   const memory = useRef(readMemory(history.state));
   const positions = useRef(
@@ -194,6 +199,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     // IndexedDB boot is asynchronous. An address can change after render but
     // before this effect: canonicalize the live URL rather than a stale route.
     const parsed = parseAddress(location.href);
+    // Our own canonical URL loses malformed input. Keep its error across effect
+    // replay, but let a newer external address replace the old error as well.
+    const addressInvalid =
+      location.href === handledURL.current
+        ? invalidRef.current
+        : parsed.invalid;
     const saved = readEntry(history.state);
     const live =
       saved && address(saved.route) === address(parsed.route)
@@ -203,7 +214,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     setEntry(live);
     // Preserve legacy addresses and history context without adding a new step.
     write(live, true);
-    setInvalid(parsed.invalid);
+    setInvalid(addressInvalid);
     const pop = () => {
       handledURL.current = location.href;
       const saved = readEntry(history.state),
