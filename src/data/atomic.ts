@@ -69,6 +69,7 @@ export class AtomicRepository {
   private async transaction<T>(
     mode: IDBTransactionMode,
     action: (state: State, store: IDBObjectStore) => { state: State; value: T },
+    initialize = false,
   ) {
     const db = await this.open();
     return new Promise<{ state: State; value: T }>((resolve, reject) => {
@@ -80,7 +81,7 @@ export class AtomicRepository {
         try {
           let state = get.result as State | undefined;
           if (!state) {
-            if (mode !== "readwrite") throw unavailable();
+            if (!initialize) throw unavailable();
             const original = this.storage.getItem(STORAGE_KEY);
             state = {
               revision: 0,
@@ -109,10 +110,14 @@ export class AtomicRepository {
     });
   }
   async initialize() {
-    const { state } = await this.transaction("readwrite", (s) => ({
-      state: s,
-      value: undefined,
-    }));
+    const { state } = await this.transaction(
+      "readwrite",
+      (s) => ({
+        state: s,
+        value: undefined,
+      }),
+      true,
+    );
     await this.project();
     return this.read();
   }

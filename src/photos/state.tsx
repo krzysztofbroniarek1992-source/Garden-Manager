@@ -28,25 +28,30 @@ export function PhotoProvider({ store, metadata, onChange, children }: { store: 
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [progress, setProgress] = useState('');
   const [recovery, setRecovery] = useState<RecoveryPoint>();
   const inFlight = useRef(false);
+  const generation = useRef(0);
   const signature = metadata.map(p => `${p.id}:${p.assetId}:${p.deletedAt}`).join('|');
   useEffect(() => {
     if (!service) { setReady(false); setError('Bezpieczna pamięć IndexedDB jest niedostępna. Zapis zdjęć i danych jest zablokowany.'); return; }
     let cancelled = false;
+    const started = generation.current;
+    const current = () => !cancelled && !inFlight.current && started === generation.current;
     service.reconcile().then(async changed => {
       const point = await service.recovery();
-      if (!cancelled) { setReady(true); setRecovery(point); setError(''); if (changed) onChange(service.store.data); }
-    }).catch(e => { if (!cancelled) { setError(photoStorageError(e).message); setReady(false); } });
+      if (current()) { setReady(true); setRecovery(point); setError(''); if (changed) onChange(service.store.data); }
+    }).catch(e => { if (current()) { setError(photoStorageError(e).message); setReady(false); } });
     return () => { cancelled = true; };
   }, [service, signature, onChange]);
   const run = useCallback(async <T,>(action: (service: PhotoService) => Promise<T> | T): Promise<T> => {
     if (!service) throw new Error('Zapis lokalny jest niedostępny. Zachowaj dotychczasowe dane przed naprawą pamięci przeglądarki.');
     if (inFlight.current) throw new Error('Poczekaj na zakończenie bieżącej operacji na zdjęciach.');
+    generation.current++;
     inFlight.current = true; setBusy(true); setError(''); setProgress('Trwa przetwarzanie…');
     try { return await action(service); }
     catch (e) { const failure = photoStorageError(e); setError(failure.message); throw failure; }
     finally {
       onChange(service.store.data);
       try { setRecovery(await service.recovery()); } catch (e) { setError(photoStorageError(e).message); }
+      generation.current++;
       inFlight.current = false; setBusy(false); setProgress('');
     }
   }, [service, onChange]);

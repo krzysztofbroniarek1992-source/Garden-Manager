@@ -64,6 +64,28 @@ async function setup() {
   };
 }
 describe("authoritative IndexedDB transactions", () => {
+  it("does not bootstrap a missing authority from a stale mirror during a command", async () => {
+    const f = await setup();
+    const raw = f.aStorage.getItem(STORAGE_KEY);
+    await new Promise<void>((resolve, reject) => {
+      const request = f.factory.open("garden-manager-state", 1);
+      request.onsuccess = () => {
+        const db = request.result,
+          tx = db.transaction("state", "readwrite");
+        tx.objectStore("state").delete("current");
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onabort = () => reject(tx.error);
+      };
+    });
+    await expect(f.a.command((s) => s.setRate(999))).rejects.toThrow(
+      "Zapis zablokowano",
+    );
+    expect(f.aStorage.getItem(STORAGE_KEY)).toBe(raw);
+  });
+
   it("never rewinds the document sequence when restoring an older snapshot", async () => {
     const f = await setup();
     const report = await f.one.prepare("job-1", defaultReportOptions());
