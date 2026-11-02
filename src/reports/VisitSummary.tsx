@@ -142,10 +142,10 @@ export default function VisitSummary({
         </section>
         <form
           className="visit-public-form"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             try {
-              saveVisitDetails(
+              await saveVisitDetails(
                 jobId,
                 {
                   publicWork: work,

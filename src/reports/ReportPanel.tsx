@@ -2,7 +2,6 @@ import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
-import { LocalRepository } from '../data/repository';
 import { usePhotos } from '../photos/state';
 import { PhotoImage } from '../photos/PhotoGallery';
 import { photoCategories } from '../photos/model';
@@ -128,7 +127,7 @@ export default function ReportPanel({
   jobId: string;
   onClose: () => void;
 }) {
-  const { data, saveVisitReport } = useGarden(),
+  const { data, saveVisitReport, snapshot } = useGarden(),
     photos = usePhotos(),
     job = data.jobs.find((j) => j.id === jobId);
   const [options, setOptions] = useState<ReportOptions>(defaultReportOptions),
@@ -145,25 +144,25 @@ export default function ReportPanel({
     () =>
       new ReportService(
         {
-          snapshot: () => new LocalRepository(localStorage).load(),
+          snapshot,
           saveVisitReport,
         },
         photos.assets,
       ),
-    [saveVisitReport, photos.assets],
+    [saveVisitReport, snapshot, photos.assets],
   );
   const bytes = historical ? historyBytes : prepared?.bytes,
     record = historical ?? prepared?.record;
   const url = useMemo(
     () =>
-      bytes
+      bytes && (saved || historical)
         ? URL.createObjectURL(
             new Blob([bytes.slice().buffer as ArrayBuffer], {
               type: 'application/pdf',
             }),
           )
         : '',
-    [bytes],
+    [bytes, saved, historical],
   );
   useEffect(
     () => () => {
@@ -357,6 +356,8 @@ export default function ReportPanel({
             <div className="report-actions">
               <button
                 className="button secondary"
+                disabled={!saved && !historical}
+                title={!saved && !historical ? 'Najpierw zapisz raport, aby zatwierdzić numer dokumentu.' : undefined}
                 onClick={() => setShowPdf((v) => !v)}
               >
                 {showPdf ? 'Ukryj plik PDF' : 'Pokaż plik PDF'}
@@ -380,7 +381,7 @@ export default function ReportPanel({
                   : 'Zapisz raport i pobierz PDF'}
               </button>
             </div>
-            {showPdf && (
+            {showPdf && url && (
               <iframe
                 title="Podgląd pliku PDF"
                 className="report-pdf-frame"

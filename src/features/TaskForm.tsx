@@ -24,7 +24,7 @@ export default function TaskForm({ initial, onClose, onDone = onClose }: { initi
   const patch = <K extends keyof TaskSchedule>(key: K, value: TaskSchedule[K]) => setDraft(current => ({ ...current, [key]: value }));
   const gardens = data.gardens.filter(g => !draft.clientId || g.clientId === draft.clientId);
   const garden = data.gardens.find(g => g.id === draft.gardenId);
-  const submit = (e: FormEvent) => { e.preventDefault(); try { guard.save(() => {saveTaskSchedule(draft);onDone();}); } catch (e) { setError((e as Error).message); } };
+  const submit = async (e: FormEvent) => { e.preventDefault(); try { await guard.save(async () => {await saveTaskSchedule(draft);onDone();}); } catch (e) { setError((e as Error).message); } };
   return <Modal title={initial.revision ? 'Edytuj harmonogram' : 'Nowe zadanie'} onClose={onClose} wide><form ref={guard.ref} onSubmit={submit}>
     {error && <p role="alert" className="gm-form-error">{error}</p>}
     <p className="gm-form-note">Planowanie nie uruchamia stopera i nie tworzy należności. Pracę rozpoczniesz z konkretnego terminu.</p>

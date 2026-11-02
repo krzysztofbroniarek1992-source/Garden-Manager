@@ -72,9 +72,9 @@ export default function DeskDetails({
         onDone={() => setEditing(false)}
       />
     );
-  const perform = (action: () => void) => {
+  const perform = async (action: () => void) => {
     try {
-      action();
+      await action();
       setError('');
     } catch (e) {
       setError((e as Error).message);
@@ -156,9 +156,9 @@ export default function DeskDetails({
                   <>
                     <button
                       className="button primary"
-                      onClick={() =>
-                        perform(() =>
-                          changeReminder(note.id, note.revision, 'completed'),
+                      onClick={async () =>
+                        await perform(async () =>
+                          await changeReminder(note.id, note.revision, 'completed'),
                         )
                       }
                     >
@@ -166,9 +166,9 @@ export default function DeskDetails({
                     </button>
                     <button
                       className="button secondary"
-                      onClick={() =>
-                        perform(() =>
-                          changeReminder(note.id, note.revision, 'cancelled'),
+                      onClick={async () =>
+                        await perform(async () =>
+                          await changeReminder(note.id, note.revision, 'cancelled'),
                         )
                       }
                     >
@@ -178,9 +178,9 @@ export default function DeskDetails({
                 ) : (
                   <button
                     className="button primary"
-                    onClick={() =>
-                      perform(() =>
-                        changeReminder(note.id, note.revision, 'active'),
+                    onClick={async () =>
+                      await perform(async () =>
+                        await changeReminder(note.id, note.revision, 'active'),
                       )
                     }
                   >
@@ -202,10 +202,10 @@ export default function DeskDetails({
             {postponing && (
               <form
                 className="desk-postpone"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  perform(() => {
-                    changeReminder(
+                  await perform(async () => {
+                    await changeReminder(
                       note.id,
                       note.revision,
                       'active',
@@ -270,9 +270,9 @@ export default function DeskDetails({
           {note && (
             <button
               className="button secondary"
-              onClick={() =>
-                perform(() =>
-                  archiveNote(note.id, note.revision, note.archivedAt === null),
+              onClick={async () =>
+                await perform(async () =>
+                  await archiveNote(note.id, note.revision, note.archivedAt === null),
                 )
               }
             >
@@ -285,9 +285,9 @@ export default function DeskDetails({
             <>
               <button
                 className="button primary"
-                onClick={() =>
-                  perform(() =>
-                    changeTodoStatus(
+                onClick={async () =>
+                  await perform(async () =>
+                    await changeTodoStatus(
                       todo.id,
                       todo.revision,
                       todo.status === 'completed' ? 'open' : 'completed',
@@ -302,9 +302,9 @@ export default function DeskDetails({
               {todo.status !== 'cancelled' && (
                 <button
                   className="button secondary"
-                  onClick={() =>
-                    perform(() =>
-                      changeTodoStatus(todo.id, todo.revision, 'cancelled'),
+                  onClick={async () =>
+                    await perform(async () =>
+                      await changeTodoStatus(todo.id, todo.revision, 'cancelled'),
                     )
                   }
                 >
@@ -338,9 +338,9 @@ export default function DeskDetails({
               </button>
               <button
                 className="button danger"
-                onClick={() =>
-                  perform(() => {
-                    deleteDeskRecord(kind, record.id, record.revision);
+                onClick={async () =>
+                  await perform(async () => {
+                    await deleteDeskRecord(kind, record.id, record.revision);
                     onClose();
                   })
                 }

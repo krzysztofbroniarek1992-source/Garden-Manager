@@ -1,3 +1,5 @@
+import { settled, setChecked } from './atomic-fixture';
+import { resetCanonical } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import {
   test as base,
@@ -66,7 +68,8 @@ function fixture() {
 async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
   await page.clock.install({ time: clock });
   await page.goto('/');
-  await page.evaluate(
+  await resetCanonical(page);
+await page.evaluate(
     ({ data, version }) =>
       localStorage.setItem(
         'garden-manager:v1',
@@ -74,10 +77,10 @@ async function seed(page: Page, data = fixture(), version = STORAGE_VERSION) {
       ),
     { data, version },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  return page.evaluate(
+  await settled(page); return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -235,7 +238,7 @@ test('biblioteka zawiera edytowalne przykłady i umożliwia tworzenie oraz kolej
   expect(
     (await snapshot(page)).workTemplates.at(-1)?.items.map((i) => i.title),
   ).toEqual(['Kontrola bramy', 'Ocena terenu']);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(templateCard(page, 'Mój standard')).toBeVisible();
 });
 
@@ -351,9 +354,8 @@ test('checklista wizyty zapisuje odhaczanie, Nie dotyczy, datę i uwagi po odśw
       exact: true,
     });
   const checklist = await apply(page, panel);
-  await checklist
-    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true })
-    .check();
+  await setChecked(checklist
+    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true }), true);
   await expect(checklist.locator('.checklist-progress strong')).toHaveText(
     '50%',
   );
@@ -374,7 +376,7 @@ test('checklista wizyty zapisuje odhaczanie, Nie dotyczy, datę i uwagi po odśw
   );
   const saved = await snapshot(page);
   expect(saved.checklists[0].items[0].note).toBe('Teren sprawdzony.');
-  await page.reload();
+  await settled(page); await page.reload();
   const reopened = await job(page);
   await reopened
     .getByRole('region', { name: 'Checklisty wizyty', exact: true })
@@ -477,9 +479,8 @@ test('edycja, archiwizacja i usunięcie szablonu pozostawiają historię wykonan
       exact: true,
     });
   let checklist = await apply(page, panel);
-  await checklist
-    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true })
-    .check();
+  await setChecked(checklist
+    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true }), true);
   await close(checklist);
   await close(detail);
   const original = (await snapshot(page)).checklists[0];
@@ -579,9 +580,8 @@ test('plan ogrodu i strefy nie tworzy wizyty, a kopia planu ma niezależny post�
     exact: true,
   });
   const checklist = await apply(page, panel);
-  await checklist
-    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true })
-    .check();
+  await setChecked(checklist
+    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true }), true);
   await checklist
     .getByLabel('Uwagi: Kontrola', { exact: true })
     .fill('Zalecenie dla wizyty');
@@ -706,9 +706,8 @@ test('checklista nie zmienia stopera i pozwala zakończyć niepełną wizytę z 
       exact: true,
     });
   const checklist = await apply(page, panel);
-  await checklist
-    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true })
-    .check();
+  await setChecked(checklist
+    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true }), true);
   await close(checklist);
   const after = await snapshot(page);
   expect(after.timer).toEqual(before.timer);
@@ -819,9 +818,8 @@ test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdj
     page,
     detail.getByRole('region', { name: 'Checklisty wizyty', exact: true }),
   );
-  await checklist
-    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true })
-    .check();
+  await setChecked(checklist
+    .getByRole('checkbox', { name: 'Wykonano: Kontrola', exact: true }), true);
   await checklist
     .getByLabel('Uwagi: Kontrola', { exact: true })
     .fill('Uwagi do odtworzenia');
@@ -883,12 +881,11 @@ test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdj
       exact: true,
     }),
   ).toContainText('Szablony / checklisty');
-  await panel
+  await setChecked(panel
     .getByRole('checkbox', {
       name: 'Rozumiem, że bieżący zestaw zostanie zastąpiony.',
       exact: true,
-    })
-    .check();
+    }), true);
   await panel.getByLabel('Wpisz ODTWÓRZ', { exact: true }).fill('ODTWÓRZ');
   await panel
     .getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })
@@ -901,7 +898,7 @@ test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdj
   expect(restored.workTemplates).toEqual(original.workTemplates);
   expect(restored.jobs).toEqual(original.jobs);
   expect(restored.payments).toEqual(original.payments);
-  await page.reload();
+  await settled(page); await page.reload();
   const reopened = await job(page);
   await reopened
     .getByRole('region', { name: 'Checklisty wizyty', exact: true })
@@ -928,7 +925,7 @@ test('migracja v7 zachowuje oryginał i nowe przykłady nie wracają po usunięc
   delete old.checklists;
   delete old.checklistTombstones;
   await seed(page, old, 7);
-  const result = await page.evaluate(() => ({
+  await settled(page); const result = await page.evaluate(() => ({
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v7')!),
     current: JSON.parse(localStorage.getItem('garden-manager:v1')!),
   }));
@@ -944,7 +941,7 @@ test('migracja v7 zachowuje oryginał i nowe przykłady nie wracają po usunięc
     .getByRole('dialog', { name: 'Usunąć szablon prac?', exact: true })
     .getByRole('button', { name: 'Potwierdź usunięcie szablonu', exact: true })
     .click();
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.locator('.work-template-card')).toHaveCount(3);
 });
 
@@ -986,7 +983,7 @@ test('telefon: biblioteka, duże pola odhaczania i edycja listy bez przewijania 
     name: 'Wykonano: Kontrola',
     exact: true,
   });
-  await checkbox.check();
+  await setChecked(checkbox, true);
   expect((await checkbox.boundingBox())!.width).toBeGreaterThanOrEqual(28);
   await expect(checklist.locator('.checklist-progress strong')).toHaveText(
     '50%',
@@ -1012,15 +1009,15 @@ test('błąd automatycznego zapisu zachowuje szkic uwagi i pozwala ponowić zapi
     );
   const before = (await snapshot(page)).checklists[0];
   await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
+    const original = IDBObjectStore.prototype.put;
     (window as typeof window & { restoreStorage?: () => void }).restoreStorage =
       () => {
-        Storage.prototype.setItem = original;
+        IDBObjectStore.prototype.put = original;
       };
-    Storage.prototype.setItem = function (key, value) {
-      if (key === 'garden-manager:v1')
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === 'state' && key === 'current')
         throw new DOMException('Disk full', 'QuotaExceededError');
-      return original.call(this, key, value);
+      return original.call(this, value, key);
     };
   });
   await checklist

@@ -73,9 +73,9 @@ export default function JobDeleteDialog({
         <button
           className="button danger"
           disabled={!agreed || !!current.reasons.length || changed}
-          onClick={() => {
+          onClick={async () => {
             try {
-              deleteJob(jobId, initial.signature);
+              await deleteJob(jobId, initial.signature);
               onDeleted();
             } catch (cause) {
               setError((cause as Error).message);

@@ -32,12 +32,12 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
 
   if (!original) return <p className="gm-form-error" role="alert">Nie znaleziono zlecenia. Zamknij szczegóły i odśwież listę.</p>;
   const correction = original.settlement !== null;
-  const persist = (cents: number, chosenSource: PriceSource) => {
+  const persist = async (cents: number, chosenSource: PriceSource) => {
     try {
-      guard.save(() => { approveSettlement(jobId, cents, chosenSource, original);onDone(); });
+      await guard.save(async () => { await approveSettlement(jobId, cents, chosenSource, original);onDone(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zatwierdzić ceny.'); }
   };
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
       const cents = toCents(amount);
@@ -46,7 +46,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
       if (total < paid) throw new Error(`Należność nie może być niższa od otrzymanych wpłat (${moneyCents(paid)}). Skoryguj cenę lub błędną płatność.`);
       setError('');
       if (correction) setPending({ cents, source });
-      else persist(cents, source);
+      else await persist(cents, source);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Sprawdź cenę robocizny.'); }
   };
 
@@ -63,7 +63,7 @@ export default function BillingEditor({ jobId, onDone, onCancel }: { jobId: stri
       <h4>Potwierdź zmianę zatwierdzonej ceny</h4>
       <p>Robocizna: <strong>{moneyCents(original.settlement!.finalLaborCents)}</strong> → <strong>{moneyCents(pending.cents)}</strong>. Materiały w nowym rozliczeniu: <strong>{moneyCents(materials)}</strong>.</p>
       <p>Nowa ostateczna należność: <strong>{moneyCents(sumCents([pending.cents, materials]))}</strong>. Zarejestrowane płatności pozostają zachowane.</p>
-      <div className="billing-form-actions"><button className="button secondary" onClick={() => { setPending(null); setError(''); }}>Wróć do ceny</button><button className="button primary" onClick={() => persist(pending.cents, pending.source)}><Check size={16}/>Potwierdź korektę ceny</button></div>
+      <div className="billing-form-actions"><button className="button secondary" onClick={() => { setPending(null); setError(''); }}>Wróć do ceny</button><button className="button primary" onClick={async () => await persist(pending.cents, pending.source)}><Check size={16}/>Potwierdź korektę ceny</button></div>
     </div> : <form onSubmit={submit}>
       <label className="field">Ustalona cena robocizny (zł)<input autoFocus required type="number" min="0" step="0.01" value={amount} onChange={event => { setAmount(event.target.value); setSource('manual'); }}/></label>
       <div className="billing-price-options">{original.billing === 'hourly' && <button type="button" onClick={() => { setAmount(inputAmount(suggested)); setSource('rounded'); }}><RotateCcw size={13}/>Użyj propozycji do 50 zł</button>}<button type="button" onClick={() => { setAmount(inputAmount(calculated)); setSource(original.billing === 'fixed' ? 'fixed' : 'exact'); }}>Bez zaokrąglania</button></div>

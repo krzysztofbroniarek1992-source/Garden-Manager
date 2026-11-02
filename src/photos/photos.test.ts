@@ -51,10 +51,10 @@ describe('zdjęcia i IndexedDB', () => {
   });
   it('kategoria, opis, data i powiązania zmieniają się bez ponownego zapisu zdjęcia', async () => {
     const { add, service, store, assets } = await fixture(); const [photo] = await add();
-    service.edit(photo.id, { ...details, category: 'after', description: 'Po pracy', capturedDate: '2026-10-31', jobId: null }, photo.revision);
+    await service.edit(photo.id, { ...details, category: 'after', description: 'Po pracy', capturedDate: '2026-10-31', jobId: null }, photo.revision);
     const updated = store.data.photos[0]; expect(updated).toMatchObject({ category: 'after', description: 'Po pracy', jobId: null, capturedDate: '2026-10-31', assetId: photo.assetId });
     expect(await assets.get(photo.assetId)).toBeDefined();
-    expect(() => service.edit(photo.id, details, photo.revision)).toThrow('innej karcie');
+    await expect(service.edit(photo.id, details, photo.revision)).rejects.toThrow('innej karcie');
     expect(matchesPhotoScope(updated, { gardenId: 'garden-1' })).toBe(true); expect(matchesPhotoScope(updated, { jobId: 'job-1' })).toBe(false);
     expect(photoDate(updated)).toBe('2026-10-31');
   });

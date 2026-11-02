@@ -1,3 +1,5 @@
+import { settled, setChecked } from './atomic-fixture';
+import { resetCanonical } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 import { createDemoData } from '../src/data/demo';
@@ -23,10 +25,11 @@ function fixture(): Data {
 }
 async function seed(page: Page, data = fixture()) {
   await page.clock.install({ time: clock }); await page.goto('/');
-  await page.evaluate(({ data, version }) => localStorage.setItem('garden-manager:v1', JSON.stringify({ version, data })), { data, version: STORAGE_VERSION });
-  await page.reload();
+  await resetCanonical(page);
+await page.evaluate(({ data, version }) => localStorage.setItem('garden-manager:v1', JSON.stringify({ version, data })), { data, version: STORAGE_VERSION });
+  await settled(page); await page.reload();
 }
-async function snapshot(page: Page): Promise<{ version: number; data: Data }> { return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!)); }
+async function snapshot(page: Page): Promise<{ version: number; data: Data }> { await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!)); }
 async function calendar(page: Page) { await closeOpenDialogs(page); await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Kalendarz', exact: true }).click(); }
 async function day(page: Page, date: string) { await page.getByLabel('Przejdź do dnia', { exact: true }).fill(date); }
 async function openTask(page: Page, title = 'Stałe koszenie') {
@@ -67,7 +70,7 @@ test('dodanie zadania z dnia zapisuje klienta, ogród, strefę i rytm bez tworze
   expect(saved.taskSchedules[0]).toMatchObject({ clientId: 'client-1', gardenId: 'garden-1', zoneId: 'zone-1', startDate: '2026-11-03', recurrence: { frequency: 'days', interval: 14 } });
   expect(saved.jobs).toEqual(before.jobs); expect(saved.payments).toEqual(before.payments); expect(saved.timer).toBeNull(); expect(saved.taskOccurrences).toEqual([]);
   await day(page, '2026-11-17'); await expect(page.locator('.calendar-agenda')).toContainText('Koszenie co 14 dni');
-  await page.reload(); await day(page, '2026-11-18'); await expect(page.locator('.calendar-agenda')).not.toContainText('Koszenie co 14 dni');
+  await settled(page); await page.reload(); await day(page, '2026-11-18'); await expect(page.locator('.calendar-agenda')).not.toContainText('Koszenie co 14 dni');
 });
 
 test('miesięczne powtarzanie i wybrane miesiące sezonu działają z formularza', async ({ page }) => {
@@ -76,7 +79,7 @@ test('miesięczne powtarzanie i wybrane miesiące sezonu działają z formularza
   const form = page.getByRole('dialog', { name: 'Nowe zadanie', exact: true });
   await form.getByLabel('Nazwa zadania', { exact: true }).fill('Kontrola sezonowa');
   await form.getByRole('combobox', { name: 'Powtarzanie', exact: true }).selectOption('months');
-  for (const month of ['Styczeń', 'Marzec', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień']) await form.getByRole('checkbox', { name: month, exact: true }).uncheck();
+  for (const month of ['Styczeń', 'Marzec', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień']) await setChecked(form.getByRole('checkbox', { name: month, exact: true }), false);
   await form.getByRole('button', { name: 'Zapisz harmonogram' }).click();
   await day(page, '2026-02-28'); await expect(page.locator('.calendar-agenda')).toContainText('Kontrola sezonowa');
   await day(page, '2026-03-31'); await expect(page.locator('.calendar-agenda')).not.toContainText('Kontrola sezonowa');
@@ -130,7 +133,7 @@ test('rozpoczęcie zadania tworzy jedną wizytę z istniejącym stoperem i rozli
   let saved = (await snapshot(page)).data;
   const newJob = saved.jobs.find(job => job.taskOccurrenceId === occurrenceId('s-1', '2026-10-31'))!;
   expect(saved.jobs).toHaveLength(data.jobs.length + 1); expect(newJob.seconds).toBe(13); expect(newJob.settlement).toBeNull(); expect(saved.payments).toEqual(data.payments);
-  await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); await page.reload();
+  await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); await settled(page); await page.reload();
   await expect(page.locator('.calendar-month .calendar-event').filter({ hasText: 'Stałe koszenie' })).toHaveCount(1);
   await page.locator('.calendar-agenda').getByRole('button', { name: 'Stałe koszenie', exact: true }).click();
   await expect(detail.getByTestId('job-actual-time')).toHaveText('00:00:13');
@@ -165,16 +168,18 @@ test('przypomnienia wykluczają pominięte i wykonane terminy, a zaległe wymaga
 test('migracja v4 i eksport v5 zachowują dane, stoper i harmonogram z wyjątkiem', async ({ page }) => {
   await seed(page); const { taskSchedules: _s, taskOccurrences: _o, ...old } = fixture();
   old.jobs[0].status = 'in-progress'; old.timer = { jobId: 'job-1', startedAt: clock.getTime(), paused: true, remainderMs: 123 };
-  const original = JSON.stringify({ version: 4, data: old }); await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), original); await page.reload();
+  const original = JSON.stringify({ version: 4, data: old }); await resetCanonical(page);
+await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), original); await settled(page); await page.reload();
   const migrated = (await snapshot(page)); expect(migrated.version).toBe(STORAGE_VERSION); expect(migrated.data.jobs).toEqual(old.jobs); expect(migrated.data.payments).toEqual(old.payments); expect(migrated.data.timer).toEqual(old.timer);
-  expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v4'))).toBe(original);
+  await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v4'))).toBe(original);
   await calendar(page); await page.getByRole('button', { name: '+ Nowe zadanie na ten dzień', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Nowe zadanie', exact: true }); await form.getByLabel('Nazwa zadania', { exact: true }).fill('Plan w kopii'); await form.getByRole('button', { name: 'Zapisz harmonogram' }).click();
   const detail = await openTask(page, 'Plan w kopii'); await detail.getByRole('button', { name: 'Pomiń ten termin' }).click(); await detail.getByRole('button', { name: 'Potwierdź pominięcie' }).click();
   const before = (await snapshot(page)); await page.getByRole('button', { name: 'Ustawienia konta demonstracyjnego' }).click(); const downloadEvent = page.waitForEvent('download'); await page.getByRole('button', { name: 'Eksportuj dane' }).click();
   const stream = await (await downloadEvent).createReadStream(); const chunks: Buffer[] = []; for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
   const exported = JSON.parse(Buffer.concat(chunks).toString('utf8')); expect(exported).toEqual(before);
-  await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), JSON.stringify(exported)); await page.reload(); expect(await snapshot(page)).toEqual(before);
+  await resetCanonical(page);
+await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), JSON.stringify(exported)); await settled(page); await page.reload(); expect(await snapshot(page)).toEqual(before);
 });
 
 test('telefon: formularz sezonu, przełączanie widoków i rozpoczęcie zadania bez przypisanego ogrodu', async ({ page }) => {

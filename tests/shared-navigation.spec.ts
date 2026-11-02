@@ -1,3 +1,4 @@
+import { settled, changeCanonical } from './atomic-fixture';
 import { test as base, expect, type Page } from "@playwright/test";
 import { createDemoData } from "../src/data/demo";
 import { STORAGE_KEY, STORAGE_VERSION } from "../src/data/repository";
@@ -109,7 +110,7 @@ test("reload and a new browser page restore garden/job sections from the URL", a
   await expect(
     garden(page).getByRole("tab", { name: "Strefy i rośliny", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(garden(page)).toContainText("Rabata");
   const other = await context.newPage();
   await other.goto(page.url());
@@ -119,7 +120,7 @@ test("reload and a new browser page restore garden/job sections from the URL", a
   await expect(
     job(page).locator('[data-visit-section="billing"]'),
   ).toBeInViewport();
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(
     job(page).locator('[data-visit-section="billing"]'),
   ).toBeInViewport();
@@ -248,7 +249,7 @@ test("dirty client form survives cancellation of native Back, then can be discar
     page.getByLabel("Szukaj klientów", { exact: true }),
   ).toBeVisible();
   expect(prompts).toBe(2);
-  const stored = await page.evaluate(
+  await settled(page); const stored = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!).data,
     STORAGE_KEY,
   );
@@ -312,11 +313,11 @@ test("a failed save keeps the job draft guarded and preserves the stored record"
     .getByLabel("Nazwa pracy", { exact: true })
     .fill("Nieudany zapis");
   await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key === "garden-manager:v1")
+    const original = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === "state" && key === "current")
         throw new DOMException("Brak miejsca", "QuotaExceededError");
-      return original.call(this, key, value);
+      return original.call(this, value, key);
     };
   });
   await job(page)
@@ -333,7 +334,7 @@ test("a failed save keeps the job draft guarded and preserves the stored record"
   await expect(
     job(page).getByLabel("Nazwa pracy", { exact: true }),
   ).toHaveValue("Nieudany zapis");
-  expect(
+  await settled(page); expect(
     await page.evaluate(
       () =>
         JSON.parse(localStorage.getItem("garden-manager:v1")!).data.jobs[0]
@@ -385,7 +386,7 @@ test("Forward also protects a dirty garden form and resumes after explicit disca
   await page.goForward();
   await expect(job(page)).toBeVisible();
   expect(prompts).toBe(2);
-  expect(
+  await settled(page); expect(
     await page.evaluate(
       () =>
         JSON.parse(localStorage.getItem("garden-manager:v1")!).data.gardens[0]
@@ -416,7 +417,7 @@ test("the selected history month and filters survive reload and browser return",
   await garden(page)
     .getByLabel("Filtr statusu zleceń ogrodu", { exact: true })
     .selectOption("completed");
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(
     garden(page).getByLabel("Filtr statusu zleceń ogrodu", { exact: true }),
   ).toHaveValue("completed");
@@ -435,7 +436,7 @@ for (const width of [360, 390, 430])
   }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/#clients?client=client-1");
-    const before = await page.evaluate(
+    await settled(page); const before = await page.evaluate(
       (key) => localStorage.getItem(key),
       STORAGE_KEY,
     );
@@ -448,7 +449,7 @@ for (const width of [360, 390, 430])
     await garden(page)
       .getByRole("tab", { name: "Strefy i rośliny", exact: true })
       .click();
-    await page.reload();
+    await settled(page); await page.reload();
     await expect(garden(page)).toContainText("Rabata");
     await page.goBack();
     await expect(
@@ -461,7 +462,7 @@ for (const width of [360, 390, 430])
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    expect(
+    await settled(page); expect(
       await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY),
     ).toBe(before);
   });
@@ -512,13 +513,7 @@ test("a job removed in another tab becomes unavailable without crashing", async 
   await expect(job(page)).toBeVisible();
   const other = await context.newPage();
   await other.goto("/#dashboard");
-  await other.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem("garden-manager:v1")!);
-    raw.data.jobs = raw.data.jobs.filter(
-      (j: { id: string }) => j.id !== "job-1",
-    );
-    localStorage.setItem("garden-manager:v1", JSON.stringify(raw));
-  });
+  await changeCanonical(other, {removeJob:'job-1'});
   await expect(job(page)).toContainText("To zlecenie nie jest już dostępne");
   await job(page)
     .getByRole("button", { name: "Zamknij okno", exact: true })

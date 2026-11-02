@@ -25,9 +25,9 @@ function MaterialForm({ initial, onClose }: { initial: CatalogMaterial; onClose:
   const [error, setError] = useState('');
   const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
   const patch = <K extends keyof CatalogMaterial>(key: K, value: CatalogMaterial[K]) => setDraft(current => ({ ...current, [key]: value }));
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    try { guard.save(() => {saveCatalogMaterial(draft);onClose();}); } catch (e) { setError((e as Error).message); }
+    try { await guard.save(async () => {await saveCatalogMaterial(draft);onClose();}); } catch (e) { setError((e as Error).message); }
   }
   return <Modal title={initial.name ? 'Edytuj materiał' : 'Nowy materiał'} onClose={onClose}><form ref={guard.ref} onSubmit={submit}>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="form-grid">
     <label className="field full-width">Nazwa materiału<input required maxLength={150} value={draft.name} onChange={e => patch('name', e.target.value)}/></label>

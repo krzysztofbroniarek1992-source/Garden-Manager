@@ -71,10 +71,10 @@ export function CalculatorPanel({ initialGardenId = '', initialZoneId = '', jobI
     const quantity = material ? convertQuantity(raw, unit, material.unit) : raw;
     calculation = { quantity, unit: material?.unit ?? unit, primary, secondary, purchase: materialCostCents(quantity, numberOf(purchasePrice)), charge: materialCostCents(quantity, numberOf(clientPrice)), packages: material?.packageQuantity ? packageCount(quantity, material.packageQuantity) : null };
   } catch (e) { calculationError = (e as Error).message; }
-  function add() {
+  async function add() {
     if (!calculation || !material || !targetJob || calculation.quantity <= 0) return;
     try {
-      addJobMaterial(targetJob.id, gardenId, { id: crypto.randomUUID(), name: material.name, quantity: calculation.quantity, unit: calculation.unit, unitPrice: numberOf(clientPrice), purchaseUnitPrice: numberOf(purchasePrice), catalogId: material.id, ...(zone ? { zoneId: zone.id, zoneName: zone.name } : {}) });
+      await addJobMaterial(targetJob.id, gardenId, { id: crypto.randomUUID(), name: material.name, quantity: calculation.quantity, unit: calculation.unit, unitPrice: numberOf(clientPrice), purchaseUnitPrice: numberOf(purchasePrice), catalogId: material.id, ...(zone ? { zoneId: zone.id, zoneName: zone.name } : {}) });
       setNotice(`Dodano materiał do zlecenia „${targetJob.title}”.${targetJob.settlement ? ' Zatwierdzona należność pozostała bez zmian. Uwzględnij materiał przez „Skoryguj cenę” w zleceniu.' : ''}`);
       setError('');
     } catch (e) { setError((e as Error).message); }

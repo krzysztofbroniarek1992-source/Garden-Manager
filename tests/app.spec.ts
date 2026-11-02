@@ -1,3 +1,4 @@
+import { settled } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import { test as base, expect, type Page } from '@playwright/test';
 
@@ -15,7 +16,7 @@ async function navigate(page: Page, name: string) {
   await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 async function readData(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
 }
 async function addClient(page: Page, name: string) {
   await page.getByRole('button', { name: 'Dodaj klienta', exact: true }).click();
@@ -46,7 +47,7 @@ test('klienci i wiele ogrodów: tworzenie, edycja, trwałość i bezpieczne usuw
   let dialog = page.getByRole('dialog', { name: 'Edytuj klienta' });
   await dialog.getByLabel('Imię i nazwisko / nazwa firmy').fill('Klient E2E po edycji');
   await dialog.getByRole('button', { name: 'Zapisz zmiany' }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByRole('heading', { name: 'Klient E2E po edycji', exact: true })).toBeVisible();
   await navigate(page, 'Obiekty i ogrody');
   await addGarden(page, 'Pierwszy ogród E2E', 'Klient E2E po edycji');
@@ -55,7 +56,7 @@ test('klienci i wiele ogrodów: tworzenie, edycja, trwałość i bezpieczne usuw
   dialog = page.getByRole('dialog', { name: 'Edytuj ogród' });
   await dialog.getByLabel('Powierzchnia').fill('250');
   await dialog.getByRole('button', { name: 'Zapisz zmiany' }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   const garden = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Pierwszy ogród E2E' }) });
   await expect(garden).toContainText('250');
   await expect(garden).toContainText('Klient E2E po edycji');
@@ -76,7 +77,7 @@ test('klienci i wiele ogrodów: tworzenie, edycja, trwałość i bezpieczne usuw
   await navigate(page, 'Klienci');
   await page.getByRole('button', { name: 'Usuń klienta Klient E2E po edycji', exact: true }).click();
   await page.getByRole('dialog', { name: 'Usunąć klienta?' }).getByRole('button', { name: 'Usuń klienta', exact: true }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByRole('heading', { name: 'Klient E2E po edycji', exact: true })).toHaveCount(0);
 });
 
@@ -96,7 +97,7 @@ test('zlecenie ryczałtowe, materiały, kalendarz, edycja i historia', async ({ 
   await dialog.getByRole('button', { name: 'Zapisz zlecenie' }).click();
   const job = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Ryczałt z materiałami E2E', exact: true }) });
   await expect(job.locator('.job-amount strong')).toHaveText(/550,00\s*zł/);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(job).toBeVisible();
   await navigate(page, 'Kalendarz');
   await expect(page.locator('.calendar-agenda').getByRole('heading', { name: 'Ryczałt z materiałami E2E', exact: true })).toBeVisible();
@@ -119,7 +120,7 @@ test('zlecenie ryczałtowe, materiały, kalendarz, edycja i historia', async ({ 
   await expect(job).toBeVisible();
   await expect(job).toContainText('Zakończone');
   await expect(job.locator('.job-amount strong')).toHaveText(/650,00\s*zł/);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(job).toBeVisible();
 });
 
@@ -134,7 +135,7 @@ test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STO
   await expect(page.getByTestId('timer-display')).toHaveText('00:01:05');
   const running = await readData(page);
   expect(running.timer.jobId).toBe('job-1');
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true })).toBeVisible();
   await expect(page.getByTestId('timer-display')).toHaveText(/00:01:0[5-9]/);
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
@@ -147,7 +148,7 @@ test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STO
   const displayed = await page.getByTestId('timer-display').textContent();
   await page.clock.setFixedTime(new Date(start.getTime() + 75_000));
   await expect(page.getByTestId('timer-display')).toHaveText(displayed!);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByTestId('timer-display')).toHaveText(displayed!);
   await navigate(page, 'Zlecenia');
   const jobCard = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Pielęgnacja ogrodu', exact: true }) });
@@ -158,7 +159,7 @@ test('stoper kontynuuje po odświeżeniu i zapisuje rozliczenie godzinowe po STO
   await page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true }).selectOption('job-3');
   await page.getByRole('button', { name: 'START — Rozpocznij wizytę', exact: true }).click();
   await page.clock.setFixedTime(new Date(start.getTime() + 105_000));
-  await page.reload();
+  await settled(page); await page.reload();
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   await expect(page.getByLabel('ZLECENIE DO REALIZACJI', { exact: true })).toHaveValue('job-3');
   await expect(page.getByTestId('timer-display')).toHaveText(/00:00:3[0-4]/);
@@ -172,7 +173,7 @@ test('domyślna stawka jest trwała i dotyczy nowych zleceń', async ({ page }) 
   await settings.getByRole('button', { name: 'Zapisz ustawienia' }).click();
   await expect(settings.getByRole('status')).toContainText('Zapisano');
   await page.keyboard.press('Escape');
-  await page.reload();
+  await settled(page); await page.reload();
   await navigate(page, 'Zlecenia');
   await page.getByRole('button', { name: 'Nowe zlecenie', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Nowe zlecenie' });

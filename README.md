@@ -39,8 +39,8 @@ pod tym adresem na Twoim komputerze.
 - Materiały doliczane oddzielnie od robocizny.
 - Układ komputerowy z panelem bocznym i mobilny z dolną nawigacją.
 
-Dane są zapisywane lokalnie w pamięci przeglądarki. Każda przeglądarka i profil
-mają osobny zestaw danych. Wyczyszczenie danych witryny usuwa lokalne rekordy.
+Dane są zapisywane lokalnie, transakcyjnie w IndexedDB, z kopią zgodności
+w localStorage. Każda przeglądarka i profil mają osobny zestaw danych. Wyczyszczenie danych witryny usuwa lokalne rekordy.
 Tryb demo **nie synchronizuje danych między telefonem a komputerem**.
 Stoper wylicza czas na podstawie zapisanych momentów START i WZNÓW. Otwarta
 wizyta nalicza czas także po zamknięciu aplikacji. PAUZA utrwala dotychczasowy
@@ -49,7 +49,8 @@ czas i nie nalicza przerwy, również po odświeżeniu lub ponownym otwarciu.
 ## Aktualizacja z wersji 0.1 lub 0.2 na Windows
 
 1. W dotychczasowej aplikacji otwórz **Ustawienia → Eksportuj dane** i zachowaj
-   plik JSON jako dodatkową kopię. Zatrzymaj serwer przez `Ctrl+C`.
+   plik JSON jako dodatkową kopię; dla zdjęć zachowaj także pełny ZIP.
+   Zakończ edycję i zamknij stare karty/PWA. Zatrzymaj serwer przez `Ctrl+C`.
 2. Pobierz z GitHub zatwierdzone zmiany wersji 0.3 do tego samego katalogu
    projektu. Przy pracy przez Git pobierz i przełącz gałąź wskazaną w opisie
    wydania; jeśli została scalona do Twojej bieżącej gałęzi, użyj `git pull`.
@@ -69,8 +70,9 @@ Wersja 0.3 automatycznie migruje zapis 0.2 lub 0.1, pozostawiając klientów,
 ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stoper.
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
-Kopie nie są nadpisywane przy kolejnych uruchomieniach. Główny klucz pozostaje
-`garden-manager:v1`, a wewnętrzny format eksportu i zapisu ma obecnie numer 9 (wersja 0.3.6).
+Kopie nie są nadpisywane przy kolejnych uruchomieniach. Klucz kopii localStorage
+pozostaje `garden-manager:v1`, a format eksportu i zapisu ma numer 9 (wersja 0.3.6).
+Główny zapis danych chronią teraz transakcje `garden-manager-state` w IndexedDB.
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
 oraz możliwość odtworzenia zapewnia kopia ZIP dostępna od wersji 0.3.3.
@@ -331,8 +333,8 @@ Usunięcie klienta obejmuje jego zdjęcia i wymaga potwierdzenia.
 
 **Pełne zdjęcia nie są zapisywane jako base64 w localStorage.** Baza IndexedDB
 `garden-manager-photos` przechowuje pliki JPEG jako `Blob` oraz ich miniatury.
-Dotychczasowy klucz `garden-manager:v1` przechowuje wyłącznie dane aplikacji,
-metadane zdjęć i identyfikatory plików. Format v6 migruje v1–v5, zachowując
+Klucz kopii `garden-manager:v1` przechowuje wyłącznie dane aplikacji,
+metadane zdjęć i identyfikatory plików, bez binarnych obrazów. Format v6 migruje v1–v5, zachowując
 wcześniejsze dane, należności, materiały i harmonogramy. Przed aktualizacją v5
 powstaje dokładna kopia `garden-manager:backup:v5`.
 
@@ -343,10 +345,11 @@ bez oryginałów w pełnej rozdzielczości. HEIC, GIF i SVG nie są obsługiwane
 zdjęcie HEIC należy wcześniej wyeksportować jako JPEG. Automatyczny odczyt daty
 EXIF nie jest wdrożony; data wykonania pozostaje opcjonalna.
 
-Błąd zapisu plików nie dodaje niekompletnych metadanych. Błąd localStorage
-wycofuje nowe pliki. Usuwanie zdjęcia wymaga potwierdzenia i obejmuje miniaturę;
+Błąd zapisu plików nie dodaje niekompletnych metadanych. Błąd zatwierdzenia
+metadanych w IndexedDB wycofuje nowe pliki. Usuwanie zdjęcia wymaga potwierdzenia i obejmuje miniaturę;
 przerwane usuwanie jest dokańczane po ponowieniu dostępu lub uruchomieniu.
-Gdy IndexedDB jest zablokowane, istniejące moduły aplikacji nadal działają.
+Gdy główna baza IndexedDB jest niedostępna, zapis jest blokowany. Możliwy jest
+podgląd ostatniej kopii localStorage; może być starsza od stanu bazy.
 Pliki potrzebne zachowanemu punktowi odzyskiwania pozostają do czasu usunięcia
 tego punktu. Dane są lokalne — wykonuj pełne kopie poza przeglądarką przed
 czyszczeniem pamięci witryny.
@@ -512,8 +515,8 @@ z galerii lub dodasz do niej jako INNE. Nie są wysyłane żadne wiadomości ani
 Raporty mają UUID, numer `BO/rok/000001`, wersję i datę utworzenia. Zmieniona
 publiczna treść lub opcje tworzą kolejną wersję tego samego numeru. Ponowne
 pobranie korzysta z zapisanej migawki i nie dubluje historii ani nie pobiera
-aktualnych cen. Numery przy zapisie są chronione blokadą między kartami i kontrolą
-aktualności podglądu. PDF generujemy na żądanie; **pełnych plików PDF nie zapisujemy
+aktualnych cen. Numer i historia są chronione wspólną transakcją IndexedDB
+oraz kontrolą aktualności podglądu; sama blokada Web Locks nie wystarcza. PDF generujemy na żądanie; **pełnych plików PDF nie zapisujemy
 w localStorage ani IndexedDB**. Zdjęcia pozostają w dotychczasowym IndexedDB.
 
 Limit: 6 zdjęć PRZED/PO, łącznie z logo do 12 MB obrazów, 60 stron i 20 MB PDF.
@@ -580,3 +583,25 @@ IndexedDB, JSON/ZIP, stopera i rozliczeń.
 Walidacja etapu: **341/341 jednostkowych**, **7/7 PWA offline**, TypeScript
 i build poprawne. E2E: 126/127 w pełnym przebiegu, następnie 6/6 testów płatności
 po doprecyzowaniu selektora; zweryfikowano wszystkie 127 scenariuszy.
+
+## Naprawa współbieżnego zapisu raportów PDF
+
+Dane firmy są zapisywane transakcyjnie w IndexedDB. Komendy używają świeżego
+stanu w tej samej transakcji, która sprawdza numer raportu i zapisuje historię.
+Nieaktualny podgląd z drugiej karty jest odrzucany; po ponownym przygotowaniu
+otrzymuje kolejny numer. Plik PDF jest dostępny po zatwierdzeniu zapisu.
+
+Model danych i kopie **JSON/ZIP pozostają w formacie v9**. `garden-manager:v1`
+pozostaje kopią zgodności w localStorage. Pierwszy start zachowuje oryginalny
+zapis i przenosi dane do nowej bazy, bez przenumerowywania historii. Formularze
+oczekują na potwierdzenie transakcji. Gdy IndexedDB jest niedostępne, zapis jest
+blokowany zamiast korzystać z niebezpiecznego trybu zastępczego.
+
+Przed aktualizacją zakończ pracę i zamknij stare karty/PWA. Starsza wersja kodu
+nie zna nowego źródła danych, więc mieszana praca obu wersji nie jest obsługiwana.
+[Architektura, migracja, import, granice gwarancji i testy](docs/ATOMIC_PERSISTENCE.md).
+
+Walidacja naprawy: **357/357 jednostkowych**, **134/134 E2E Chromium** w pełnym
+przebiegu oraz **8/8 PWA offline** na buildzie produkcyjnym. TypeScript i build
+przeszły. Sprawdzono również szerokości 360, 390 i 430 px, oba porządki import–raport
+oraz odświeżenie i ponowne otwarcie aplikacji.

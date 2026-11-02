@@ -1,3 +1,4 @@
+import { settled } from './atomic-fixture';
 import { closeOpenDialogs } from './navigation-helpers';
 import { STORAGE_VERSION } from '../src/data/repository';
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
@@ -52,7 +53,7 @@ async function seed02(page: Page, data = fixture()) {
 }
 
 async function snapshot(page: Page) {
-  return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+  await settled(page); return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
 }
 
 async function navigate(page: Page, name: string) {
@@ -140,7 +141,7 @@ test('wizyta ma jeden stoper dla wielu czynności, pauza i wznowienie przetrwaj�
   expect(pausedSeconds).toBeGreaterThanOrEqual(61);
   const pausedDisplay = await page.getByTestId('timer-display').textContent();
   await page.clock.fastForward(600_000);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByTestId('timer-display')).toHaveText(pausedDisplay!);
   await expect(page.getByRole('button', { name: 'WZNÓW — Kontynuuj wizytę', exact: true })).toBeVisible();
   await page.clock.fastForward(600_000);
@@ -158,7 +159,7 @@ test('wizyta ma jeden stoper dla wielu czynności, pauza i wznowienie przetrwaj�
   await correctTime(panel, '0', '2', '7');
   expect((await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job').seconds).toBe(127);
   await panel.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job').seconds).toBe(127);
 });
 
@@ -193,7 +194,7 @@ test('454 zł robocizny proponuje 450 zł, materiały 87 zł dają 537 zł bez z
   await expect(card(page)).toContainText('454,00');
   await expect(card(page)).toContainText('450,00');
   await expect(card(page).locator('.job-amount strong')).toHaveText(/537,00\s*zł/);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(card(page).locator('.job-amount strong')).toHaveText(/537,00\s*zł/);
 });
 
@@ -220,7 +221,7 @@ test('ręczna cena robocizny jest zatwierdzana osobno i pozostaje stała po kore
   await form.getByLabel('Stawka (zł/h)', { exact: true }).fill('200');
   await form.getByRole('button', { name: 'Zapisz zlecenie', exact: true }).click();
   await form.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   const restored = (await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job');
   expect(restored.rate).toBe(200);
   expect(restored.seconds).toBe(14401);
@@ -288,7 +289,7 @@ test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego z
   const original = await seed02(page);
   const migrated = await snapshot(page);
   expect(migrated.version).toBe(STORAGE_VERSION);
-  expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
+  await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
   const old = fixture();
   expect(migrated.data.clients).toEqual(old.clients);
   expect(migrated.data.gardens).toEqual(old.gardens.map(garden => ({ ...garden, zones: [] })));
@@ -304,7 +305,7 @@ test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego z
   await expect(panel.getByTestId('payment-job-paid')).toHaveText(/100,00\s*zł/);
   await expect(panel.getByTestId('payment-job-remaining')).toHaveText(/441,00\s*zł/);
   await panel.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data.jobs.find((job: Job) => job.id === 'old-job').settlement).toEqual(preserved.settlement);
   await page.getByRole('button', { name: 'Ustawienia konta demonstracyjnego', exact: true }).click();
   const settings = page.getByRole('dialog', { name: 'Ustawienia', exact: true });
@@ -330,7 +331,7 @@ test('telefon obsługuje pauzę oraz zatwierdzenie ceny bez przewijania strony w
   await page.getByRole('button', { name: 'PAUZA — Przerwa bez naliczania', exact: true }).click();
   const seconds = (await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job').seconds;
   await page.clock.fastForward(120_000);
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data.jobs.find((job: Job) => job.id === 'visit-job').seconds).toBe(seconds);
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   const nav = page.getByRole('navigation', { name: 'Nawigacja mobilna' });

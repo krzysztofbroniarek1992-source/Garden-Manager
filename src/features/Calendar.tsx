@@ -108,7 +108,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
     </section></div>
     <PlanningReminders/><ScheduleManager/>
     {selectedTask && <TaskDetails scheduleId={selectedTask.scheduleId} originalDate={selectedTask.originalDate} onClose={() => setSelectedTask(null)}/>}
-    {newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={job => { saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
+    {newJob && <JobForm job={newJob} onClose={() => setNewJob(null)} onSave={async job => { await saveJob(job); setNewJob(null); setSelectedJob(job.id); }}/>}
     {newTask && <TaskForm initial={newTask} onClose={() => setNewTask(null)}/>}
     {selectedDesk && <DeskDetails {...selectedDesk} onClose={() => setSelectedDesk(null)}/>}
     {noteDraft && <NoteForm initial={noteDraft} onClose={() => setNoteDraft(null)}/>}
