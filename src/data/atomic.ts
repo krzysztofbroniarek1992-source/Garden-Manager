@@ -5,6 +5,7 @@ import {
   STORAGE_KEY,
   STORAGE_VERSION,
   validateData,
+  type StoragePort,
 } from "./repository";
 import { GardenStore } from "./store";
 
@@ -36,7 +37,7 @@ export class AtomicRepository {
   private connection?: Promise<IDBDatabase>;
   warning = "";
   constructor(
-    private storage: Storage,
+    private storage: StoragePort,
     private factory?: IDBFactory,
     private name = STATE_DATABASE,
   ) {}
@@ -82,7 +83,14 @@ export class AtomicRepository {
           let state = get.result as State | undefined;
           if (!state) {
             if (!initialize) throw unavailable();
-            const original = this.storage.getItem(STORAGE_KEY);
+            let original: string | null;
+            try {
+              original = this.storage.getItem(STORAGE_KEY);
+            } catch {
+              throw new Error(
+                "Przeglądarka blokuje odczyt danych lokalnych. Zezwól na pamięć witryny, aby korzystać z aplikacji.",
+              );
+            }
             state = {
               revision: 0,
               data: new LocalRepository(this.storage).load(),

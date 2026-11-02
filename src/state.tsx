@@ -23,7 +23,10 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let active: ReturnType<typeof atomicStore> | undefined;
-    const repository = new AtomicRepository(window.localStorage);
+    const repository = new AtomicRepository({
+      getItem: (key) => window.localStorage.getItem(key),
+      setItem: (key, value) => window.localStorage.setItem(key, value),
+    });
     repository
       .initialize()
       .then((initial) => {

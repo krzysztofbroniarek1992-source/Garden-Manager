@@ -64,6 +64,21 @@ async function setup() {
   };
 }
 describe("authoritative IndexedDB transactions", () => {
+  it("uses the existing authority even when localStorage access itself is blocked", async () => {
+    const f = await setup();
+    const denied = () => {
+      throw new DOMException("Storage denied", "SecurityError");
+    };
+    const repo = new AtomicRepository(
+      { getItem: denied, setItem: denied },
+      f.factory,
+    );
+    expect((await repo.initialize()).data).toEqual(f.data);
+    await repo.command((s) => s.setRate(123));
+    expect((await f.a.read()).data.settings.hourlyRate).toBe(123);
+    expect(repo.warning).toContain("Dane zapisano w IndexedDB");
+    await repo.close();
+  });
   it("does not bootstrap a missing authority from a stale mirror during a command", async () => {
     const f = await setup();
     const raw = f.aStorage.getItem(STORAGE_KEY);
