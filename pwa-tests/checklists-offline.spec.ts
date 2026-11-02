@@ -17,10 +17,12 @@ test('checklisty i biblioteka otwierają się po raz pierwszy offline, zapisują
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
   await settled(page); const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
-    snapshot = (): Promise<Data> =>
-      page.evaluate(
+    snapshot = async (): Promise<Data> => {
+      await settled(page);
+      return page.evaluate(
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
       );
+    };
   await context.setOffline(true);
   await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await closeOpenDialogs(page);

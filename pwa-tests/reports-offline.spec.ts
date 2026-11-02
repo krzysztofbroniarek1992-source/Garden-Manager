@@ -65,10 +65,12 @@ await page.evaluate(
   await context.setOffline(true);
   await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
-  await settled(page); const snapshot = (): Promise<Data> =>
-      page.evaluate(
+  await settled(page); const snapshot = async (): Promise<Data> => {
+      await settled(page);
+      return page.evaluate(
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
-      ),
+      );
+    },
     nav = page.getByRole('navigation', { name: 'Nawigacja główna' });
   const open = async () => { await closeOpenDialogs(page);
     await nav

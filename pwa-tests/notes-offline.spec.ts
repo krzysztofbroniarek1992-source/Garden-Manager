@@ -16,10 +16,12 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
   const nav = page.getByRole('navigation', { name: 'Nawigacja główna' });
-  await settled(page); const snapshot = (): Promise<Data> =>
-    page.evaluate(
+  await settled(page); const snapshot = async (): Promise<Data> => {
+      await settled(page);
+      return page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
     );
+    };
   const bytes = await page.evaluate(async () => {
     const c = document.createElement('canvas');
     c.width = 80;
