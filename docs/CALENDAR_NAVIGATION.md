@@ -97,8 +97,11 @@ Formularze używają asynchronicznego `guard.save`: zamknięcie następuje po za
 a błąd przywraca ochronę szkicu. W trakcie zapisu wspólna ochrona z PR #14
 blokuje zmianę karty i przywraca adres po próbie Wstecz. Formularz pozostaje
 widoczny, z zachowaną treścią. Szczegóły czynności pokazują trwający zapis
-oraz blokują ponowne wysłanie tej samej operacji. Nie zmieniono kontrolera
-historii ani parametrów kalendarza podczas integracji.
+oraz blokują ponowne wysłanie tej samej operacji. Zachowano strukturę historii i parametry kalendarza. Inicjalizacja kontrolera
+ponownie odczytuje bieżący URL przed jego kanonizacją: zmiana adresu pomiędzy
+pierwszym renderem a efektem nie może zostać zastąpiona starszą trasą pulpitu
+ani domyślną datą kalendarza. Do czasu inicjalizacji starszy efekt widoku nie
+może nadpisać nowszego adresu zewnętrznego.
 
 `tests/calendar-atomic-navigation.spec.ts` używa bariery z prawdziwych żądań
 IndexedDB, bez opierania kolejności na opóźnieniu. Pięć scenariuszy sprawdza
@@ -116,3 +119,8 @@ Historyczna diagnoza błędu numerów PDF pozostaje w
 w osobnym PR #14, a jego deterministyczne testy są częścią regresji tego PR-a.
 Granice gwarancji, zamykanie starych kart przy aktualizacji i wymagania odtwarzania
 plików zdjęć nadal opisuje [ATOMIC_PERSISTENCE.md](ATOMIC_PERSISTENCE.md).
+
+`tests/navigation-bootstrap.spec.ts` używa obserwatora pierwszego montowania DOM,
+aby zmienić hash przed efektem inicjalizacji nawigacji. Obie kontrolowane próby
+przed poprawką gubiły adres; test sprawdza zachowanie daty, widoku, filtrów oraz
+niezmienione dane po poprawce. Nie opiera się na losowym opóźnieniu.

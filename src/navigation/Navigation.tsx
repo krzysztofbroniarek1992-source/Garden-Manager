@@ -44,7 +44,7 @@ interface Navigation {
   go(page: Page): void;
   back(): void;
   section(value: string): void;
-  setCalendar(state: CalendarState): void;
+  setCalendar(state: CalendarState, onlyIfMissing?: boolean): void;
   openCalendar(state: CalendarState, card?: Card): void;
   memory: Map<string, unknown>;
 }
@@ -191,9 +191,19 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const oldRestoration = history.scrollRestoration;
     history.scrollRestoration = "manual";
-    // Canonicalize legacy addresses without adding a fake previous screen.
-    write(current.current, true);
-    setInvalid(initial.invalid);
+    // IndexedDB boot is asynchronous. An address can change after render but
+    // before this effect: canonicalize the live URL rather than a stale route.
+    const parsed = parseAddress(location.href);
+    const saved = readEntry(history.state);
+    const live =
+      saved && address(saved.route) === address(parsed.route)
+        ? saved
+        : { ...current.current, route: parsed.route };
+    current.current = live;
+    setEntry(live);
+    // Preserve legacy addresses and history context without adding a new step.
+    write(live, true);
+    setInvalid(parsed.invalid);
     const pop = () => {
       handledURL.current = location.href;
       const saved = readEntry(history.state),
@@ -295,7 +305,17 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         } else navigate(openCard(r, card), index >= 0);
       });
     },
-    setCalendar: (state) => {
+    setCalendar: (state, onlyIfMissing = false) => {
+      // A replayed mount effect may carry the old, empty calendar state.
+      // Default addressing must recheck the live route, including a hash change
+      // that has not reached our listener yet. Explicit controls remain unchanged.
+      if (
+        onlyIfMissing &&
+        (current.current.route.page !== "calendar" ||
+          current.current.route.calendar ||
+          handledURL.current !== location.href)
+      )
+        return;
       if (validCalendar(state))
         navigate({ ...current.current.route, calendar: state }, true);
     },

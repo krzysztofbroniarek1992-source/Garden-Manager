@@ -83,7 +83,10 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   };
   useEffect(() => {
     if (!navigation.route.calendar && !navigation.invalid)
-      navigation.setCalendar({ date: today, anchor: today, view: "month" });
+      navigation.setCalendar(
+        { date: today, anchor: today, view: "month" },
+        true,
+      );
   }, [navigation, today]);
   const { view, anchor, date: selected } = state;
   const [lastEvent, setLastEvent] = useViewState("calendar-event", "");
