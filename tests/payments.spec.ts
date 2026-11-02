@@ -60,8 +60,7 @@ async function seedLegacy(page: Page, data = legacyFixture()) {
 }
 
 async function snapshot(page: Page) {
-  await settled(page);
-return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), storageKey);
+  await settled(page); return page.evaluate(key => JSON.parse(localStorage.getItem(key)!), storageKey);
 }
 
 async function navigate(page: Page, name: string) {
@@ -113,8 +112,7 @@ test('migracja 0.1 zachowuje dane: wiele ogrodów, kilkanaście zleceń, filtry 
   expect(migrated.data.gardens).toHaveLength(3);
   expect(migrated.data.jobs).toHaveLength(13);
   expect(migrated.data.payments).toEqual([]);
-  await settled(page);
-expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
+  await settled(page); expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
   await openClient(page);
   await expect(page.locator('.client-details-page').getByText('600 111 222', { exact: true })).toBeVisible();
   await expect(page.locator('.client-jobs-table tbody tr')).toHaveCount(12);
@@ -131,14 +129,13 @@ expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(or
   await page.getByLabel('Filtr statusu płatności', { exact: true }).selectOption('paid');
   await expect(page.locator('.client-jobs-table tbody tr')).toHaveCount(0);
   await assertMetrics(page, '0,00', '1000,00');
-  await page.reload();
+  await settled(page); await page.reload();
   const restored = await snapshot(page);
   expect(restored.data.clients).toEqual(migrated.data.clients);
   expect(restored.data.gardens).toEqual(migrated.data.gardens);
   expect(restored.data.jobs).toEqual(migrated.data.jobs);
   expect(restored.data.settings.hourlyRate).toBe(135);
-  await settled(page);
-expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
+  await settled(page); expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
 });
 
 test('dwie części płatności, korekta z potwierdzeniem, usunięcie i trwałe saldo', async ({ page }) => {
@@ -169,7 +166,7 @@ test('dwie części płatności, korekta z potwierdzeniem, usunięcie i trwałe 
   expect(stored.data.payments[0]).toMatchObject({ amountCents: 5000, method: 'transfer', receivedDate: '2026-10-29', note: 'Pierwsza część' });
   await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await assertMetrics(page, '50,00', '950,00');
-  await page.reload();
+  await settled(page); await page.reload();
   await openClient(page);
   await assertMetrics(page, '50,00', '950,00');
   expect((await snapshot(page)).data.payments).toEqual(stored.data.payments);
@@ -220,12 +217,11 @@ test('migracja zachowuje aktywny stoper oraz klienta i płatności na telefonie'
   data.timer = { jobId: 'legacy-job-11', startedAt: new Date('2026-10-29T09:59:00+01:00').getTime() };
   const original = await seedLegacy(page, data);
   await expect(page.getByTestId('timer-display')).toHaveText('00:01:00');
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.getByTestId('timer-display')).toHaveText(/00:01:0[0-4]/);
   await page.getByRole('button', { name: 'STOP — Zakończ pomiar', exact: true }).click();
   expect((await snapshot(page)).data.timer).toBeNull();
-  await settled(page);
-expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
+  await settled(page); expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(original);
   await page.getByRole('navigation', { name: 'Nawigacja mobilna' }).getByRole('button', { name: 'Klienci', exact: true }).click();
   await page.getByRole('button', { name: clientName, exact: true }).click();
   const noOverflow = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -234,7 +230,7 @@ expect(await page.evaluate(key => localStorage.getItem(key), backupKey)).toBe(or
   await addPayment(detail, '25.01', 'cash', 'Płatność na telefonie');
   await noOverflow();
   await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data.payments[0].amountCents).toBe(2501);
   expect((await snapshot(page)).data.jobs).toHaveLength(13);
 });
@@ -286,7 +282,7 @@ test('korekta z nieaktualnej karty nie odtwarza płatności usuniętej w drugiej
   expect((await snapshot(page)).data.payments).toEqual([]);
   await detail.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await assertMetrics(page, '0,00', '1000,00');
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data.payments).toEqual([]);
   expect(otherErrors).toEqual([]);
   await otherPage.close();

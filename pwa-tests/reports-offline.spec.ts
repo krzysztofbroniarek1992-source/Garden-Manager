@@ -61,12 +61,11 @@ await page.evaluate(
       ),
     { data, version: STORAGE_VERSION },
   );
-  await page.reload();
+  await settled(page); await page.reload();
   await context.setOffline(true);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
-  await settled(page);
-const snapshot = (): Promise<Data> =>
+  await settled(page); const snapshot = (): Promise<Data> =>
       page.evaluate(
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
       ),
@@ -198,7 +197,7 @@ const snapshot = (): Promise<Data> =>
   await expect(
     settings.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   expect((await snapshot()).jobs).toEqual(original.jobs);
   expect((await snapshot()).payments).toEqual(original.payments);
   detail = await open();
@@ -220,8 +219,7 @@ const snapshot = (): Promise<Data> =>
   expect(await pdfText(regenerated)).toBe(text);
   expect((await snapshot()).jobs[0].reports).toHaveLength(1);
   expect((await snapshot()).reportSequence).toBe(1);
-  await settled(page);
-expect(
+  await settled(page); expect(
     await page.evaluate(() => localStorage.getItem('garden-manager:v1')),
   ).not.toMatch(/base64|data:image|JVBER/);
   expect(errors).toEqual([]);

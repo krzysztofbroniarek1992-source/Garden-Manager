@@ -29,11 +29,10 @@ async function seed(page: Page, data = fixture()) {
   await page.goto('/');
   await resetCanonical(page);
 await page.evaluate(({ data, version }) => { localStorage.setItem('garden-manager:v1', JSON.stringify({ version, data })); }, { data, version: STORAGE_VERSION });
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<{ version: number; data: Data }> {
-  await settled(page);
-return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!));
+  await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!));
 }
 async function navigate(page: Page, name: string) {
   await closeOpenDialogs(page);
@@ -65,7 +64,7 @@ test('katalog: dodawanie, edycja, wyszukiwanie i użycie podczas tworzenia zlece
   await page.getByRole('button', { name: 'Edytuj materiał Ziemia uniwersalna' }).click();
   await page.getByRole('dialog').getByLabel('Domyślna cena zakupu').fill('0.7');
   await page.getByRole('button', { name: 'Zapisz materiał' }).click();
-  await page.reload();
+  await settled(page); await page.reload();
   const item = (await snapshot(page)).data.materialCatalog.find(m => m.name === 'Ziemia uniwersalna')!;
   expect(item).toMatchObject({ purchaseUnitPrice: 0.7, packageQuantity: 50, notes: 'Bez torfu' });
   await navigate(page, 'Zlecenia');
@@ -248,14 +247,13 @@ test('migracja v3 zachowuje wizytę i należności, a eksport v4 odtwarza strefy
   await page.goto('/');
   await resetCanonical(page);
 await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), original);
-  await page.reload();
+  await settled(page); await page.reload();
   const migrated = await snapshot(page);
   expect(migrated.version).toBe(STORAGE_VERSION);
   expect(migrated.data.jobs).toEqual(full.jobs);
   expect(migrated.data.timer).toEqual(full.timer);
   expect(migrated.data.payments).toEqual(full.payments);
-  await settled(page);
-expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v3'))).toBe(original);
+  await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v3'))).toBe(original);
   // Exercise the normal v4 reader with all new fields before exporting.
   full.jobs[0].materials = [{ id: 'new-material', name: 'Kora testowa', quantity: 0.123456789, unit: 'l', purchaseUnitPrice: 0.5, unitPrice: 0.7, catalogId: 'bark', zoneId: zone.id, zoneName: zone.name }];
   await seed(page, full);
@@ -269,7 +267,7 @@ expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v3'
   expect(exported).toEqual({ version: STORAGE_VERSION, data: full });
   await resetCanonical(page);
 await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), JSON.stringify(exported));
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).data).toEqual(full);
 });
 

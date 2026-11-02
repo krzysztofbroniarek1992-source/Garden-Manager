@@ -2,7 +2,6 @@ import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
-import { LocalRepository } from '../data/repository';
 import { usePhotos } from '../photos/state';
 import { PhotoImage } from '../photos/PhotoGallery';
 import { photoCategories } from '../photos/model';

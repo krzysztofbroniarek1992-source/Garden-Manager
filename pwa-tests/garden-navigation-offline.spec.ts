@@ -14,8 +14,7 @@ test('karty klienta i ogrodu otwierane pierwszy raz offline zapisują zlecenie i
   await expect
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
-  await settled(page);
-const before = await page.evaluate(() =>
+  await settled(page); const before = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('garden-manager:v1')!),
   );
   await context.setOffline(true);
@@ -74,8 +73,7 @@ const before = await page.evaluate(() =>
       exact: true,
     })
     .click();
-  await settled(page);
-const saved = await page.evaluate(() =>
+  await settled(page); const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('garden-manager:v1')!),
   );
   expect(saved.version).toBe(before.version);
@@ -83,10 +81,9 @@ const saved = await page.evaluate(() =>
   expect(saved.data.payments).toEqual(before.data.payments);
   expect(saved.data.jobs.slice(0, -1)).toEqual(before.data.jobs);
   expect(saved.data.jobs.at(-1).gardenId).toBe(before.data.gardens[0].id);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
-  await settled(page);
-expect(
+  await settled(page); expect(
     await page.evaluate(() =>
       JSON.parse(localStorage.getItem('garden-manager:v1')!),
     ),

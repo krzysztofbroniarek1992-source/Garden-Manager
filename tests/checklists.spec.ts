@@ -77,11 +77,10 @@ await page.evaluate(
       ),
     { data, version },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  await settled(page);
-return page.evaluate(
+  await settled(page); return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -239,7 +238,7 @@ test('biblioteka zawiera edytowalne przykłady i umożliwia tworzenie oraz kolej
   expect(
     (await snapshot(page)).workTemplates.at(-1)?.items.map((i) => i.title),
   ).toEqual(['Kontrola bramy', 'Ocena terenu']);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(templateCard(page, 'Mój standard')).toBeVisible();
 });
 
@@ -377,7 +376,7 @@ test('checklista wizyty zapisuje odhaczanie, Nie dotyczy, datę i uwagi po odśw
   );
   const saved = await snapshot(page);
   expect(saved.checklists[0].items[0].note).toBe('Teren sprawdzony.');
-  await page.reload();
+  await settled(page); await page.reload();
   const reopened = await job(page);
   await reopened
     .getByRole('region', { name: 'Checklisty wizyty', exact: true })
@@ -899,7 +898,7 @@ test('JSON i pełny ZIP odtwarzają szablony, checklisty, wykonanie, uwagi i zdj
   expect(restored.workTemplates).toEqual(original.workTemplates);
   expect(restored.jobs).toEqual(original.jobs);
   expect(restored.payments).toEqual(original.payments);
-  await page.reload();
+  await settled(page); await page.reload();
   const reopened = await job(page);
   await reopened
     .getByRole('region', { name: 'Checklisty wizyty', exact: true })
@@ -926,8 +925,7 @@ test('migracja v7 zachowuje oryginał i nowe przykłady nie wracają po usunięc
   delete old.checklists;
   delete old.checklistTombstones;
   await seed(page, old, 7);
-  await settled(page);
-const result = await page.evaluate(() => ({
+  await settled(page); const result = await page.evaluate(() => ({
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v7')!),
     current: JSON.parse(localStorage.getItem('garden-manager:v1')!),
   }));
@@ -943,7 +941,7 @@ const result = await page.evaluate(() => ({
     .getByRole('dialog', { name: 'Usunąć szablon prac?', exact: true })
     .getByRole('button', { name: 'Potwierdź usunięcie szablonu', exact: true })
     .click();
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(page.locator('.work-template-card')).toHaveCount(3);
 });
 

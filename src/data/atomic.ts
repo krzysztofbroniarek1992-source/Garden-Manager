@@ -110,7 +110,7 @@ export class AtomicRepository {
     });
   }
   async initialize() {
-    const { state } = await this.transaction(
+    await this.transaction(
       "readwrite",
       (s) => ({
         state: s,

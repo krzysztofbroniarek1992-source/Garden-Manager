@@ -16,8 +16,7 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
   const nav = page.getByRole('navigation', { name: 'Nawigacja główna' });
-  await settled(page);
-const snapshot = (): Promise<Data> =>
+  await settled(page); const snapshot = (): Promise<Data> =>
     page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
     );
@@ -86,7 +85,7 @@ const snapshot = (): Promise<Data> =>
     .click();
   await card.getByRole('button', { name: 'Zamknij okno', exact: true }).click();
   await context.setOffline(true);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
   await nav.getByRole('button', { name: 'Notatki', exact: true }).click();
   await page
@@ -188,7 +187,7 @@ const snapshot = (): Promise<Data> =>
   await expect(
     settings.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   const restored = await snapshot();
   expect(restored.notes).toEqual(original.notes);
   expect(restored.todos).toEqual(original.todos);

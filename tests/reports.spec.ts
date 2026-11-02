@@ -104,11 +104,10 @@ await page.evaluate(
       ),
     { data, version },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  await settled(page);
-return page.evaluate(
+  await settled(page); return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -305,7 +304,7 @@ test('publiczny opis, zalecenia i strefa zapisują się bez zmiany stopera i roz
   expect(after.jobs[0].settlement).toEqual(before.jobs[0].settlement);
   expect(after.payments).toEqual(before.payments);
   expect(after.timer).toEqual(before.timer);
-  await page.reload();
+  await settled(page); await page.reload();
   await expect(
     (await summary(page)).getByLabel('Uwagi i zalecenia dla klienta', {
       exact: true,
@@ -349,8 +348,7 @@ test('PDF zawiera polskie znaki i publiczny opis, domyślnie bez finansów i pry
   expect(saved.jobs[0].reports).toHaveLength(1);
   expect(saved.jobs[0].settlement).toEqual(before.jobs[0].settlement);
   expect(saved.payments).toEqual(before.payments);
-  await settled(page);
-expect(
+  await settled(page); expect(
     await page.evaluate(() => localStorage.getItem('garden-manager:v1')),
   ).not.toMatch(/base64|data:image|JVBER/);
 });
@@ -721,8 +719,7 @@ test('migracja v8 i eksport JSON zachowują stare dane oraz metadane raportu', a
   const old = fixture();
   delete (old as Partial<Data>).reportSequence;
   await seed(page, old, 8);
-  await settled(page);
-const migrated = await page.evaluate(() => ({
+  await settled(page); const migrated = await page.evaluate(() => ({
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v8')!),
     current: JSON.parse(localStorage.getItem('garden-manager:v1')!),
   }));
@@ -820,7 +817,7 @@ test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną g
   await expect(
     set.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
-  await page.reload();
+  await settled(page); await page.reload();
   expect((await snapshot(page)).jobs).toEqual(original.jobs);
   expect((await snapshot(page)).payments).toEqual(original.payments);
   panel = await builder(page);

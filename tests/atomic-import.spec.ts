@@ -1,3 +1,4 @@
+import { settled } from "./atomic-fixture";
 import { test, expect, type Page } from "@playwright/test";
 import { data, snapshot } from "./atomic-report-helpers";
 test.setTimeout(60_000);
@@ -151,6 +152,7 @@ for (const first of ["report", "restore"] as const)
       );
       expect(recovery.data).toEqual(initial);
     }
+    await settled(page);
     await page.reload();
     expect(await snapshot(page)).toEqual(saved);
   });

@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { settled } from "./atomic-fixture";
+import { test, expect, type Page, type Download } from "@playwright/test";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { GardenStore } from "../src/data/store";
 import { data, snapshot, preview } from "./atomic-report-helpers";
 import { STORAGE_KEY, STORAGE_VERSION } from "../src/data/repository";
@@ -28,9 +30,14 @@ test("two queued UI report saves have one conflict, then two unique durable repo
   await expect(
     second.getByRole("button", { name: "Pokaż plik PDF", exact: true }),
   ).toBeDisabled();
-  const downloads: string[] = [];
-  page.on("download", (d) => downloads.push(d.suggestedFilename()));
-  other.on("download", (d) => downloads.push(d.suggestedFilename()));
+  const downloads: string[] = [],
+    files: Download[] = [];
+  const capture = (d: Download) => {
+    downloads.push(d.suggestedFilename());
+    files.push(d);
+  };
+  page.on("download", capture);
+  other.on("download", capture);
   await page.evaluate(() => {
     void navigator.locks.request(
       "garden-manager-photos",
@@ -83,6 +90,38 @@ test("two queued UI report saves have one conflict, then two unique durable repo
       saved.jobs.flatMap((j: any) => j.reports ?? []).map((r: any) => r.number),
     ).size,
   ).toBe(2);
+  // The durable metadata and the actual delivered files must agree, not only
+  // the download names. Decode both PDFs before closing their browser pages.
+  for (const file of files) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of (await file.createReadStream())!)
+      chunks.push(Buffer.from(chunk));
+    const pdf = await getDocument({
+      data: new Uint8Array(Buffer.concat(chunks)),
+      useSystemFonts: false,
+      isEvalSupported: false,
+    }).promise;
+    let text = "";
+    for (let i = 1; i <= pdf.numPages; i++)
+      text +=
+        (await (await pdf.getPage(i)).getTextContent()).items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ") + " ";
+    await pdf.destroy();
+    const report = saved.jobs
+      .flatMap((j: any) => j.reports ?? [])
+      .find(
+        (r: any) =>
+          `${r.number.replaceAll("/", "-")}-v${r.version}.pdf` ===
+          file.suggestedFilename(),
+      );
+    expect(report).toBeDefined();
+    expect(text).toContain(report.number);
+    expect(text.replace(/\s+/g, " ")).toContain(
+      report.snapshot.workDescription.replace(/\s+/g, " "),
+    );
+  }
+  await settled(page);
   await page.reload();
   expect(await snapshot(page)).toEqual(saved);
   await page.close();
@@ -193,6 +232,9 @@ test("authoritative transactions work without Web Locks and with deliberately st
     // On the first allocation both previews share a number. Later independent
     // existing-document versions may both commit safely if no new number is used.
     if (!i) expect(results.filter((r) => r === true)).toHaveLength(1);
+    expect(results.some((r) => r === true)).toBe(true);
+    for (const result of results)
+      if (result !== true) expect(result).toContain("zmieniły");
     const current = await snapshot(page);
     const reports = current.jobs.flatMap((j: any) => j.reports ?? []);
     expect(reports).toHaveLength(
@@ -201,11 +243,12 @@ test("authoritative transactions work without Web Locks and with deliberately st
     const retained = new Set(reports.map((r: any) => r.id));
     expect(beforeReports.every((r: any) => retained.has(r.id))).toBe(true);
     const byNumber = new Map<string, Set<string>>();
-    for (const r of reports) {
-      const ids = byNumber.get(r.number) ?? new Set();
-      ids.add(r.snapshot.jobId);
-      byNumber.set(r.number, ids);
-    }
+    for (const job of current.jobs)
+      for (const r of job.reports ?? []) {
+        const ids = byNumber.get(r.number) ?? new Set();
+        ids.add(job.id);
+        byNumber.set(r.number, ids);
+      }
     expect([...byNumber.values()].every((ids) => ids.size === 1)).toBe(true);
   }
 });

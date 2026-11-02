@@ -1,3 +1,4 @@
+import { settled } from "../tests/atomic-fixture";
 import { test, expect } from "@playwright/test";
 import { data, snapshot, preview } from "../tests/atomic-report-helpers";
 import { resetCanonical } from "../tests/atomic-fixture";
@@ -21,6 +22,7 @@ test("offline queued PDF saves remain unique after reopening the application", a
       ),
     data(),
   );
+  await settled(page);
   await page.reload();
   await context.setOffline(true);
   const first = await preview(page, "Raport atomowy 1"),

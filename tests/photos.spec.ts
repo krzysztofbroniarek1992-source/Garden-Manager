@@ -17,10 +17,9 @@ function fixture() {
 }
 async function seed(page: Page, data = fixture()) {
   await page.goto('/'); await resetCanonical(page);
-await page.evaluate(({ data, version }) => localStorage.setItem('garden-manager:v1', JSON.stringify({ version, data })), { data, version: STORAGE_VERSION }); await page.reload();
+await page.evaluate(({ data, version }) => localStorage.setItem('garden-manager:v1', JSON.stringify({ version, data })), { data, version: STORAGE_VERSION }); await settled(page); await page.reload();
 }
-async function snapshot(page: Page): Promise<Data> { await settled(page);
-return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data); }
+async function snapshot(page: Page): Promise<Data> { await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data); }
 async function assets(page: Page): Promise<{ id: string; bytes: number; thumb: number; blob: boolean }[]> {
   return page.evaluate(() => new Promise((resolve, reject) => { const request = indexedDB.open('garden-manager-photos', 1); request.onerror = () => reject(request.error); request.onsuccess = () => { const db = request.result; const tx = db.transaction('assets', 'readonly'); const r = tx.objectStore('assets').getAll(); r.onsuccess = () => resolve(r.result.map(a => ({ id: a.id, bytes: a.image.size, thumb: a.thumbnail.size, blob: a.image instanceof Blob && a.thumbnail instanceof Blob }))); tx.oncomplete = () => db.close(); }; }));
 }
@@ -61,10 +60,9 @@ test('wiele zdjęć, kompresja i miniatury w IndexedDB zachowują się po odświ
   await upload(gallery, [file, second]); await expect(gallery.locator('.photo-card')).toHaveCount(2);
   const data = await snapshot(page); expect(data.photos[0]).toMatchObject({ mimeType: 'image/jpeg', width: 1920, height: 1280, thumbnailWidth: 320, category: 'before', gardenId: 'garden-1', clientId: 'client-1' });
   expect((await assets(page)).every(a => a.blob && a.bytes > 0 && a.thumb > 0)).toBe(true);
-  await settled(page);
-expect(await page.evaluate(() => localStorage.getItem('garden-manager:v1'))).not.toMatch(/base64|data:image|blob:/);
+  await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:v1'))).not.toMatch(/base64|data:image|blob:/);
   expect(data.jobs).toEqual(before.jobs); expect(data.payments).toEqual(before.payments); expect(data.taskSchedules).toEqual(before.taskSchedules);
-  await page.reload(); card = await garden(page); gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }); await expect(gallery.locator('.photo-card img')).toHaveCount(2);
+  await settled(page); await page.reload(); card = await garden(page); gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }); await expect(gallery.locator('.photo-card img')).toHaveCount(2);
   await expect.poll(() => gallery.locator('.photo-card img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
 });
 
@@ -127,7 +125,7 @@ test('pełna kopia ZIP odtwarza zdjęcia i pozwala bezpiecznie wrócić do poprz
     const imported = await snapshot(target); expect(imported.photos[0].id).toBe(source.photos[0].id); expect(imported.photos[0].sha256).toBe(source.photos[0].sha256); expect(await assets(target)).toHaveLength(2);
     await panel.getByRole('button', { name: 'Przywróć poprzedni zestaw', exact: true }).click(); await confirmRestore(panel); expect((await snapshot(target)).photos).toEqual(previous.photos);
     await panel.getByRole('button', { name: 'Usuń punkt odzyskiwania', exact: true }).click(); await panel.getByRole('button', { name: 'Potwierdź usunięcie punktu', exact: true }).click(); await expect.poll(async () => (await assets(target)).length).toBe(1);
-    await target.reload(); const restoredCard = await garden(target); await expect(restoredCard.locator('.photo-card')).toContainText('poprzednie.png'); await expect.poll(() => restoredCard.locator('.photo-card img').evaluateAll(images => images.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await settled(target); await target.reload(); const restoredCard = await garden(target); await expect(restoredCard.locator('.photo-card')).toContainText('poprzednie.png'); await expect.poll(() => restoredCard.locator('.photo-card img').evaluateAll(images => images.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
   } finally { await targetContext.close(); }
 });
 
@@ -141,7 +139,7 @@ test('błąd quota IndexedDB nie blokuje dotychczasowych danych i nie zostawia m
   await seed(page); const before = await snapshot(page); const file = await image(page); const card = await garden(page); const gallery = card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true });
   await page.evaluate(() => { IDBObjectStore.prototype.add = function () { throw new DOMException('Disk full', 'QuotaExceededError'); }; });
   await gallery.getByRole('button', { name: 'Dodaj zdjęcia', exact: true }).click(); await gallery.getByLabel('Zdjęcia z urządzenia', { exact: true }).setInputFiles(file); await gallery.getByRole('button', { name: 'Zapisz zdjęcia', exact: true }).click(); await expect(gallery.getByRole('alert')).toContainText('Brak miejsca'); expect(await snapshot(page)).toEqual(before); expect(await assets(page)).toEqual([]);
-  await page.reload(); const again = await garden(page); await upload(again.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }), [file]); expect((await snapshot(page)).photos).toHaveLength(1);
+  await settled(page); await page.reload(); const again = await garden(page); await upload(again.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }), [file]); expect((await snapshot(page)).photos).toHaveLength(1);
 });
 
 test('niedostępne IndexedDB zachowuje podgląd danych i blokuje niebezpieczny zapis', async ({ page }) => {
@@ -164,8 +162,7 @@ test('niedostępne IndexedDB zachowuje podgląd danych i blokuje niebezpieczny z
 
 test('migracja v5 i eksport JSON zachowują dane i metadane, bez udawania pełnej kopii', async ({ page }) => {
   await page.goto('/'); const { photos: _photos, photoRestoreId: _restore, ...old } = fixture(); const raw = JSON.stringify({ version: 5, data: old }); await resetCanonical(page);
-await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), raw); await page.reload(); await settled(page);
-expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v5'))).toBe(raw);
+await page.evaluate(raw => localStorage.setItem('garden-manager:v1', raw), raw); await settled(page); await page.reload(); await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v5'))).toBe(raw);
   const migrated = await snapshot(page); expect(migrated.jobs).toEqual(old.jobs); expect(migrated.payments).toEqual(old.payments); expect(migrated.taskSchedules).toEqual(old.taskSchedules); expect(migrated.photos).toEqual([]);
   const card = await garden(page); await upload(card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }), [await image(page)]); await card.getByRole('button', { name: 'Zamknij okno', exact: true }).click(); const panel = await settings(page); await expect(panel).toContainText('nie zawiera plików zdjęć'); const buffer = await zipDownload(page, panel, 'Eksportuj dane'); const json = JSON.parse(buffer.toString()); expect(json.version).toBe(STORAGE_VERSION); expect(json.data.photos).toHaveLength(1); expect(buffer.toString()).not.toMatch(/base64|data:image/);
 });
@@ -179,5 +176,5 @@ test('telefon: wybór aparatu, powiększenie i porównanie bez przewijania w poz
 test('pozostałość po przerwanym zapisie pliku jest sprzątana po ponownym uruchomieniu', async ({ page }) => {
   await seed(page); const card = await garden(page); await upload(card.getByRole('region', { name: 'Galeria i historia ogrodu', exact: true }), [await image(page)]);
   await page.evaluate(() => new Promise<void>((resolve, reject) => { const open = indexedDB.open('garden-manager-photos'); open.onerror = () => reject(open.error); open.onsuccess = () => { const db = open.result, tx = db.transaction('assets', 'readwrite'), store = tx.objectStore('assets'), get = store.getAll(); get.onsuccess = () => store.add({ ...get.result[0], id: 'interrupted', createdAt: 0 }); tx.oncomplete = () => { db.close(); resolve(); }; tx.onabort = () => reject(tx.error); }; }));
-  expect(await assets(page)).toHaveLength(2); await page.reload(); await expect.poll(async () => (await assets(page)).length).toBe(1); expect((await snapshot(page)).photos).toHaveLength(1);
+  expect(await assets(page)).toHaveLength(2); await settled(page); await page.reload(); await expect.poll(async () => (await assets(page)).length).toBe(1); expect((await snapshot(page)).photos).toHaveLength(1);
 });

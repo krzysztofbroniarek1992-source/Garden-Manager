@@ -86,11 +86,10 @@ await page.evaluate(
       ),
     { data, version },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<Data> {
-  await settled(page);
-return page.evaluate(
+  await settled(page); return page.evaluate(
     () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
   );
 }
@@ -223,7 +222,7 @@ test('szybkie przyciski pulpitu zapisują ogólną notatkę i przypomnienie bez 
   expect(saved.jobs).toEqual(before.jobs);
   expect(saved.payments).toEqual(before.payments);
   expect(saved.timer).toBeNull();
-  await page.reload();
+  await settled(page); await page.reload();
   await notes(page);
   await expect(page.locator('.desk-card')).toHaveCount(2);
 });
@@ -891,7 +890,7 @@ test('pełny ZIP i JSON zawierają notatki, przypomnienia, sprawy i relacje foto
   expect(restored.todos).toEqual(original.todos);
   expect(restored.jobs).toEqual(original.jobs);
   expect(restored.payments).toEqual(original.payments);
-  await page.reload();
+  await settled(page); await page.reload();
   await notes(page);
   detail = await openNote(page);
   await expect(detail.locator('.desk-linked-photo img')).toBeVisible();
@@ -906,8 +905,7 @@ test('migracja v6 zachowuje dotychczasowe dane i oryginalny zapis', async ({
   delete old.todos;
   delete old.deskTombstones;
   await seed(page, old, 6);
-  await settled(page);
-const stored = await page.evaluate(() => ({
+  await settled(page); const stored = await page.evaluate(() => ({
     main: JSON.parse(localStorage.getItem('garden-manager:v1')!),
     old: JSON.parse(localStorage.getItem('garden-manager:backup:v6')!),
   }));

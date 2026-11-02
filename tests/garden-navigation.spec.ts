@@ -194,7 +194,7 @@ await page.evaluate(
       ),
     { data: d, version: STORAGE_VERSION },
   );
-  await page.reload();
+  await settled(page); await page.reload();
 }
 const snapshot = async (page: Page): Promise<Data> => {
   await settled(page);
@@ -204,7 +204,8 @@ async function openGarden(
   page: Page,
   name = 'Ogród przy domu',
 ): Promise<Locator> {
-  await page.goto('/#gardens');
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
   await page
     .getByRole('button', { name: `Karta ogrodu ${name}`, exact: true })
     .click();
@@ -404,7 +405,8 @@ test('lista ogrodów otwiera tę samą pełną kartę i zachowuje wyszukiwanie p
   page,
 }) => {
   await seed(page);
-  await page.goto('/#gardens');
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Obiekty i ogrody', exact: true }).click();
   await page.getByLabel('Szukaj ogrodów', { exact: true }).fill('przy domu');
   await page
     .getByRole('button', { name: 'Karta ogrodu Ogród przy domu', exact: true })
@@ -565,7 +567,7 @@ test('nowe zlecenie korzysta z dotychczasowego formularza z przypisanym klientem
   });
   expect(d.timer).toBeNull();
   expect(d.payments).toEqual(before.payments);
-  await page.reload();
+  await settled(page); await page.reload();
   const reopened = await openGarden(page);
   await history(reopened);
   await expect(
@@ -838,8 +840,7 @@ test('sama nawigacja, zakładki i podsumowania nie zmieniają stopera, danych an
     .getByRole('button', { name: 'Zamknij okno', exact: true })
     .click();
   expect(await snapshot(page)).toEqual(before);
-  await settled(page);
-expect(
+  await settled(page); expect(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).version,
     ),

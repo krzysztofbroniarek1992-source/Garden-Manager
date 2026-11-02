@@ -73,8 +73,8 @@ export class ReportService {
       if (!prepared.reused)
         await this.data.saveVisitReport(jobId, prepared.record, prepared.expected);
     };
-    // Share the existing photo/restore lock so two report saves, or a restore and
-    // report save, cannot allocate a number from the same local snapshot.
+    // Coordinate with file restoration. Fresh reads, number validation and history
+    // commit belong to the authoritative data transaction, not to this Web Lock.
     if (typeof navigator !== 'undefined' && navigator.locks) {
       await navigator.locks.request('garden-manager-photos', async () => {
         await action();

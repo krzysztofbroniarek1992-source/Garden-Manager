@@ -16,14 +16,13 @@ test('checklisty i biblioteka otwierają się po raz pierwszy offline, zapisują
   await expect
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller?.state))
     .toBe('activated');
-  await settled(page);
-const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
+  await settled(page); const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
     snapshot = (): Promise<Data> =>
       page.evaluate(
         () => JSON.parse(localStorage.getItem('garden-manager:v1')!).data,
       );
   await context.setOffline(true);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await closeOpenDialogs(page);
   await expect(page.locator('.connection')).toHaveText('Tryb offline');
   await nav.getByRole('button', { name: 'Szablony prac', exact: true }).click();
@@ -134,7 +133,7 @@ const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
     .selectOption(photo.id);
   await expect(checklist.locator('.checklist-photo img')).toBeVisible();
   const original = await snapshot();
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await closeOpenDialogs(page);
   await page
     .locator('.job-title-button')
@@ -189,7 +188,7 @@ const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
   await expect(
     settings.getByText(/Dane i zdjęcia zostały odtworzone/).last(),
   ).toBeVisible();
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
   await closeOpenDialogs(page);
   const restored = await snapshot();
   expect(restored.checklists).toEqual(original.checklists);
@@ -219,8 +218,7 @@ const nav = page.getByRole('navigation', { name: 'Nawigacja główna' }),
     .getByText('Edytuj czynność, kolejność i zdjęcie', { exact: true })
     .click();
   await expect(checklist.locator('.checklist-photo img')).toBeVisible();
-  await settled(page);
-expect(
+  await settled(page); expect(
     await page.evaluate(() => localStorage.getItem('garden-manager:v1')),
   ).not.toMatch(/base64|data:image/);
   expect(errors).toEqual([]);
