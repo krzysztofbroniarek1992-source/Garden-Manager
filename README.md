@@ -660,3 +660,15 @@ razem z ogrodem, z zachowaniem starszych linków i wspólnej historii nawigacji.
 
 Pełna regresja etapu 5: **433/433 jednostkowych, 203/203 E2E i 12/12 PWA offline**.
 TypeScript i build produkcyjny zaliczone; sprawdzono 360, 390 i 430 px.
+
+### Etap 6 — Finalna integracja nawigacji i interfejsu
+
+Sprawy z pulpitu, kalendarza i listy korzystają ze wspólnej historii. Menu,
+ustawienia i formularz nowego zlecenia mają adresowany stan otwarcia. Kalkulatory
+zachowują wpisane wartości i prowadzą do powiązanego ogrodu, strefy i zlecenia;
+lista spraw i katalog zachowują filtry. Ujednolicono sygnalizację zapisu oraz
+sterowanie mobilne i klawiaturą. [Końcowy audyt etapów 1–6](docs/FINAL_NAVIGATION_AUDIT.md).
+
+Pełna regresja etapu 6: **462/462 jednostkowych, 223/223 E2E i 13/13 PWA offline**.
+TypeScript i build produkcyjny zaliczone; macierz obejmuje 320, 360, 390, 430,
+768 i 1280 px oraz sterowanie dotykowe i klawiaturę.
