@@ -1,3 +1,9 @@
+import {
+  AvailabilityStrip,
+  DayAvailability,
+  NearestAvailability,
+} from "../availability/CalendarAvailability";
+import { availabilityConflict } from "../availability/model";
 import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -86,6 +92,50 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
       );
   }, [navigation, today]);
   const { view, anchor, date: selected } = state;
+  const [selecting, setSelecting] = useViewState(
+    "availability-selecting",
+    false,
+  );
+  // A year of date keys fits the controller's bounded string storage; Sets
+  // in existing presentation state are intentionally limited to fewer entries.
+  const [chosenText, setChosenText] = useViewState("availability-dates", "");
+  const chosen = useMemo(
+    () =>
+      new Set(
+        typeof chosenText === "string"
+          ? chosenText.split(",").filter(isDate).slice(0, 366)
+          : [],
+      ),
+    [chosenText],
+  );
+  const setChosen = (
+    change: Set<string> | ((previous: Set<string>) => Set<string>),
+  ) =>
+    setChosenText((previous) => {
+      const values = new Set(
+        typeof previous === "string" ? previous.split(",").filter(isDate) : [],
+      );
+      return [...(typeof change === "function" ? change(values) : change)]
+        .sort()
+        .join(",");
+    });
+  const toggleDay = (date: string) =>
+    setChosen((previous) => {
+      const next = new Set(previous);
+      if (next.has(date)) next.delete(date);
+      else if (next.size < 366) next.add(date);
+      return next;
+    });
+  const openAvailabilityBatch = () => {
+    const dates = [...chosen].sort();
+    if (dates.length)
+      navigation.open({ kind: "availability", id: dates[0], dates });
+  };
+  const conflictsAvailability = (event: Event) =>
+    !event.deskId &&
+    event.status !== "completed" &&
+    event.status !== "cancelled" &&
+    !!availabilityConflict(data, event.date, event.time);
   const [lastEvent, setLastEvent] = useViewState("calendar-event", "");
   const update = (patch: Partial<typeof state>) =>
     navigation.setCalendar({ ...state, ...patch });
@@ -190,8 +240,10 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
       : event.date < today) &&
     event.status !== "completed" &&
     event.status !== "cancelled";
-  const selectDay = (date: string) =>
-    update({ date, ...(view === "day" ? { anchor: date } : {}) });
+  const selectDay = (date: string) => {
+    if (selecting) toggleDay(date);
+    else update({ date, ...(view === "day" ? { anchor: date } : {}) });
+  };
   const changePeriod = (offset: number) => {
     let date: string | null;
     try {
@@ -235,6 +287,42 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
         >
           Dzisiaj
         </button>
+      </div>
+      <div
+        className="availability-toolbar"
+        role="group"
+        aria-label="Zaznaczanie dostępności"
+      >
+        <button
+          className="button secondary"
+          aria-pressed={selecting}
+          onClick={() => setSelecting((v) => !v)}
+        >
+          {selecting ? "Zakończ zaznaczanie dni" : "Zaznacz wiele dni"}
+        </button>
+        {selecting && (
+          <>
+            <button
+              className="button primary"
+              disabled={!chosen.size}
+              onClick={openAvailabilityBatch}
+            >
+              Zaznaczono {chosen.size} {chosen.size === 1 ? "dzień" : "dni"}
+            </button>
+            <button
+              className="button secondary"
+              disabled={!chosen.size}
+              onClick={() => setChosen(new Set())}
+            >
+              Wyczyść zaznaczenie
+            </button>
+            <p className="gm-form-note">
+              Klikaj daty, aby zaznaczyć lub odznaczyć. Ustawienie i usunięcie
+              ograniczeń wykonasz dla wszystkich zaznaczonych dni. Maksymalnie
+              366 dni.
+            </p>
+          </>
+        )}
       </div>
       <div className="calendar-view-toolbar">
         <div
@@ -350,20 +438,27 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
               ))}
             </div>
           )}
-          <div className={`planning-calendar-grid planning-grid-${view}`}>
+          <div
+            className={`planning-calendar-grid planning-grid-${view} ${selecting ? "availability-selecting" : ""}`}
+          >
             {cells.map((date) => {
               const dayEvents = events.filter((event) => event.date === date);
               return (
                 <div
                   key={date}
-                  className={`calendar-day ${date.slice(0, 7) !== anchor.slice(0, 7) && view === "month" ? "outside" : ""} ${selected === date ? "selected" : ""} ${date === today ? "today" : ""}`}
+                  className={`calendar-day ${date.slice(0, 7) !== anchor.slice(0, 7) && view === "month" ? "outside" : ""} ${!selecting && selected === date ? "selected" : ""} ${date === today ? "today" : ""} ${selecting && chosen.has(date) ? "availability-selected" : ""}`}
                   onClick={() => selectDay(date)}
                 >
                   <button
                     className="calendar-day-select"
                     type="button"
-                    onClick={() => selectDay(date)}
-                    aria-pressed={selected === date}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      selectDay(date);
+                    }}
+                    aria-pressed={
+                      selecting ? chosen.has(date) : selected === date
+                    }
                     aria-label={`Wybierz dzień ${date}`}
                   >
                     <span className="day-number">
@@ -376,16 +471,24 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
                           })}
                     </span>
                   </button>
+                  <AvailabilityStrip date={date} />
+                  {dayEvents.some(conflictsAvailability) && (
+                    <p className="availability-collision-label">
+                      Kolizje dostępności:{" "}
+                      {dayEvents.filter(conflictsAvailability).length}
+                    </p>
+                  )}
                   {dayEvents
                     .slice(0, view === "month" ? 3 : undefined)
                     .map((event) => (
                       <button
                         key={event.id}
-                        className={`calendar-event calendar-kind-${event.kind} calendar-event-${event.status} ${lastEvent === event.id ? "calendar-event-selected" : ""} ${overdue(event) ? "calendar-event-overdue" : ""}`}
-                        aria-label={`${eventTime(event)} ${event.title}, ${kindLabels[event.kind]}, ${statusLabel(event)}${overdue(event) ? ", termin zaległy" : ""}`}
+                        className={`calendar-event calendar-kind-${event.kind} calendar-event-${event.status} ${lastEvent === event.id ? "calendar-event-selected" : ""} ${overdue(event) ? "calendar-event-overdue" : ""} ${conflictsAvailability(event) ? "calendar-event-availability-conflict" : ""}`}
+                        aria-label={`${eventTime(event)} ${event.title}, ${kindLabels[event.kind]}, ${statusLabel(event)}${overdue(event) ? ", termin zaległy" : ""}${conflictsAvailability(event) ? ", kolizja dostępności" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          open(event);
+                          if (selecting) toggleDay(date);
+                          else open(event);
                         }}
                       >
                         <span>
@@ -403,7 +506,8 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
                       className="calendar-more-events"
                       onClick={(e) => {
                         e.stopPropagation();
-                        update({ date, anchor: date, view: "day" });
+                        if (selecting) toggleDay(date);
+                        else update({ date, anchor: date, view: "day" });
                       }}
                     >
                       + {dayEvents.length - 3} kolejne
@@ -435,6 +539,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
             </div>
             <CalendarDays size={22} />
           </div>
+          <DayAvailability date={selected} />
           {agenda.map((event) => {
             const garden = data.gardens.find((g) => g.id === event.gardenId);
             return (
@@ -450,7 +555,9 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
                   <h3>
                     <button
                       className="job-title-button"
-                      onClick={() => open(event)}
+                      onClick={() =>
+                        selecting ? toggleDay(event.date) : open(event)
+                      }
                     >
                       {event.title}
                     </button>
@@ -467,6 +574,11 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
                       {event.task?.zoneName && ` · ${event.task.zoneName}`}
                     </p>
                   )}
+                  {conflictsAvailability(event) && (
+                    <p className="availability-collision-label">
+                      Kolizja z dostępnością
+                    </p>
+                  )}
                   {overdue(event) && (
                     <p className="overdue-label">
                       Termin zaległy — wymaga uwagi
@@ -479,7 +591,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
           {!agenda.length && (
             <div className="empty-state">
               <CalendarDays size={32} />
-              <h3>Wolny dzień</h3>
+              <h3>Brak zaplanowanych wydarzeń</h3>
               <p className="muted">Na ten dzień nie ma zaplanowanych prac.</p>
             </div>
           )}
@@ -544,14 +656,19 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
           </p>
         </section>
       </div>
+      <NearestAvailability
+        start={selected}
+        now={now}
+        onSelect={(date) => update({ date, anchor: date, view: "day" })}
+      />
       <PlanningReminders />
       <ScheduleManager />
       {newJob && (
         <JobForm
           job={newJob}
           onClose={() => setNewJob(null)}
-          onSave={async (job) => {
-            await saveJob(job);
+          onSave={async (job, expected, permit) => {
+            await saveJob(job, expected, permit);
             setNewJob(null);
             setSelectedJob(job.id);
           }}
