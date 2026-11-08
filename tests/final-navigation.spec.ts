@@ -621,7 +621,7 @@ test("full ZIP restores a photo and addressed todo with its original client, gar
   const json = await jsonDownload;
   const { readFile } = await import("node:fs/promises");
   const exported = JSON.parse(await readFile((await json.path())!, "utf8"));
-  expect(exported.version).toBe(9);
+  expect(exported.version).toBe(STORAGE_VERSION);
   expect(exported.data.todos).toEqual(before.todos);
   const download = page.waitForEvent("download");
   await settings(page)

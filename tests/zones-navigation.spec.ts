@@ -638,7 +638,7 @@ test("zone documentation, text, care schedules and finance survive JSON export a
     return Buffer.concat(chunks);
   };
   const json = JSON.parse((await download("Eksportuj dane")).toString());
-  expect(json.version).toBe(9);
+  expect(json.version).toBe(STORAGE_VERSION);
   expect(json.data.gardens).toEqual(before.gardens);
   expect(json.data.taskSchedules).toEqual(before.taskSchedules);
   const zip = await download("Pobierz pełną kopię ZIP");
