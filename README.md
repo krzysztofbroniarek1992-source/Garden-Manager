@@ -641,3 +641,12 @@ z istniejących ID. [Zakres, adresy i bezpieczeństwo](docs/DOCUMENTATION_NAVIGA
 
 Pełna regresja etapu 3: **389/389 jednostkowych, 169/169 E2E i 10/10 PWA offline**.
 TypeScript i build produkcyjny zaliczone; testy obejmują 360, 390 i 430 px.
+
+### Etap 4 — Nawigacja rozliczeń i finansów
+
+Kwoty klienta i rozliczenia ogrodu prowadzą do składników istniejących rozliczeń,
+wpłat i raportów. Zachowano domenowe obliczenia oraz formularze płatności.
+[Zakres, adresy, znaczenie kwot i testy](docs/FINANCE_NAVIGATION.md).
+
+Pełna regresja etapu 4: **413/413 jednostkowych, 185/185 E2E i 11/11 PWA offline**.
+TypeScript i build produkcyjny zaliczone; uwzględniono 360, 390 i 430 px.

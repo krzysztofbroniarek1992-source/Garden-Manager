@@ -209,6 +209,7 @@ export default function ReportPanel({
     <Modal title="Raport PDF dla klienta" onClose={onClose} wide>
       <div ref={guard.ref} className="report-builder">
         <DocumentationLinks scope={{jobId}} gardenSection="jobs" jobSection="summary"/>
+        <button className="button secondary" onClick={()=>navigation.open({kind:"job",id:jobId,section:"billing"})}>Rozliczenie zlecenia</button>
         <h3>{job.title}</h3>
         {!reportId && <>
         <p className="gm-form-note">

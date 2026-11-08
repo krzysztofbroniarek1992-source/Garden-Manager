@@ -1,3 +1,5 @@
+import { openFinance } from '../finance/open';
+import { useNavigation } from '../navigation/Navigation';
 import { useViewState } from '../navigation/Navigation';
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { ContextNotes } from '../desk/Notes';
@@ -48,6 +50,7 @@ export default function GardenDetails({
   active?: boolean;
 }) {
   const { data, deleteZone, saveJob } = useGarden();
+  const controller=useNavigation();
   const navigation = useCardNavigation(),
     now = useNow(),
     id = useId();
@@ -467,7 +470,8 @@ export default function GardenDetails({
                     Kwoty pochodzą z dotychczasowych rozliczeń i wpłat. Wybierz
                     „Wizyta i rozliczenie”, aby otworzyć ich szczegóły.
                   </p>
-                  <GroupedJobHistory historyKey="billing" jobs={jobs} onOpen={openJob} />
+                  <div className="garden-job-actions"><button className="button secondary" onClick={()=>openFinance(controller,'garden',gardenId,'all')}>Szczegóły rozliczeń ogrodu</button><button className="button secondary" onClick={()=>openFinance(controller,'garden',gardenId,'outstanding')}>Pozostałe należności ogrodu</button><button className="button secondary" onClick={()=>openFinance(controller,'garden',gardenId,'received')}>Otrzymane płatności ogrodu</button></div>
+                  <GroupedJobHistory historyKey="billing" jobs={jobs} onOpen={openJob} financial/>
                 </>
               )}
               {key === 'gallery' && (

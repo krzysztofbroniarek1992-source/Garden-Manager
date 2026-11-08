@@ -87,6 +87,8 @@ test('galeria klienta i strefy pokazuje powiązane zdjęcia, w tym zdjęcia przy
   expect((await snapshot(page)).photos[0]).toMatchObject({ clientId: 'client-1', gardenId: null, zoneId: null, jobId: null });
   await clientGallery.getByRole('button', { name: 'Edytuj zdjęcie klient.png', exact: true }).click(); const edit = page.getByRole('dialog', { name: 'Edytuj zdjęcie', exact: true });
   await edit.getByRole('combobox', { name: 'Ogród zdjęcia', exact: true }).selectOption('garden-1'); await edit.getByRole('combobox', { name: 'Strefa zdjęcia', exact: true }).selectOption('zone-1'); await edit.getByRole('button', { name: 'Zapisz opis i powiązania' }).click();
+  // Saving closes this editor asynchronously. Wait before a generic dialog helper inspects the stack.
+  await expect(edit).toBeHidden();
   const card = await garden(page); await card.getByRole('tab',{name:'Strefy i rośliny',exact:true}).click(); await card.getByRole('button', { name: 'Zdjęcia strefy Rabata różana', exact: true }).click();
   const zone = page.getByRole('dialog', { name: 'Zdjęcia strefy: Rabata różana', exact: true }); await expect(zone.locator('.photo-card')).toHaveCount(1); await expect(zone).toContainText('Problem z rośliną');
 });
