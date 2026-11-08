@@ -33,7 +33,7 @@ const series = (p: Page) =>
 const job = (p: Page) =>
   p.getByRole("dialog", { name: "Szczegóły zlecenia", exact: true });
 const snapshot = async (p: Page) => {
-  await p.locator('.app-shell').waitFor();
+  await p.locator(".app-shell").waitFor();
   await settled(p);
   return p.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
 };
@@ -169,10 +169,18 @@ test("task links open client, garden and the correct zone, then return to the sa
   await task(page)
     .getByRole("button", { name: "Strefa: Rabata nawigacyjna", exact: true })
     .click();
-  const zone = garden(page).locator('[data-zone-id="zone-navigation"]');
+  const zone = page.getByRole("dialog", {
+    name: "Strefa: Rabata nawigacyjna",
+    exact: true,
+  });
   await expect(zone).toBeInViewport();
-  await expect(zone).toBeFocused();
-  await expect(page).toHaveURL(/section=zones&zone=zone-navigation/);
+  expect(await zone.evaluate((el) => el.contains(document.activeElement))).toBe(
+    true,
+  );
+  await expect(zone).toContainText("Podlewanie rano");
+  await expect(page).toHaveURL(
+    /zone=zone-navigation&zoneGarden=garden-1&section=overview/,
+  );
   await page.goBack();
   await expect(task(page)).toBeVisible();
   await page.reload();
@@ -379,14 +387,27 @@ for (const width of [360, 390, 430])
       .getByRole("button", { name: "Strefa: Rabata nawigacyjna", exact: true })
       .click();
     await expect(
-      garden(page).locator('[data-zone-id="zone-navigation"]'),
+      page.getByRole("dialog", {
+        name: "Strefa: Rabata nawigacyjna",
+        exact: true,
+      }),
     ).toBeInViewport();
     await page.goBack();
     await expect(task(page)).toBeVisible();
     await page.goForward();
-    await expect(garden(page)).toBeVisible();
+    await expect(
+      page.getByRole("dialog", {
+        name: "Strefa: Rabata nawigacyjna",
+        exact: true,
+      }),
+    ).toBeVisible();
     await page.reload();
-    await expect(garden(page)).toBeVisible();
+    await expect(
+      page.getByRole("dialog", {
+        name: "Strefa: Rabata nawigacyjna",
+        exact: true,
+      }),
+    ).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -494,11 +515,9 @@ test("zone navigation does not steal focus from existing autosave editors", asyn
   await task(page)
     .getByRole("button", { name: "Strefa: Rabata nawigacyjna", exact: true })
     .click();
-  await garden(page)
-    .getByRole("button", {
-      name: "Checklisty strefy Rabata nawigacyjna",
-      exact: true,
-    })
+  await page
+    .getByRole("dialog", { name: "Strefa: Rabata nawigacyjna", exact: true })
+    .getByRole("tab", { name: /Czynności i harmonogramy/ })
     .click();
   await page
     .getByRole("button", { name: "Plan bez utraty fokusu", exact: true })

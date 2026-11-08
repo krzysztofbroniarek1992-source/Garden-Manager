@@ -76,7 +76,9 @@ test("note → zone → job preserves filters, browser history and data across r
     .getByRole("button", { name: "Strefa: Rabata dokumentacji", exact: true })
     .click();
   await expect(
-    garden(page).getByRole("tab", { name: "Strefy i rośliny", exact: true }),
+    page
+      .getByRole("dialog", { name: "Strefa: Rabata dokumentacji", exact: true })
+      .getByRole("tab", { name: "Notatki", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.goBack();
   await expect(note(page)).toBeVisible();
