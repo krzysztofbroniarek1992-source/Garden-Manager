@@ -400,7 +400,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         card = r.cards.at(-1);
       if (
         !card ||
-        (card.kind !== "garden" && card.kind !== "job" && card.kind !== "zone")
+        (card.kind !== "garden" && card.kind !== "job" && card.kind !== "zone" && card.kind !== "field")
       )
         return;
       const next = {

@@ -3,6 +3,7 @@ import { isDate } from "../planning/dates";
 /** UI addresses only. No persisted business data or commands belong here. */
 export const pages = [
   "dashboard",
+  "field",
   "clients",
   "gardens",
   "jobs",
@@ -76,7 +77,10 @@ export interface CalendarState {
   kind?: (typeof calendarKinds)[number];
   status?: (typeof calendarStatuses)[number];
 }
+export const fieldSections = ["work", "photos", "notes", "checklists", "materials"] as const;
+export type FieldSection = (typeof fieldSections)[number];
 export type Card =
+  | { kind: "field"; id: string; section?: FieldSection }
   | { kind: "availability"; id: string; dates?: string[] }
   | { kind: "client"; id: string }
   | { kind: "zone"; id: string; gardenId: string; section?: ZoneSection }
@@ -144,7 +148,7 @@ export function validCard(value: unknown): value is Card {
   const c = value as Card;
   return (
     validId(c.id) &&
-    ((c.kind === "availability" &&
+    ((c.kind === "field" && (c.section === undefined || fieldSections.includes(c.section))) || (c.kind === "availability" &&
       isDate(c.id) &&
       (c.dates === undefined ||
         (Array.isArray(c.dates) &&
@@ -206,6 +210,7 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
     : "dashboard";
   const params = new URLSearchParams(query);
   const selected = [
+    "field",
     "availability",
     "client",
     "garden",
@@ -330,6 +335,7 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
     !validCard(card) ||
     (params.has("availabilityDates") && card.kind !== "availability") ||
     (params.has("section") &&
+      card.kind !== "field" &&
       card.kind !== "garden" &&
       card.kind !== "job" &&
       card.kind !== "zone") ||

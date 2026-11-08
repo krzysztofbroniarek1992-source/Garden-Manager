@@ -1,5 +1,6 @@
 import type { Page } from "./routes";
 const labels: Record<Page, string> = {
+  field: "Wróć do trybu terenowego",
   dashboard: "Wróć do pulpitu",
   clients: "Wróć do klientów",
   gardens: "Wróć do listy ogrodów",
