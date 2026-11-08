@@ -498,7 +498,7 @@ test("JSON and ZIP preserve financial history, report numbers and photo IDs afte
   };
   const json = await readDownload("Eksportuj dane");
   const exported = JSON.parse(json.toString());
-  expect(exported.version).toBe(9);
+  expect(exported.version).toBe(STORAGE_VERSION);
   expect(exported.data.payments).toEqual(before.payments);
   expect(exported.data.jobs).toEqual(before.jobs);
   const zip = await readDownload("Pobierz pełną kopię ZIP");

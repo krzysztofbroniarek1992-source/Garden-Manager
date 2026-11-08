@@ -1,3 +1,6 @@
+import CareHistory from "./CareHistory";
+import CareCompletionForm from "./CareCompletionForm";
+import { nextCareDate } from "../planning/care";
 import { useCardNavigation } from "./card-navigation";
 import { occurrenceDate } from "../navigation/planning-links";
 import { useUnsavedChanges } from "../navigation/unsaved";
@@ -14,10 +17,12 @@ import "./planning.css";
 export default function TaskDetails({
   scheduleId,
   originalDate,
+  cycle,
   onClose,
 }: {
   scheduleId: string;
   originalDate: string;
+  cycle?: number;
   onClose: () => void;
 }) {
   const {
@@ -30,12 +35,12 @@ export default function TaskDetails({
   const schedule = data.taskSchedules.find((s) => s.id === scheduleId);
   const [original] = useState(() => {
     try {
-      return resolveOccurrence(data, scheduleId, originalDate);
+      return resolveOccurrence(data, scheduleId, originalDate, cycle);
     } catch {
       return null;
     }
   });
-  const [version] = useState({
+  const [version, setVersion] = useState({
     scheduleRevision: schedule?.revision ?? 0,
     occurrenceRevision: original?.revision ?? 0,
   });
@@ -43,7 +48,9 @@ export default function TaskDetails({
   const [time, setTime] = useState(original?.time ?? "08:00");
   const [gardenId, setGardenId] = useState(original?.gardenId ?? "");
   const [endingDate, setEndingDate] = useState(localDate());
-  const [panel, setPanel] = useState<"move" | "skip" | "end" | null>(null);
+  const [panel, setPanel] = useState<
+    "move" | "skip" | "end" | "complete" | null
+  >(null);
   const [editing, setEditing] = useState(false);
   const navigation = useNavigation();
   const setJobId = (id: string) => navigation.open({ kind: "job", id });
@@ -75,11 +82,13 @@ export default function TaskDetails({
     );
   let occurrence = original;
   try {
-    occurrence = resolveOccurrence(data, scheduleId, originalDate);
+    occurrence = resolveOccurrence(data, scheduleId, originalDate, cycle);
   } catch {
     /* Keep the submitted snapshot visible if the series changed elsewhere. */
   }
-  const job = data.jobs.find((j) => j.id === occurrence.jobId);
+  const job = data.jobs.find(
+    (j) => j.id === (occurrence.completion?.jobId ?? occurrence.jobId),
+  );
   const garden = data.gardens.find(
     (g) => g.id === (job?.gardenId ?? occurrence.gardenId),
   );
@@ -111,6 +120,7 @@ export default function TaskDetails({
           targetDate,
           time,
           version,
+          cycle,
         );
         onClose();
       });
@@ -135,8 +145,8 @@ export default function TaskDetails({
             className="button secondary"
             onClick={() =>
               navigation.openCalendar({
-                date: occurrenceDate(data, scheduleId, originalDate),
-                anchor: occurrenceDate(data, scheduleId, originalDate),
+                date: occurrenceDate(data, scheduleId, originalDate, cycle),
+                anchor: occurrenceDate(data, scheduleId, originalDate, cycle),
                 view: "day",
                 ...(original.gardenId ? { gardenId: original.gardenId } : {}),
               })
@@ -151,7 +161,8 @@ export default function TaskDetails({
         <h3>{occurrence.title}</h3>
         <p>
           <strong>
-            {job?.date ?? occurrence.date} · {job?.time ?? occurrence.time}
+            {schedule.care ? occurrence.date : (job?.date ?? occurrence.date)} ·{" "}
+            {schedule.care ? occurrence.time : (job?.time ?? occurrence.time)}
           </strong>
         </p>
         {occurrence.date !== originalDate && (
@@ -193,7 +204,10 @@ export default function TaskDetails({
               className="button secondary"
               onClick={() =>
                 navigation.open({
-                  kind: "zone", gardenId: garden.id, id: occurrence.zoneId!, section: "overview",
+                  kind: "zone",
+                  gardenId: garden.id,
+                  id: occurrence.zoneId!,
+                  section: "overview",
                 })
               }
             >
@@ -215,6 +229,20 @@ export default function TaskDetails({
           {schedule.endDate && ` do ${schedule.endDate}`}
           {schedule.endedOn && ` · seria zakończona ${schedule.endedOn}`}
         </p>
+        {schedule.care && (
+          <>
+            <p className="planning-note">
+              Kolejny termin liczymy wyłącznie od podanej faktycznej daty
+              wykonania. Zakończenie wizyty nie potwierdza tego zabiegu.
+            </p>
+            {schedule.care.material && (
+              <p>Preparat / materiał: {schedule.care.material}</p>
+            )}
+            {schedule.care.notes && (
+              <p className="preserve-lines">Uwagi: {schedule.care.notes}</p>
+            )}
+          </>
+        )}
         {!job && status === "planned" && (
           <>
             {!occurrence.gardenId && (
@@ -268,6 +296,17 @@ export default function TaskDetails({
           </p>
         )}
         <div className="planning-actions">
+          {schedule.care &&
+            occurrence.status === "planned" &&
+            !schedule.endedOn && (
+              <button
+                className="button primary"
+                disabled={saving}
+                onClick={() => guard.confirm(() => setPanel("complete"))}
+              >
+                Potwierdź wykonanie zabiegu
+              </button>
+            )}
           {job ? (
             <button className="button primary" onClick={() => setJobId(job.id)}>
               Otwórz rzeczywiste zlecenie
@@ -287,6 +326,7 @@ export default function TaskDetails({
                         version,
                         applyChecklist &&
                           checklistTemplate?.archivedAt === null,
+                        cycle,
                       ),
                     ),
                   )
@@ -296,34 +336,50 @@ export default function TaskDetails({
               </button>
             )
           )}
-          {!job && status === "planned" && (
-            <>
-              <button
-                className="button secondary"
-                disabled={saving}
-                onClick={() => {
-                  setPanel("move");
-                  setError("");
-                }}
-              >
-                Przesuń ten termin
-              </button>
-              <button
-                className="button secondary"
-                disabled={saving}
-                onClick={() => {
-                  setPanel("skip");
-                  setError("");
-                }}
-              >
-                Pomiń ten termin
-              </button>
-            </>
-          )}
+          {(!job || schedule.care) &&
+            (status === "planned" ||
+              (schedule.care && status === "in-progress")) && (
+              <>
+                <button
+                  className="button secondary"
+                  disabled={saving}
+                  onClick={() =>
+                    guard.confirm(() => {
+                      if (schedule.care)
+                        setVersion({
+                          scheduleRevision: schedule.revision,
+                          occurrenceRevision: occurrence.revision,
+                        });
+                      setPanel("move");
+                      setError("");
+                    })
+                  }
+                >
+                  Przesuń ten termin
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={saving}
+                  onClick={() =>
+                    guard.confirm(() => {
+                      if (schedule.care)
+                        setVersion({
+                          scheduleRevision: schedule.revision,
+                          occurrenceRevision: occurrence.revision,
+                        });
+                      setPanel("skip");
+                      setError("");
+                    })
+                  }
+                >
+                  Pomiń ten termin
+                </button>
+              </>
+            )}
           <button
             className="button secondary"
             disabled={saving}
-            onClick={() => setEditing(true)}
+            onClick={() => guard.confirm(() => setEditing(true))}
           >
             Edytuj całą serię
           </button>
@@ -331,15 +387,29 @@ export default function TaskDetails({
             <button
               className="button secondary"
               disabled={saving}
-              onClick={() => {
-                setPanel("end");
-                setError("");
-              }}
+              onClick={() =>
+                guard.confirm(() => {
+                  if (schedule.care)
+                    setVersion({
+                      scheduleRevision: schedule.revision,
+                      occurrenceRevision: occurrence.revision,
+                    });
+                  setPanel("end");
+                  setError("");
+                })
+              }
             >
               Zakończ serię
             </button>
           )}
         </div>
+        {panel === "complete" && (
+          <CareCompletionForm
+            occurrence={occurrence}
+            schedule={schedule}
+            onClose={() => setPanel(null)}
+          />
+        )}
         {panel === "move" && (
           <form className="planning-confirm" onSubmit={move}>
             <h4>Przesunięcie jednego terminu</h4>
@@ -363,7 +433,11 @@ export default function TaskDetails({
                 />
               </label>
             </div>
-            <p>Pozostałe terminy zachowają swój rytm.</p>
+            <p>
+              {schedule.care
+                ? "Przełożenie nie uruchomi następnego cyklu. Kolejny termin powstanie dopiero od faktycznej daty wykonania. Data musi mieścić się w sezonie."
+                : "Pozostałe terminy zachowają swój rytm."}
+            </p>
             <div className="planning-actions">
               <button
                 type="button"
@@ -390,8 +464,9 @@ export default function TaskDetails({
           >
             <h4>Pominąć tylko ten termin?</h4>
             <p>
-              Termin zostanie oznaczony jako odwołany. Kolejne wystąpienia serii
-              pozostaną zaplanowane.
+              {schedule.care
+                ? `Pominięcie nie jest wykonaniem i nie zapisuje daty wykonania. Kolejny termin liczymy od pomijanego terminu ${occurrence.date}, dodając interwał i przechodząc w razie potrzeby do pierwszego dnia sezonu. ${nextCareDate(schedule, occurrence.date) ? `Następny termin: ${nextCareDate(schedule, occurrence.date)}.` : "Brak kolejnego terminu w granicach serii."}`
+                : "Termin zostanie oznaczony jako odwołany. Kolejne wystąpienia serii pozostaną zaplanowane."}
             </p>
             <div className="planning-actions">
               <button
@@ -405,7 +480,12 @@ export default function TaskDetails({
                 disabled={saving}
                 onClick={() =>
                   perform(async () => {
-                    await skipTaskOccurrence(scheduleId, originalDate, version);
+                    await skipTaskOccurrence(
+                      scheduleId,
+                      originalDate,
+                      version,
+                      cycle,
+                    );
                     onClose();
                   })
                 }
@@ -443,8 +523,9 @@ export default function TaskDetails({
               />
             </label>
             <p>
-              Nie powstaną kolejne terminy po tej dacie. Rzeczywiste zlecenia i
-              historia pozostaną zachowane.
+              {schedule.care
+                ? "Zakończenie zamknie bieżący niewykonany zabieg i zablokuje dalsze cykle. Historia i rzeczywiste zlecenia pozostaną zachowane."
+                : "Nie powstaną kolejne terminy po tej dacie. Rzeczywiste zlecenia i historia pozostaną zachowane."}
             </p>
             <div className="planning-actions">
               <button
@@ -460,6 +541,7 @@ export default function TaskDetails({
             </div>
           </form>
         )}
+        {schedule.care && <CareHistory scheduleId={scheduleId} />}
       </div>
     </Modal>
   );

@@ -96,6 +96,7 @@ export class GardenStore {
   saveJob = (job: Job, expected?: Job) => this.commit(data => {
     let next = data;
     const existing = data.jobs.find(item => item.id === job.id);
+    if (existing && existing.gardenId !== job.gardenId && data.taskOccurrences.some(o => o.completion?.jobId === job.id)) throw new Error('Zlecenie ma historię wykonanych zabiegów. Nie można przenieść go do innego ogrodu.');
     const editable = (value: Job) => [value.gardenId,value.title,value.date,value.time,value.status,value.billing,value.rate,value.fixedPrice,value.notes,value.materials,value.activities];
     if (expected && (!existing || JSON.stringify(editable(existing))!==JSON.stringify(editable(expected)))) throw new Error('Zlecenie zostało zmienione lub usunięte w innej karcie. Otwórz aktualny formularz przed zapisaniem zmian.');
     if (existing?.settlement && job.status !== 'completed') throw new Error('Zlecenie ma zatwierdzoną cenę i musi pozostać zakończone.');
@@ -237,12 +238,13 @@ export class GardenStore {
   deleteDeskRecord = (kind: 'note' | 'todo', id: string, revision: number) => this.commit(data => desk.deleteDeskRecord(data, kind, id, revision, this.clock()));
 
   saveTaskSchedule = (schedule: TaskSchedule) => this.commit(data => planning.saveTaskSchedule(data, schedule, this.clock()));
-  moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected));
-  skipTaskOccurrence = (id: string, date: string, expected?: OccurrenceVersion) => this.commit(data => planning.skipTaskOccurrence(data, id, date, this.clock(), expected));
+  moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion, cycle?: number) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected, cycle));
+  skipTaskOccurrence = (id: string, date: string, expected?: OccurrenceVersion, cycle?: number) => this.commit(data => planning.skipTaskOccurrence(data, id, date, this.clock(), expected, cycle));
+  completeCareOccurrence = (id: string, date: string, cycle: number, performedOn: string, jobId: string | null, expected?: OccurrenceVersion) => this.commit(data => planning.completeCareOccurrence(data, id, date, cycle, performedOn, jobId, this.clock(), expected));
   endTaskSchedule = (id: string, date: string, revision?: number) => this.commit(data => planning.endTaskSchedule(data, id, date, this.clock(), revision));
-  beginTaskOccurrence = (id: string, date: string, gardenId?: string, expected?: OccurrenceVersion, applyChecklist = false): string => {
+  beginTaskOccurrence = (id: string, date: string, gardenId?: string, expected?: OccurrenceVersion, applyChecklist = false, cycle?: number): string => {
     let jobId = '';
-    this.commit(data => { const result = planning.beginTaskOccurrence(data, id, date, this.clock(), gardenId, expected); jobId = result.jobId;
+    this.commit(data => { const result = planning.beginTaskOccurrence(data, id, date, this.clock(), gardenId, expected, cycle); jobId = result.jobId;
       const templateId = result.data.taskSchedules.find(s=>s.id===id)?.checklistTemplateId;
       const zoneId = result.data.taskOccurrences.find(o=>o.jobId===jobId)?.zoneId ?? null;
       const garden = result.data.gardens.find(g=>g.id===result.data.jobs.find(j=>j.id===jobId)?.gardenId);

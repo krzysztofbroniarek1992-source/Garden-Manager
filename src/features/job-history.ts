@@ -91,6 +91,7 @@ export function jobDeletionReview(data: Data, jobId: string) {
     reasons.push(
       'Zlecenie jest historią zadania z kalendarza. Zachowaj je, aby nie utworzyć powtórnej wizyty.',
     );
+  if (data.taskOccurrences.some(o=>o.completion?.jobId===jobId)) reasons.push('Zlecenie jest powiązane z wykonanymi zabiegami. Zachowaj je wraz z historią pielęgnacji.');
   if (job?.reports?.length)
     reasons.push(
       'Zlecenie ma zapisane raporty. Zachowaj je wraz z ich wersjami.',
@@ -107,6 +108,7 @@ export function jobDeletionReview(data: Data, jobId: string) {
       photos,
       notes,
       checklists,
+      data.taskOccurrences.filter(o=>o.completion?.jobId===jobId),
       data.timer?.jobId === jobId ? data.timer : null,
     ]),
   };

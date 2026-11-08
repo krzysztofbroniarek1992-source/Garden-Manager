@@ -1,3 +1,6 @@
+import type { Card } from "./routes";
+import type { TaskOccurrence } from "../planning/model";
+import { pendingCareOccurrence } from "../planning/care";
 import type { Data } from "../domain";
 import { addDays } from "../planning/dates";
 import {
@@ -37,14 +40,31 @@ export function jobSource(data: Data, jobId: string) {
     (o) => o.id === job?.taskOccurrenceId && o.jobId === jobId,
   );
 }
-export function occurrenceDate(data: Data, id: string, originalDate: string) {
-  const o = resolveOccurrence(data, id, originalDate);
-  return data.jobs.find((j) => j.id === o.jobId)?.date ?? o.date;
+export function occurrenceCard(o: TaskOccurrence): Card {
+  return {
+    kind: "task",
+    id: o.scheduleId,
+    originalDate: o.originalDate,
+    ...(o.careCycle !== undefined ? { cycle: o.careCycle } : {}),
+  };
+}
+export function occurrenceDate(
+  data: Data,
+  id: string,
+  originalDate: string,
+  cycle?: number,
+) {
+  const o = resolveOccurrence(data, id, originalDate, cycle);
+  return o.careCycle !== undefined
+    ? o.date
+    : (data.jobs.find((j) => j.id === o.jobId)?.date ?? o.date);
 }
 export function nextScheduleOccurrence(data: Data, id: string, today: string) {
   const s = data.taskSchedules.find((s) => s.id === id);
   if (!s) return null;
-  const next = scheduleWindow(data, id, today, 1, true)[0];
+  const next = s.care
+    ? pendingCareOccurrence(data, id)
+    : scheduleWindow(data, id, today, 1, true)[0];
   if (next) return next;
   const stored = data.taskOccurrences
     .filter((o) => o.scheduleId === id)

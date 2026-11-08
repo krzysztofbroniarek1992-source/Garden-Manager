@@ -825,6 +825,10 @@ test('sama nawigacja, zakładki i podsumowania nie zmieniają stopera, danych an
   await seed(page, d);
   const before = await snapshot(page),
     card = await openGarden(page);
+  const beforeFormat = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('garden-manager:v1')!).version,
+  );
+  expect(beforeFormat).toBe(STORAGE_VERSION);
   for (const name of [
     'Strefy i rośliny',
     'Harmonogram i plany czynności',
@@ -848,7 +852,7 @@ test('sama nawigacja, zakładki i podsumowania nie zmieniają stopera, danych an
     await page.evaluate(
       () => JSON.parse(localStorage.getItem('garden-manager:v1')!).version,
     ),
-  ).toBe(9);
+  ).toBe(beforeFormat);
 });
 for (const width of [360, 390, 430])
   test(`telefon ${width}px: pełna karta, czytelne sekcje i zlecenia bez przewijania strony w poziomie`, async ({

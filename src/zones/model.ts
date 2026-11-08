@@ -9,6 +9,9 @@ export function jobZones(data: Data, jobId: string) {
     ids = new Set<string>();
   if (job.visitDetails?.zoneId) ids.add(job.visitDetails.zoneId);
   if (source?.gardenId === garden.id && source.zoneId) ids.add(source.zoneId);
+  for (const o of data.taskOccurrences)
+    if (o.completion?.jobId === jobId && o.gardenId === garden.id && o.zoneId)
+      ids.add(o.zoneId);
   for (const c of data.checklists)
     if (
       c.kind === "visit" &&
