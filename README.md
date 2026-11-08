@@ -694,3 +694,10 @@ zaznaczanie wielu dat, atomowe operacje masowe i ostrzeżenia z możliwością
 świadomego wyjątku. Terminy GM-005 pozostają bez automatycznych przesunięć.
 Opcjonalne ustawienia dni zachowują format v10 i kopie JSON/ZIP.
 [Instrukcja, kolizje i bezpieczeństwo](docs/AVAILABILITY.md).
+
+### GM-007 — Mobilny tryb terenowy
+
+Widok „Tryb terenowy” łączy istniejącą wizytę, stoper, czynności, aparat,
+notatki, checklisty i materiały. Korzysta z formatu v10 i atomowego IndexedDB;
+otwarcie nie uruchamia pomiaru. Instrukcja, audyt wykorzystanych komponentów,
+zasady bezpieczeństwa i ograniczenia: [docs/FIELD_MODE.md](docs/FIELD_MODE.md).
