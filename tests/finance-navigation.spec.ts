@@ -397,6 +397,13 @@ for (const width of [360, 390, 430])
   }) => {
     await page.setViewportSize({ width, height: 844 });
     await openFinance(page, "outstanding");
+    const metricButton = finance(page).getByRole("button", {
+      name: "Szczegóły: POZOSTAŁO DO ZAPŁATY",
+      exact: true,
+    });
+    expect((await metricButton.boundingBox())!.height).toBeGreaterThanOrEqual(
+      44,
+    );
     await finance(page)
       .locator(".finance-job-payments")
       .filter({ hasText: partial })
