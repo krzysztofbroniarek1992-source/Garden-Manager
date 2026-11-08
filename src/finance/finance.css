@@ -1,0 +1,45 @@
+.finance-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.finance-metrics .text-button {
+  white-space: normal;
+}
+.finance-history {
+  padding: 20px;
+}
+.finance-payment-values {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr);
+  gap: 12px;
+}
+.finance-payment-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.finance-payment-values dt {
+  color: var(--text-muted, #66756b);
+}
+.finance-job-payments {
+  margin-top: 8px;
+  max-width: 100%;
+}
+.finance-job-payments summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+@media (max-width: 700px) {
+  .finance-metrics {
+    grid-template-columns: 1fr;
+  }
+  .finance-history {
+    padding: 12px;
+  }
+  .finance-payment-values {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .finance-job-payments .payment-history {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

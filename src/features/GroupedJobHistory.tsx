@@ -1,6 +1,8 @@
-import { useViewState } from '../navigation/Navigation';
-import { useId, useMemo, useState } from 'react';
-import { useGarden, useNow } from '../state';
+import PaymentHistory from "../finance/PaymentHistory";
+import { useNavigation } from "../navigation/Navigation";
+import { useViewState } from "../navigation/Navigation";
+import { useId, useMemo, useState } from "react";
+import { useGarden, useNow } from "../state";
 import {
   elapsedSeconds,
   jobTotalCents,
@@ -10,16 +12,16 @@ import {
   remainingCents,
   settlementStatus,
   type Job,
-} from '../domain';
-import { reportDuration } from '../reports/presentation';
-import { groupJobHistory, type JobMonth } from './job-history';
-import PaymentBadge from '../components/PaymentBadge';
-import './garden-details.css';
+} from "../domain";
+import { reportDuration } from "../reports/presentation";
+import { groupJobHistory, type JobMonth } from "./job-history";
+import PaymentBadge from "../components/PaymentBadge";
+import "./garden-details.css";
 
 const labels = {
-  planned: 'Zaplanowane',
-  'in-progress': 'W trakcie',
-  completed: 'Zakończone',
+  planned: "Zaplanowane",
+  "in-progress": "W trakcie",
+  completed: "Zakończone",
 };
 export default function GroupedJobHistory({
   jobs,
@@ -27,7 +29,8 @@ export default function GroupedJobHistory({
   onEdit,
   onDelete,
   showGarden = false,
-  historyKey = 'history',
+  historyKey = "history",
+  financial = false,
 }: {
   jobs: Job[];
   onOpen: (id: string, billing?: boolean) => void;
@@ -35,12 +38,19 @@ export default function GroupedJobHistory({
   onDelete?: (id: string) => void;
   showGarden?: boolean;
   historyKey?: string;
+  financial?: boolean;
 }) {
   const { data } = useGarden(),
     now = useNow();
-  const [order, setOrder] = useViewState<'desc' | 'asc'>(`${historyKey}:order`, 'desc');
+  const [order, setOrder] = useViewState<"desc" | "asc">(
+    `${historyKey}:order`,
+    "desc",
+  );
   const currentMonth = localDate(new Date(now)).slice(0, 7);
-  const [openMonths, setOpenMonths] = useViewState(`${historyKey}:months`, () => new Set([currentMonth]));
+  const [openMonths, setOpenMonths] = useViewState(
+    `${historyKey}:months`,
+    () => new Set([currentMonth]),
+  );
   const timing = jobs.some((j) => j.id === data.timer?.jobId) ? now : 0;
   const months = useMemo(
     () => groupJobHistory(jobs, data.timer, timing, order),
@@ -94,13 +104,13 @@ export default function GroupedJobHistory({
                 <summary>
                   <strong>
                     {new Date(`${month.key}-01T12:00:00`).toLocaleDateString(
-                      'pl-PL',
-                      { month: 'long', year: 'numeric' },
+                      "pl-PL",
+                      { month: "long", year: "numeric" },
                     )}
                   </strong>
                   <span>
-                    Zlecenia: {month.jobs.length} · Czas:{' '}
-                    {reportDuration(month.seconds)} · Wartość:{' '}
+                    Zlecenia: {month.jobs.length} · Czas:{" "}
+                    {reportDuration(month.seconds)} · Wartość:{" "}
                     {moneyCents(month.approvedValueCents)}
                   </span>
                   {month.pendingPrices > 0 && (
@@ -116,6 +126,7 @@ export default function GroupedJobHistory({
                     onDelete={onDelete}
                     showGarden={showGarden}
                     historyKey={historyKey}
+                    financial={financial}
                   />
                 )}
               </details>
@@ -135,6 +146,7 @@ function MonthJobs({
   onDelete,
   showGarden,
   historyKey,
+  financial,
 }: {
   month: JobMonth;
   onOpen: (id: string, billing?: boolean) => void;
@@ -142,10 +154,31 @@ function MonthJobs({
   onDelete?: (id: string) => void;
   showGarden: boolean;
   historyKey: string;
+  financial: boolean;
 }) {
   const { data } = useGarden(),
     now = useNow(),
     [limit, setLimit] = useViewState(`${historyKey}:limit:${month.key}`, 50);
+  const navigation = useNavigation();
+  const [paymentJobs, setPaymentJobs] = useViewState(
+    `${historyKey}:payment-jobs:${month.key}`,
+    () => new Set<string>(),
+  );
+  const paymentsByJob = useMemo(() => {
+    const map = new Map<string, typeof data.payments>();
+    for (const p of data.payments) {
+      const list = map.get(p.jobId) ?? [];
+      list.push(p);
+      map.set(p.jobId, list);
+    }
+    for (const list of map.values())
+      list.sort(
+        (a, b) =>
+          b.receivedDate.localeCompare(a.receivedDate) ||
+          b.id.localeCompare(a.id),
+      );
+    return map;
+  }, [data.payments]);
   const gardenNames = useMemo(
     () => new Map(data.gardens.map((g) => [g.id, g.name])),
     [data.gardens],
@@ -173,13 +206,14 @@ function MonthJobs({
           </thead>
           <tbody>
             {month.jobs.slice(0, limit).map((job) => {
-              const provisional = job.status === 'completed' && !job.settlement;
+              const provisional =
+                !job.settlement && (financial || job.status === "completed");
               return (
                 <tr key={job.id}>
                   <td data-label="Data">
                     <time dateTime={job.date}>
                       {new Date(`${job.date}T12:00:00`).toLocaleDateString(
-                        'pl-PL',
+                        "pl-PL",
                       )}
                     </time>
                     <small>{job.time}</small>
@@ -197,7 +231,7 @@ function MonthJobs({
                     </button>
                     {job.activities.length > 0 && (
                       <small className="client-job-activities">
-                        {job.activities.join(' · ')}
+                        {job.activities.join(" · ")}
                       </small>
                     )}
                   </td>
@@ -207,7 +241,7 @@ function MonthJobs({
                   <td data-label="Wartość">
                     {moneyCents(jobTotalCents(job, now, data.timer))}
                     {provisional && <small>Przed zatwierdzeniem</small>}
-                    {job.settlement?.source === 'legacy' && (
+                    {job.settlement?.source === "legacy" && (
                       <small>Kwota zachowana</small>
                     )}
                   </td>
@@ -242,6 +276,30 @@ function MonthJobs({
                       >
                         Wizyta i rozliczenie
                       </button>
+                      {financial && (
+                        <>
+                          <button
+                            className="button secondary"
+                            onClick={() =>
+                              navigation.open({
+                                kind: "job",
+                                id: job.id,
+                                section: "payments",
+                              })
+                            }
+                          >
+                            Historia wpłat: {job.title}
+                          </button>
+                          <button
+                            className="button secondary"
+                            onClick={() =>
+                              navigation.open({ kind: "report", id: job.id })
+                            }
+                          >
+                            Raporty: {job.title} ({job.reports?.length ?? 0})
+                          </button>
+                        </>
+                      )}
                       {onEdit && (
                         <button
                           className="button secondary"
@@ -261,6 +319,34 @@ function MonthJobs({
                         </button>
                       )}
                     </div>
+                    {financial &&
+                      (paymentsByJob.get(job.id)?.length ?? 0) > 0 && (
+                        <details
+                          className="finance-job-payments"
+                          open={paymentJobs.has(job.id)}
+                          onToggle={(e) => {
+                            const open = e.currentTarget.open;
+                            setPaymentJobs((old) => {
+                              if (old.has(job.id) === open) return old;
+                              const next = new Set(old);
+                              if (open) next.add(job.id);
+                              else next.delete(job.id);
+                              return next;
+                            });
+                          }}
+                        >
+                          <summary>
+                            Płatności: {job.title} (
+                            {paymentsByJob.get(job.id)!.length})
+                          </summary>
+                          {paymentJobs.has(job.id) && (
+                            <PaymentHistory
+                              job={job}
+                              payments={paymentsByJob.get(job.id)!}
+                            />
+                          )}
+                        </details>
+                      )}
                   </td>
                 </tr>
               );

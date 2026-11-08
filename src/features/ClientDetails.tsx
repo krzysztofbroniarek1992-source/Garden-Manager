@@ -1,3 +1,6 @@
+import { openFinance } from '../finance/open';
+import Metric from "../finance/Metric";
+import { useNavigation } from "../navigation/Navigation";
 import { useViewState } from '../navigation/Navigation';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
@@ -20,6 +23,7 @@ const polishPlural = (count: number, one: string, few: string, many: string) => 
 export default function ClientDetails({ clientId, onBack, backLabel='Wróć do klientów' }: { clientId: string; onBack: () => void; backLabel?:string }) {
   const { data, saveJob } = useGarden();
   const now = useNow();
+  const controller=useNavigation();
   const navigation=useCardNavigation();
   const openGarden=(id:string)=>navigation?.open({kind:'garden',id});
   const openJob=(id:string,initialBilling=false)=>navigation?.open({kind:'job',id,initialBilling});
@@ -53,11 +57,11 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
     <button className="client-back" onClick={onBack}><ArrowLeft size={16}/>{backLabel}</button>
     <div className="page-heading client-panel-heading"><div><p className="eyebrow">KARTA KLIENTA</p><h1>{client.name}</h1><p className="muted">Wszystkie ogrody, wykonane prace i rozliczenia w jednym miejscu.</p></div><span className="client-panel-label"><Sprout size={17}/>{gardens.length} {polishPlural(gardens.length, 'ogród', 'ogrody', 'ogrodów')} pod opieką</span></div>
 
-    <div className="job-actions"><button className="button secondary" onClick={() => setEditClient(true)}>Edytuj klienta</button><button className="button secondary" onClick={() => setEditGarden({ id: crypto.randomUUID(), clientId, name: '', address: '', area: 0, notes: '', zones: [] })}>Dodaj ogród</button><button className="button primary" disabled={!gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: gardens.length === 1 ? gardens[0].id : '', title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>Nowe zlecenie</button></div>
+    <div className="job-actions"><button className="button secondary" onClick={()=>openFinance(controller,'client',clientId,'all')}>Rozliczenia i płatności klienta</button><button className="button secondary" onClick={() => setEditClient(true)}>Edytuj klienta</button><button className="button secondary" onClick={() => setEditGarden({ id: crypto.randomUUID(), clientId, name: '', address: '', area: 0, notes: '', zones: [] })}>Dodaj ogród</button><button className="button primary" disabled={!gardens.length} onClick={() => setNewJob({ id: crypto.randomUUID(), gardenId: gardens.length === 1 ? gardens[0].id : '', title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null })}>Nowe zlecenie</button></div>
     <div className="client-metrics" aria-label="Podsumowanie finansowe klienta">
-      <Metric label="WARTOŚĆ WYKONANYCH PRAC" value={moneyCents(summary.completedValueCents)} note="Zakończone · zatwierdzone należności" icon={<CheckCheck size={20}/>} testId="client-completed-value"/>
-      <Metric label="OTRZYMANE PŁATNOŚCI" value={moneyCents(summary.receivedCents)} note="Rzeczywiste wpłaty, także zaliczki" icon={<Wallet size={20}/>} testId="client-received"/>
-      <Metric label="POZOSTAŁO DO ZAPŁATY" value={moneyCents(summary.outstandingCents)} note="Zatwierdzone należności za zakończone prace" icon={<Wallet size={20}/>} testId="client-outstanding" debt/>
+      <Metric label="WARTOŚĆ WYKONANYCH PRAC" value={moneyCents(summary.completedValueCents)} note="Zakończone · zatwierdzone należności" icon={<CheckCheck size={20}/>} testId="client-completed-value" onOpen={()=>openFinance(controller,'client',clientId,'completed')}/>
+      <Metric label="OTRZYMANE PŁATNOŚCI" value={moneyCents(summary.receivedCents)} note="Rzeczywiste wpłaty, także zaliczki" icon={<Wallet size={20}/>} testId="client-received" onOpen={()=>openFinance(controller,'client',clientId,'received')}/>
+      <Metric label="POZOSTAŁO DO ZAPŁATY" value={moneyCents(summary.outstandingCents)} note="Zatwierdzone należności za zakończone prace" icon={<Wallet size={20}/>} testId="client-outstanding" onOpen={()=>openFinance(controller,'client',clientId,'outstanding')} debt/>
       <Metric label="ŁĄCZNY CZAS PRACY" value={duration(summary.seconds)} note="Wszystkie prace · godz.:min.:sek." icon={<Clock3 size={20}/>} testId="client-work-time"/>
     </div>
     <p className="client-summary-note">Wskaźniki obejmują całą współpracę i wszystkie ogrody klienta. Wartość prac i saldo uwzględniają zatwierdzone należności za zakończone zlecenia. Czas pracy i faktyczne wpłaty są liczone niezależnie od zatwierdzenia ceny. Filtry poniżej dotyczą wyłącznie tabeli zleceń.</p>
@@ -89,8 +93,4 @@ export default function ClientDetails({ clientId, onBack, backLabel='Wróć do k
     {editGarden && <GardenForm initial={editGarden} isNew={!data.gardens.some(g => g.id === editGarden.id)} onClose={() => setEditGarden(null)}/>}
     {newJob && <JobForm clientId={clientId} job={newJob} onClose={() => setNewJob(null)} onSave={async job => { await saveJob(job); setNewJob(null); openJob(job.id); }}/>}
   </section>;
-}
-
-function Metric({ label, value, note, icon, testId, debt = false }: { label: string; value: string; note: string; icon: React.ReactNode; testId: string; debt?: boolean }) {
-  return <article className={`card client-metric ${debt ? 'client-debt-metric' : ''}`}><div><span>{label}</span><i>{icon}</i></div><strong data-testid={testId}>{value}</strong><small>{note}</small></article>;
 }

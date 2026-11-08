@@ -1,3 +1,5 @@
+import FinanceDetails from "../finance/FinanceDetails";
+import PaymentDetails from "../finance/PaymentDetails";
 import DeskDetails from "../desk/Details";
 import { PhotoDetailsView } from "../photos/PhotoGallery";
 import { ChecklistDetails } from "../checklists/ChecklistPanel";
@@ -40,6 +42,8 @@ export default function RelatedCards() {
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
       return `Wróć do ogrodu ${data.gardens.find((g) => g.id === parent.id)?.name ?? ""}`;
+    if (parent.kind === "finance") return "Wróć do historii rozliczeń";
+    if (parent.kind === "payment") return "Wróć do płatności";
     if (parent.kind === "note") return "Wróć do notatki";
     if (parent.kind === "photo") return "Wróć do zdjęcia";
     if (parent.kind === "checklist") return "Wróć do checklisty";
@@ -69,7 +73,16 @@ export default function RelatedCards() {
             value={frameScope(page, card)}
           >
             <CardNavigationContext.Provider value={context}>
-              {card.kind === "note" ? (
+              {card.kind === "finance" ? (
+                <FinanceDetails
+                  owner={card.owner}
+                  id={card.id}
+                  filter={card.filter}
+                  onClose={navigation.back}
+                />
+              ) : card.kind === "payment" ? (
+                <PaymentDetails id={card.id} onClose={navigation.back} />
+              ) : card.kind === "note" ? (
                 <DeskDetails
                   kind="note"
                   id={card.id}
