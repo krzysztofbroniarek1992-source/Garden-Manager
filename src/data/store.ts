@@ -1,3 +1,5 @@
+import { changeAvailability, checkJobAvailability } from '../availability/commands';
+import type { AvailabilityRule, AvailabilityExpected, AvailabilityPermit } from '../availability/model';
 import { auditTimeChanges, reconcileVisitDetails, saveVisitDetails, saveVisitReport } from '../reports/commands';
 import * as checklists from '../checklists/commands';
 import type { Checklist, ChecklistItem, ChecklistTarget, WorkTemplate } from '../checklists/model';
@@ -93,9 +95,10 @@ export class GardenStore {
     return { ...data, gardens: data.gardens.filter(garden => garden.id !== id), photos: data.photos.map(p => p.gardenId === id ? { ...p, gardenId: null, zoneId: null, jobId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
-  saveJob = (job: Job, expected?: Job) => this.commit(data => {
+  saveJob = (job: Job, expected?: Job, permit?: AvailabilityPermit) => this.commit(data => {
     let next = data;
     const existing = data.jobs.find(item => item.id === job.id);
+    checkJobAvailability(data, job, existing, permit);
     if (existing && existing.gardenId !== job.gardenId && data.taskOccurrences.some(o => o.completion?.jobId === job.id)) throw new Error('Zlecenie ma historię wykonanych zabiegów. Nie można przenieść go do innego ogrodu.');
     const editable = (value: Job) => [value.gardenId,value.title,value.date,value.time,value.status,value.billing,value.rate,value.fixedPrice,value.notes,value.materials,value.activities];
     if (expected && (!existing || JSON.stringify(editable(existing))!==JSON.stringify(editable(expected)))) throw new Error('Zlecenie zostało zmienione lub usunięte w innej karcie. Otwórz aktualny formularz przed zapisaniem zmian.');
@@ -236,6 +239,8 @@ export class GardenStore {
   saveTodo = (todo: Todo) => this.commit(data => desk.saveTodo(data, todo, this.clock()));
   changeTodoStatus = (id: string, revision: number, status: Todo['status']) => this.commit(data => desk.changeTodoStatus(data, id, revision, status, this.clock()));
   deleteDeskRecord = (kind: 'note' | 'todo', id: string, revision: number) => this.commit(data => desk.deleteDeskRecord(data, kind, id, revision, this.clock()));
+
+  changeAvailability = (dates: string[], rule: AvailabilityRule | null, expected: AvailabilityExpected) => this.commit(data => changeAvailability(data, dates, rule, expected, this.clock()));
 
   saveTaskSchedule = (schedule: TaskSchedule) => this.commit(data => planning.saveTaskSchedule(data, schedule, this.clock()));
   moveTaskOccurrence = (id: string, date: string, target: string, time: string, expected?: OccurrenceVersion, cycle?: number) => this.commit(data => planning.moveTaskOccurrence(data, id, date, target, time, this.clock(), expected, cycle));
