@@ -276,7 +276,7 @@ test('telefon: menu Więcej, katalog, strefy i kalkulator bez przewijania w pozi
   await seed(page);
   const mobile = page.getByRole('navigation', { name: 'Nawigacja mobilna' });
   await mobile.getByRole('button', { name: 'Więcej', exact: true }).click();
-  await page.locator('.mobile-more').getByRole('button', { name: 'Materiały', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Więcej opcji', exact: true }).getByRole('button', { name: 'Materiały', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Katalog materiałów' })).toBeVisible();
   await page.getByRole('button', { name: 'Edytuj materiał Kora testowa', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();

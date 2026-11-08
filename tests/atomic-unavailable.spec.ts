@@ -37,7 +37,7 @@ test("a blocked localStorage getter leaves the application readable and prevents
     .click();
   await expect(
     settings
-      .getByRole("status")
+      .getByRole("alert")
       .filter({ hasText: "blokuje odczyt danych lokalnych" }),
   ).toBeVisible();
   expect(errors).toEqual([]);

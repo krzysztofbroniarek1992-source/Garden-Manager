@@ -206,7 +206,7 @@ test('telefon: dolna nawigacja, formularz klienta i brak przewijania w poziomie'
   await expect(page.getByRole('heading', { name: 'Kalendarz prac', exact: true })).toBeVisible();
   await noOverflow();
   await mobileNav.getByRole('button', { name: 'Więcej', exact: true }).click();
-  await page.locator('.mobile-more').getByRole('button', { name: 'Historia prac', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Więcej opcji', exact: true }).getByRole('button', { name: 'Historia prac', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Historia zleceń', exact: true })).toBeVisible();
   await noOverflow();
 });

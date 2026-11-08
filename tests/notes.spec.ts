@@ -929,7 +929,7 @@ test('telefon: notatki i sprawy są dostępne z Więcej, formularze i filtry mie
   await addNote(page, 'Mobilna notatka', true);
   await page.getByRole('button', { name: 'Więcej', exact: true }).click();
   await page
-    .locator('.mobile-more')
+    .getByRole('dialog', { name: 'Więcej opcji', exact: true })
     .getByRole('button', { name: 'Notatki', exact: true })
     .click();
   await expect(page.locator('.desk-card')).toContainText('Mobilna notatka');
@@ -961,7 +961,7 @@ test('telefon: notatki i sprawy są dostępne z Więcej, formularze i filtry mie
     .click();
   await page.getByRole('button', { name: 'Więcej', exact: true }).click();
   await page
-    .locator('.mobile-more')
+    .getByRole('dialog', { name: 'Więcej opcji', exact: true })
     .getByRole('button', { name: 'Do zrobienia', exact: true })
     .click();
   await page.getByRole('button', { name: 'Dodaj sprawę', exact: true }).click();

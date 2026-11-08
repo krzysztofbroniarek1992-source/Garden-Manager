@@ -955,7 +955,7 @@ test('telefon: biblioteka, duże pola odhaczania i edycja listy bez przewijania 
   await seed(page);
   await page.getByRole('button', { name: 'Więcej', exact: true }).click();
   await page
-    .locator('.mobile-more')
+    .getByRole('dialog', { name: 'Więcej opcji', exact: true })
     .getByRole('button', { name: 'Szablony prac', exact: true })
     .click();
   await expect(

@@ -833,7 +833,7 @@ test('telefon: podsumowanie, opcje, podgląd i pobranie PDF mieszczą się w ekr
   await seed(page);
   await page.getByRole('button', { name: 'Więcej', exact: true }).click();
   await page
-    .locator('.mobile-more')
+    .getByRole('dialog', { name: 'Więcej opcji', exact: true })
     .getByRole('button', { name: 'Historia prac', exact: true })
     .click();
   await page
