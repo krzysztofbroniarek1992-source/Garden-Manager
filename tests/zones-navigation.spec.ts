@@ -720,7 +720,7 @@ test("a legacy zone deep link keeps its target focus when initial animation fram
   const target = garden(page).locator('[data-zone-id="zone-doc"]');
   await expect(target).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => !!history.state?.gardenNavigation))
+    .poll(() => page.evaluate(() => !!window.history.state?.gardenNavigation))
     .toBe(true);
   const before = await snapshot(page);
   await page.evaluate(() => (window as any).releaseInitialFrames());
