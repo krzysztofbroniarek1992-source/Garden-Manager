@@ -25,7 +25,6 @@ import {
   type Todo,
 } from "../desk/model";
 import { NoteForm, TodoForm } from "../desk/Forms";
-import DeskDetails from "../desk/Details";
 import "./jobs.css";
 import "./planning.css";
 
@@ -70,10 +69,6 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const [newTask, setNewTask] = useState<ReturnType<
     typeof newTaskSchedule
   > | null>(null);
-  const [selectedDesk, setSelectedDesk] = useState<{
-    kind: "note" | "todo";
-    id: string;
-  } | null>(null);
   const [noteDraft, setNoteDraft] = useState<Note | null>(null);
   const [todoDraft, setTodoDraft] = useState<Todo | null>(null);
   const state = navigation.route.calendar ?? {
@@ -179,12 +174,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const agenda = events.filter((event) => event.date === selected);
   const open = (event: Event) => {
     setLastEvent(event.id);
-    if (event.deskId && event.kind === "reminder") navigation.open({kind:"note",id:event.deskId});
-    else if (event.deskId)
-      setSelectedDesk({
-        kind: event.kind === "reminder" ? "note" : "todo",
-        id: event.deskId,
-      });
+    if (event.deskId) navigation.open({kind:event.kind === "reminder" ? "note" : "todo", id:event.deskId});
     else if (event.task)
       navigation.open({
         kind: "task",
@@ -569,9 +559,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
       {newTask && (
         <TaskForm initial={newTask} onClose={() => setNewTask(null)} />
       )}
-      {selectedDesk && (
-        <DeskDetails {...selectedDesk} onClose={() => setSelectedDesk(null)} />
-      )}
+
       {noteDraft && (
         <NoteForm initial={noteDraft} onClose={() => setNoteDraft(null)} />
       )}

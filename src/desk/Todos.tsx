@@ -1,52 +1,53 @@
-import { useState } from 'react';
-import { useGarden, useNow } from '../state';
+import { useNavigation, useViewState } from "../navigation/Navigation";
+import { useState } from "react";
+import { useGarden, useNow } from "../state";
 import {
   deadlineGroup,
   newTodo,
   priorities,
   todoLabels,
   type Todo,
-} from './model';
-import { TodoForm } from './Forms';
-import DeskDetails, { ScopeCaption } from './Details';
-import './desk.css';
+} from "./model";
+import { TodoForm } from "./Forms";
+import { ScopeCaption } from "./Details";
+import "./desk.css";
 const tabs = {
-  all: 'Wszystkie',
-  today: 'Na dziś',
-  upcoming: 'Nadchodzące',
-  overdue: 'Zaległe',
-  completed: 'Wykonane',
-  none: 'Bez terminu',
-  cancelled: 'Anulowane',
+  all: "Wszystkie",
+  today: "Na dziś",
+  upcoming: "Nadchodzące",
+  overdue: "Zaległe",
+  completed: "Wykonane",
+  none: "Bez terminu",
+  cancelled: "Anulowane",
 };
 export default function Todos() {
   const { data, changeTodoStatus } = useGarden(),
     now = new Date(useNow());
-  const [tab, setTab] = useState<keyof typeof tabs>('all'),
-    [query, setQuery] = useState(''),
-    [client, setClient] = useState(''),
-    [priority, setPriority] = useState(''),
-    [status, setStatus] = useState(''),
-    [from, setFrom] = useState(''),
-    [to, setTo] = useState('');
+  const navigation = useNavigation();
+  const [tab, setTab] = useViewState<keyof typeof tabs>("todos-tab", "all"),
+    [query, setQuery] = useViewState("todos-query", ""),
+    [client, setClient] = useViewState("todos-client", ""),
+    [priority, setPriority] = useViewState("todos-priority", ""),
+    [status, setStatus] = useViewState("todos-status", ""),
+    [from, setFrom] = useViewState("todos-from", ""),
+    [to, setTo] = useViewState("todos-to", "");
   const [draft, setDraft] = useState<Todo | null>(null),
-    [selected, setSelected] = useState(''),
-    [error, setError] = useState('');
+    [error, setError] = useState("");
   const rows = data.todos
     .filter(
       (t) =>
-        (tab === 'all' ||
-          (tab === 'completed' || tab === 'cancelled'
+        (tab === "all" ||
+          (tab === "completed" || tab === "cancelled"
             ? t.status === tab
-            : t.status === 'open' &&
+            : t.status === "open" &&
               deadlineGroup(t.dueDate, t.dueTime, now) === tab)) &&
         `${t.title} ${t.description}`
-          .toLocaleLowerCase('pl')
-          .includes(query.toLocaleLowerCase('pl')) &&
+          .toLocaleLowerCase("pl")
+          .includes(query.toLocaleLowerCase("pl")) &&
         (!client ||
-          (client === 'none' ? t.clientId === null : t.clientId === client)) &&
+          (client === "none" ? t.clientId === null : t.clientId === client)) &&
         (!priority ||
-          (priority === 'none'
+          (priority === "none"
             ? t.priority === null
             : t.priority === priority)) &&
         (!status || t.status === status) &&
@@ -55,9 +56,9 @@ export default function Todos() {
     )
     .sort(
       (a, b) =>
-        `${a.status === 'open' ? '0' : '1'}${a.dueDate ?? '9999-12-31'}${a.dueTime ?? ''}`.localeCompare(
-          `${b.status === 'open' ? '0' : '1'}${b.dueDate ?? '9999-12-31'}${b.dueTime ?? ''}`,
-        ) || a.title.localeCompare(b.title, 'pl'),
+        `${a.status === "open" ? "0" : "1"}${a.dueDate ?? "9999-12-31"}${a.dueTime ?? ""}`.localeCompare(
+          `${b.status === "open" ? "0" : "1"}${b.dueDate ?? "9999-12-31"}${b.dueTime ?? ""}`,
+        ) || a.title.localeCompare(b.title, "pl"),
     );
   return (
     <section className="desk-page">
@@ -84,7 +85,7 @@ export default function Todos() {
             key={value}
             onClick={() => {
               setTab(value as keyof typeof tabs);
-              setStatus('');
+              setStatus("");
             }}
           >
             {label}
@@ -161,13 +162,13 @@ export default function Todos() {
         <button
           className="text-button"
           onClick={() => {
-            setQuery('');
-            setClient('');
-            setPriority('');
-            setStatus('');
-            setFrom('');
-            setTo('');
-            setTab('all');
+            setQuery("");
+            setClient("");
+            setPriority("");
+            setStatus("");
+            setFrom("");
+            setTo("");
+            setTab("all");
           }}
         >
           Wyczyść filtry
@@ -186,13 +187,13 @@ export default function Todos() {
       <div className="desk-todo-list">
         {rows.map((todo) => (
           <article
-            className={`card desk-todo-row ${todo.status === 'open' && deadlineGroup(todo.dueDate, todo.dueTime, now) === 'overdue' ? 'desk-row-overdue' : ''}`}
+            className={`card desk-todo-row ${todo.status === "open" && deadlineGroup(todo.dueDate, todo.dueTime, now) === "overdue" ? "desk-row-overdue" : ""}`}
             key={todo.id}
           >
             <div>
               <button
                 className="desk-title"
-                onClick={() => setSelected(todo.id)}
+                onClick={() => navigation.open({ kind: "todo", id: todo.id })}
               >
                 {todo.title}
               </button>
@@ -203,34 +204,34 @@ export default function Todos() {
                 </p>
               )}
               <p className="desk-due">
-                {todo.dueDate ?? 'Bez terminu'}
-                {todo.dueTime && ` · ${todo.dueTime}`} ·{' '}
+                {todo.dueDate ?? "Bez terminu"}
+                {todo.dueTime && ` · ${todo.dueTime}`} ·{" "}
                 {todoLabels[todo.status]}
               </p>
             </div>
             <div className="desk-todo-actions">
               <span
-                className={`desk-priority priority-${todo.priority ?? 'none'}`}
+                className={`desk-priority priority-${todo.priority ?? "none"}`}
               >
-                {todo.priority ? priorities[todo.priority] : 'Bez priorytetu'}
+                {todo.priority ? priorities[todo.priority] : "Bez priorytetu"}
               </span>
               <button
                 className="button secondary"
-                aria-label={`${todo.status === 'completed' ? 'Oznacz jako niewykonane' : 'Wykonaj sprawę'} ${todo.title}`}
+                aria-label={`${todo.status === "completed" ? "Oznacz jako niewykonane" : "Wykonaj sprawę"} ${todo.title}`}
                 onClick={async () => {
                   try {
                     await changeTodoStatus(
                       todo.id,
                       todo.revision,
-                      todo.status === 'completed' ? 'open' : 'completed',
+                      todo.status === "completed" ? "open" : "completed",
                     );
-                    setError('');
+                    setError("");
                   } catch (e) {
                     setError((e as Error).message);
                   }
                 }}
               >
-                {todo.status === 'completed' ? 'Przywróć' : 'Wykonane'}
+                {todo.status === "completed" ? "Przywróć" : "Wykonane"}
               </button>
             </div>
           </article>
@@ -243,13 +244,6 @@ export default function Todos() {
         </div>
       )}
       {draft && <TodoForm initial={draft} onClose={() => setDraft(null)} />}
-      {selected && (
-        <DeskDetails
-          kind="todo"
-          id={selected}
-          onClose={() => setSelected('')}
-        />
-      )}
     </section>
   );
 }

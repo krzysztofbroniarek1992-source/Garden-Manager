@@ -19,6 +19,8 @@ import {
   type Card,
   type Page,
   type Route,
+  type ViewDialog,
+  dialogs,
 } from "./routes";
 import { confirmLeave, hasUnsaved, requestLeave } from "./unsaved";
 import { useGarden } from "../state";
@@ -42,6 +44,7 @@ interface Navigation {
   invalid: boolean;
   open(card: Card): void;
   go(page: Page): void;
+  dialog(value: ViewDialog): void;
   back(): void;
   section(value: string): void;
   setCalendar(state: CalendarState, onlyIfMissing?: boolean): void;
@@ -356,8 +359,19 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       });
     },
     go: (page) => {
-      setInvalid(false);
-      navigate({ page, cards: [] });
+      if (moving.current) return;
+      requestLeave(() => {
+        setInvalid(false);
+        navigate({ page, cards: [] });
+      });
+    },
+    dialog: (dialog) => {
+      if (dialogs.includes(dialog))
+        navigate(
+          dialog === "new-job"
+            ? { page: "jobs", cards: [], dialog }
+            : { ...current.current.route, dialog },
+        );
     },
     back: () => {
       if (moving.current || !confirmLeave()) return;
@@ -369,7 +383,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         navigate(
           {
             ...current.current.route,
-            cards: current.current.route.cards.slice(0, -1),
+            ...(current.current.route.dialog
+              ? { dialog: undefined }
+              : { cards: current.current.route.cards.slice(0, -1) }),
           },
           true,
         );

@@ -195,6 +195,9 @@ test('notatki, zdjęcia, odroczenia i sprawy działają offline wraz z pełną k
   expect(restored.todos).toEqual(original.todos);
   expect(restored.jobs).toEqual(original.jobs);
   expect(restored.payments).toEqual(original.payments);
+  await expect(settings).toBeVisible();
+  await settings.getByRole('button', {name: 'Zamknij okno',exact:true}).click();
+  await expect(settings).toBeHidden();
   await nav.getByRole('button', { name: 'Notatki', exact: true }).click();
   await page
     .locator('.desk-card')

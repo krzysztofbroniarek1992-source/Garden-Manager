@@ -1,7 +1,7 @@
 import { hasPendingWrites } from "../data/pending";
 import { useEffect, useRef } from "react";
 
-const message = "Masz niezapisane zmiany. Odrzucić je i opuścić formularz?";
+const message = "Masz niezapisane zmiany. Opuścić formularz bez zapisywania?";
 interface Guard {
   element: HTMLElement | null;
   dirty: boolean;
