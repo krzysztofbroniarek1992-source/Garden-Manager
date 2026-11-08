@@ -1,0 +1,44 @@
+.zone-detail-content {
+  min-width: 0;
+}
+.zone-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+.zone-detail-tabs .button {
+  min-height: 44px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.zone-detail-section {
+  padding: 18px 0;
+  min-width: 0;
+}
+.zone-detail-section dl {
+  margin: 0;
+}
+.zone-detail-section dt {
+  font-weight: 600;
+  margin-top: 16px;
+}
+.zone-detail-section dd {
+  margin: 8px 0 16px;
+  overflow-wrap: anywhere;
+}
+.zone-edit-boundary {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .zone-detail-content .tool-heading {
+    flex-wrap: wrap;
+  }
+  .zone-detail-content h3 {
+    overflow-wrap: anywhere;
+  }
+}

@@ -335,15 +335,17 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       requestLeave(() => {
         const source = current.current.route.cards.at(-1);
         const returnLabel =
-          source?.kind === "garden"
-            ? "Wróć do ogrodu"
-            : source?.kind === "task"
-              ? "Wróć do czynności"
-              : source?.kind === "schedule"
-                ? "Wróć do harmonogramu"
-                : source?.kind === "job"
-                  ? "Wróć do zlecenia"
-                  : undefined;
+          source?.kind === "zone"
+            ? "Wróć do strefy"
+            : source?.kind === "garden"
+              ? "Wróć do ogrodu"
+              : source?.kind === "task"
+                ? "Wróć do czynności"
+                : source?.kind === "schedule"
+                  ? "Wróć do harmonogramu"
+                  : source?.kind === "job"
+                    ? "Wróć do zlecenia"
+                    : undefined;
         navigate({
           page: "calendar",
           cards: [],
@@ -375,7 +377,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     section: (section) => {
       const r = current.current.route,
         card = r.cards.at(-1);
-      if (!card || (card.kind !== "garden" && card.kind !== "job")) return;
+      if (
+        !card ||
+        (card.kind !== "garden" && card.kind !== "job" && card.kind !== "zone")
+      )
+        return;
       const next = {
         ...r,
         cards: [...r.cards.slice(0, -1), { ...card, section }],

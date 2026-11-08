@@ -1,3 +1,4 @@
+import ZoneDetails from "../zones/ZoneDetails";
 import FinanceDetails from "../finance/FinanceDetails";
 import PaymentDetails from "../finance/PaymentDetails";
 import DeskDetails from "../desk/Details";
@@ -42,6 +43,7 @@ export default function RelatedCards() {
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
       return `Wróć do ogrodu ${data.gardens.find((g) => g.id === parent.id)?.name ?? ""}`;
+    if (parent.kind === "zone") return "Wróć do strefy";
     if (parent.kind === "finance") return "Wróć do historii rozliczeń";
     if (parent.kind === "payment") return "Wróć do płatności";
     if (parent.kind === "note") return "Wróć do notatki";
@@ -63,7 +65,12 @@ export default function RelatedCards() {
           section: "section" in card ? card.section : undefined,
           setSection: navigation.section,
           active,
-          zoneId: card.kind === "garden" ? card.zoneId : undefined,
+          zoneId:
+            card.kind === "zone"
+              ? card.id
+              : card.kind === "garden"
+                ? card.zoneId
+                : undefined,
         };
         const inline =
           card.kind === "client" && index === 0 && page === "clients";
@@ -73,7 +80,13 @@ export default function RelatedCards() {
             value={frameScope(page, card)}
           >
             <CardNavigationContext.Provider value={context}>
-              {card.kind === "finance" ? (
+              {card.kind === "zone" ? (
+                <ZoneDetails
+                  gardenId={card.gardenId}
+                  zoneId={card.id}
+                  onClose={navigation.back}
+                />
+              ) : card.kind === "finance" ? (
                 <FinanceDetails
                   owner={card.owner}
                   id={card.id}

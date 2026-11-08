@@ -36,10 +36,17 @@ export function documentationLinks(
     links.push({
       label: `Strefa: ${zone.name}`,
       card: {
-        kind: "garden",
-        id: garden.id,
-        section: "zones",
-        zoneId: zone.id,
+        kind: "zone",
+        id: zone.id,
+        gardenId: garden.id,
+        section:
+          gardenSection === "gallery"
+            ? "gallery"
+            : gardenSection === "notes"
+              ? "notes"
+              : gardenSection === "plans"
+                ? "plans"
+                : "overview",
       },
     });
   if (job)

@@ -650,3 +650,13 @@ wpłat i raportów. Zachowano domenowe obliczenia oraz formularze płatności.
 
 Pełna regresja etapu 4: **413/413 jednostkowych, 185/185 E2E i 11/11 PWA offline**.
 TypeScript i build produkcyjny zaliczone; uwzględniono 360, 390 i 430 px.
+
+### Etap 5 — Nawigacja stref, roślin i zabiegów
+
+Karty stref łączą istniejące opisy roślin i zabiegów z przypisanymi planami,
+harmonogramami, kalendarzem, zleceniami i dokumentacją. Strefy są adresowane
+razem z ogrodem, z zachowaniem starszych linków i wspólnej historii nawigacji.
+[Relacje, komponenty, zgodność i testy](docs/ZONES_CARE_NAVIGATION.md).
+
+Pełna regresja etapu 5: **433/433 jednostkowych, 203/203 E2E i 12/12 PWA offline**.
+TypeScript i build produkcyjny zaliczone; sprawdzono 360, 390 i 430 px.

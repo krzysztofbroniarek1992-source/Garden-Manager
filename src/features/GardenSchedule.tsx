@@ -8,10 +8,18 @@ import { lazy, Suspense } from "react";
 import { useGarden } from "../state";
 import { scheduleDescription } from "./TaskForm";
 const ChecklistPanel = lazy(() => import("../checklists/ChecklistPanel"));
-export default function GardenSchedule({ gardenId }: { gardenId: string }) {
+export default function GardenSchedule({
+  gardenId,
+  zoneId,
+}: {
+  gardenId: string;
+  zoneId?: string;
+}) {
   const { data } = useGarden();
   const navigation = useNavigation();
-  const schedules = data.taskSchedules.filter((s) => s.gardenId === gardenId);
+  const schedules = data.taskSchedules.filter(
+    (s) => s.gardenId === gardenId && (!zoneId || s.zoneId === zoneId),
+  );
   const openCalendar = (id: string) => {
     const o = nextScheduleOccurrence(data, id, localDate());
     if (!o) return;
@@ -23,7 +31,7 @@ export default function GardenSchedule({ gardenId }: { gardenId: string }) {
   };
   return (
     <>
-      <h3>Harmonogram ogrodu</h3>
+      <h3>{zoneId ? "Harmonogram strefy" : "Harmonogram ogrodu"}</h3>
       <p className="muted">
         Otwórz serię lub jej termin w kalendarzu. Plan nie nalicza czasu ani
         należności.
@@ -43,7 +51,34 @@ export default function GardenSchedule({ gardenId }: { gardenId: string }) {
               {scheduleDescription(s)} · od {s.startDate}
               {s.endDate && ` do ${s.endDate}`}
             </p>
-            {s.zoneName && <p>Strefa: {s.zoneName}</p>}
+            {s.zoneName && (
+              <p>
+                {data.gardens
+                  .find((g) => g.id === gardenId)
+                  ?.zones.some((z) => z.id === s.zoneId) ? (
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      navigation.open({
+                        kind: "zone",
+                        gardenId,
+                        id: s.zoneId!,
+                        section: "overview",
+                      })
+                    }
+                  >
+                    Strefa:{" "}
+                    {
+                      data.gardens
+                        .find((g) => g.id === gardenId)
+                        ?.zones.find((z) => z.id === s.zoneId)?.name
+                    }
+                  </button>
+                ) : (
+                  <>Historyczna strefa: {s.zoneName}</>
+                )}
+              </p>
+            )}
             {s.endedOn && <p>Seria zakończona: {s.endedOn}</p>}
             <div className="planning-actions">
               <button
@@ -65,10 +100,16 @@ export default function GardenSchedule({ gardenId }: { gardenId: string }) {
           </article>
         ))
       ) : (
-        <p>Brak harmonogramów przypisanych do tego ogrodu.</p>
+        <p>
+          {zoneId
+            ? "Brak harmonogramów przypisanych do tej strefy."
+            : "Brak harmonogramów przypisanych do tego ogrodu."}
+        </p>
       )}
       <Suspense fallback={<p role="status">Otwieranie planów…</p>}>
-        <ChecklistPanel target={{ kind: "plan", gardenId, zoneId: null }} />
+        <ChecklistPanel
+          target={{ kind: "plan", gardenId, zoneId: zoneId ?? null }}
+        />
       </Suspense>
     </>
   );
