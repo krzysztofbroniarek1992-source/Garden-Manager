@@ -1,0 +1,28 @@
+.documentation-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  align-items: center;
+}
+.documentation-links .button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
+}
+.documentation-photo-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .documentation-links .button {
+    min-height: 44px;
+  }
+  .documentation-links {
+    align-items: stretch;
+  }
+}

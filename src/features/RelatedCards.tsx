@@ -1,3 +1,7 @@
+import DeskDetails from "../desk/Details";
+import { PhotoDetailsView } from "../photos/PhotoGallery";
+import { ChecklistDetails } from "../checklists/ChecklistPanel";
+import ReportPanel from "../reports/ReportPanel";
 import TaskDetails from "./TaskDetails";
 import ScheduleDetails from "./ScheduleDetails";
 import { cardKey } from "../navigation/routes";
@@ -27,11 +31,19 @@ export default function RelatedCards() {
               ? "Wróć do pulpitu"
               : page === "history"
                 ? "Wróć do historii prac"
-                : "Wróć do zleceń";
+                : page === "notes"
+                  ? "Wróć do notatek"
+                  : page === "templates"
+                    ? "Wróć do listy checklist"
+                    : "Wróć do zleceń";
     if (parent.kind === "client")
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
       return `Wróć do ogrodu ${data.gardens.find((g) => g.id === parent.id)?.name ?? ""}`;
+    if (parent.kind === "note") return "Wróć do notatki";
+    if (parent.kind === "photo") return "Wróć do zdjęcia";
+    if (parent.kind === "checklist") return "Wróć do checklisty";
+    if (parent.kind === "report") return "Wróć do raportu";
     if (parent.kind === "task") return "Wróć do czynności";
     if (parent.kind === "schedule") return "Wróć do harmonogramu";
     return "Wróć do zlecenia";
@@ -57,7 +69,23 @@ export default function RelatedCards() {
             value={frameScope(page, card)}
           >
             <CardNavigationContext.Provider value={context}>
-              {card.kind === "garden" ? (
+              {card.kind === "note" ? (
+                <DeskDetails
+                  kind="note"
+                  id={card.id}
+                  onClose={navigation.back}
+                />
+              ) : card.kind === "photo" ? (
+                <PhotoDetailsView id={card.id} onClose={navigation.back} />
+              ) : card.kind === "checklist" ? (
+                <ChecklistDetails id={card.id} onClose={navigation.back} />
+              ) : card.kind === "report" ? (
+                <ReportPanel
+                  jobId={card.id}
+                  reportId={card.reportId}
+                  onClose={navigation.back}
+                />
+              ) : card.kind === "garden" ? (
                 <GardenDetails
                   gardenId={card.id}
                   onClose={navigation.back}

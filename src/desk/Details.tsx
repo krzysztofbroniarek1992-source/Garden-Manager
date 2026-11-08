@@ -1,3 +1,6 @@
+import DocumentationLinks from "../documentation/DocumentationLinks";
+import { useNavigation } from "../navigation/Navigation";
+import { useUnsavedChanges } from "../navigation/unsaved";
 import { useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden, useNow } from '../state';
@@ -42,6 +45,7 @@ export default function DeskDetails({
     deleteDeskRecord,
   } = useGarden();
   const now = new Date(useNow());
+  const navigation=useNavigation();
   const note =
       kind === 'note' ? data.notes.find((n) => n.id === id) : undefined,
     todo = kind === 'todo' ? data.todos.find((t) => t.id === id) : undefined,
@@ -52,6 +56,7 @@ export default function DeskDetails({
     [error, setError] = useState('');
   const [date, setDate] = useState(note?.reminder?.date ?? ''),
     [time, setTime] = useState(note?.reminder?.time ?? '');
+  const postponeGuard=useUnsavedChanges<HTMLFormElement>(postponing && (date !== (note?.reminder?.date ?? '') || time !== (note?.reminder?.time ?? '')));
   if (!record)
     return (
       <Modal title="Szczegóły wpisu" onClose={onClose}>
@@ -97,6 +102,7 @@ export default function DeskDetails({
       wide
     >
       <div className="desk-details">
+        {note && <DocumentationLinks scope={note}/>}
         <h3>{record.title}</h3>
         <div className="desk-tags">
           <span
@@ -119,7 +125,7 @@ export default function DeskDetails({
         {photo && (
           <div className="desk-linked-photo">
             <h4>Zdjęcie z galerii: {photo.filename}</h4>
-            <PhotoImage photo={photo} thumbnail />
+            <button className="documentation-photo-link" aria-label={`Otwórz zdjęcie ${photo.filename}`} onClick={()=>navigation.open({kind:"photo",id:photo.id})}><PhotoImage photo={photo} thumbnail /></button>
           </div>
         )}
         {note && !photo && note.photoName && (
@@ -201,18 +207,15 @@ export default function DeskDetails({
             )}
             {postponing && (
               <form
+                ref={postponeGuard.ref}
                 className="desk-postpone"
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await perform(async () => {
-                    await changeReminder(
-                      note.id,
-                      note.revision,
-                      'active',
-                      date,
-                      time || null,
-                    );
-                    setPostponing(false);
+                    await postponeGuard.save(async()=>{
+                      await changeReminder(note.id,note.revision,'active',date,time || null);
+                      setPostponing(false);
+                    });
                   });
                 }}
               >
@@ -239,7 +242,7 @@ export default function DeskDetails({
                   <button
                     type="button"
                     className="button secondary"
-                    onClick={() => setPostponing(false)}
+                    onClick={() => postponeGuard.confirm(()=>setPostponing(false))}
                   >
                     Anuluj odroczenie
                   </button>

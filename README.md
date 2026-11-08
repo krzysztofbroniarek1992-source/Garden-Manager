@@ -632,3 +632,12 @@ Walidacja naprawy: **357/357 jednostkowych**, **134/134 E2E Chromium** w pełnym
 przebiegu oraz **8/8 PWA offline** na buildzie produkcyjnym. TypeScript i build
 przeszły. Sprawdzono również szerokości 360, 390 i 430 px, oba porządki import–raport
 oraz odświeżenie i ponowne otwarcie aplikacji.
+
+### Etap 3 — Nawigacja dokumentacji
+
+Galerie, notatki, checklisty oraz zapisane wersje raportów korzystają ze wspólnej
+historii i adresów URL. Linki do klientów, ogrodów, stref i zleceń wynikają wyłącznie
+z istniejących ID. [Zakres, adresy i bezpieczeństwo](docs/DOCUMENTATION_NAVIGATION.md).
+
+Pełna regresja etapu 3: **389/389 jednostkowych, 169/169 E2E i 10/10 PWA offline**.
+TypeScript i build produkcyjny zaliczone; testy obejmują 360, 390 i 430 px.

@@ -1,3 +1,4 @@
+import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useState } from 'react';
 import { useGarden, useNow } from '../state';
 import { localDate } from '../domain';
@@ -12,7 +13,7 @@ import {
   type Note,
 } from './model';
 import { NoteForm } from './Forms';
-import DeskDetails, { ScopeCaption } from './Details';
+import { ScopeCaption } from './Details';
 import './desk.css';
 
 export function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
@@ -52,16 +53,17 @@ export function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
 export default function Notes() {
   const { data } = useGarden(),
     now = new Date(useNow());
-  const [query, setQuery] = useState(''),
-    [client, setClient] = useState(''),
-    [category, setCategory] = useState(''),
-    [priority, setPriority] = useState(''),
-    [status, setStatus] = useState('active'),
-    [deadline, setDeadline] = useState(''),
-    [from, setFrom] = useState(''),
-    [to, setTo] = useState('');
-  const [draft, setDraft] = useState<Note | null>(null),
-    [selected, setSelected] = useState('');
+  const navigation=useNavigation();
+  const setSelected=(id:string)=>navigation.open({kind:'note',id});
+  const [query, setQuery] = useViewState('notes-query',''),
+    [client, setClient] = useViewState('notes-client',''),
+    [category, setCategory] = useViewState('notes-category',''),
+    [priority, setPriority] = useViewState('notes-priority',''),
+    [status, setStatus] = useViewState('notes-status','active'),
+    [deadline, setDeadline] = useViewState('notes-deadline',''),
+    [from, setFrom] = useViewState('notes-from',''),
+    [to, setTo] = useViewState('notes-to','');
+  const [draft, setDraft] = useState<Note | null>(null);
   const rows = data.notes
     .filter(
       (n) =>
@@ -251,13 +253,6 @@ export default function Notes() {
         </div>
       )}
       {draft && <NoteForm initial={draft} onClose={() => setDraft(null)} />}
-      {selected && (
-        <DeskDetails
-          kind="note"
-          id={selected}
-          onClose={() => setSelected('')}
-        />
-      )}
     </section>
   );
 }
@@ -269,10 +264,11 @@ export function ContextNotes({
   title?: string;
 }) {
   const { data } = useGarden();
-  const [draft, setDraft] = useState<Note | null>(null),
-    [selected, setSelected] = useState(''),
-    [archived, setArchived] = useState(false),
-    [limit, setLimit] = useState(5);
+  const navigation=useNavigation();
+  const setSelected=(id:string)=>navigation.open({kind:'note',id});
+  const key=`notes:${JSON.stringify(scope)}`;
+  const [draft, setDraft] = useState<Note | null>(null);
+  const [archived,setArchived]=useViewState(`${key}:archived`,false), [limit,setLimit]=useViewState(`${key}:limit`,5);
   const notes = data.notes
     .filter(
       (n) =>
@@ -326,13 +322,6 @@ export function ContextNotes({
         </button>
       )}
       {draft && <NoteForm initial={draft} onClose={() => setDraft(null)} />}
-      {selected && (
-        <DeskDetails
-          kind="note"
-          id={selected}
-          onClose={() => setSelected('')}
-        />
-      )}
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { useNavigation } from "../navigation/Navigation";
 import { useState } from 'react';
 import { useGarden, useNow } from '../state';
 import { localDate } from '../domain';
@@ -46,7 +47,8 @@ export function DeskQuickActions() {
 export default function DeskOverview() {
   const { data, changeReminder, changeTodoStatus } = useGarden(),
     now = new Date(useNow());
-  const [selected, setSelected] = useState<{
+  const navigation=useNavigation();
+  const [selected, setLocalSelected] = useState<{
       kind: 'note' | 'todo';
       id: string;
     } | null>(null),
@@ -97,7 +99,7 @@ export default function DeskOverview() {
                 >
                   <button
                     className="desk-overview-open"
-                    onClick={() => setSelected({ kind: row.kind, id: row.id })}
+                    onClick={() => row.kind === "note" ? navigation.open({kind:"note",id:row.id}) : setLocalSelected({kind:row.kind,id:row.id})}
                   >
                     <strong>{row.title}</strong>
                     <small>
@@ -157,7 +159,7 @@ export default function DeskOverview() {
         <DeskDetails
           kind={selected.kind}
           id={selected.id}
-          onClose={() => setSelected(null)}
+          onClose={() => setLocalSelected(null)}
         />
       )}
     </section>

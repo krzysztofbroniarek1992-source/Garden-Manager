@@ -123,6 +123,15 @@ test('pełna kopia ZIP odtwarza zdjęcia i pozwala bezpiecznie wrócić do poprz
     await expect(panel.getByRole('button', { name: 'Odtwórz dane i zdjęcia', exact: true })).toBeDisabled(); await panel.getByRole('button', { name: 'Anuluj odtwarzanie', exact: true }).click(); expect((await snapshot(target)).photos).toEqual(previous.photos);
     await panel.getByLabel('Wczytaj pełną kopię ZIP', { exact: true }).setInputFiles(zip); await expect(panel.getByLabel('Wpisz ODTWÓRZ', { exact: true })).toBeVisible(); await confirmRestore(panel);
     const imported = await snapshot(target); expect(imported.photos[0].id).toBe(source.photos[0].id); expect(imported.photos[0].sha256).toBe(source.photos[0].sha256); expect(await assets(target)).toHaveLength(2);
+    // Restored metadata keeps its address; the common photo card reads the restored blob.
+    await panel.getByRole('button', {name:'Zamknij okno',exact:true}).click();
+    await target.goto('/#gardens?photo='+encodeURIComponent(source.photos[0].id));
+    const photo=target.getByRole('dialog',{name:'Podgląd zdjęcia',exact:true});
+    await expect(photo.locator('img')).toBeVisible();
+    await expect.poll(()=>photo.locator('img').evaluate((i:HTMLImageElement)=>i.naturalWidth)).toBeGreaterThan(0);
+    await photo.getByRole('button',{name:'Ogród: Ogród przy Lipowej',exact:true}).click();
+    await expect(target).toHaveURL(/garden=garden-1&section=gallery/);
+    await closeOpenDialogs(target);await settings(target);
     await panel.getByRole('button', { name: 'Przywróć poprzedni zestaw', exact: true }).click(); await confirmRestore(panel); expect((await snapshot(target)).photos).toEqual(previous.photos);
     await panel.getByRole('button', { name: 'Usuń punkt odzyskiwania', exact: true }).click(); await panel.getByRole('button', { name: 'Potwierdź usunięcie punktu', exact: true }).click(); await expect.poll(async () => (await assets(target)).length).toBe(1);
     await settled(target); await target.reload(); const restoredCard = await garden(target); await expect(restoredCard.locator('.photo-card')).toContainText('poprzednie.png'); await expect.poll(() => restoredCard.locator('.photo-card img').evaluateAll(images => images.every(i => (i as HTMLImageElement).naturalWidth > 0))).toBe(true);

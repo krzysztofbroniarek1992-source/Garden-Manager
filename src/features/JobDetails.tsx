@@ -1,5 +1,5 @@
 import { jobSource } from '../navigation/planning-links';
-import { useNavigation, ViewScope } from '../navigation/Navigation';
+import { useNavigation, useViewState, ViewScope } from '../navigation/Navigation';
 import { useContext } from 'react';
 import { requestLeave, useUnsavedChanges } from '../navigation/unsaved';
 import TimeHistory from '../reports/TimeHistory';
@@ -41,7 +41,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
   const navigation=useCardNavigation();
   const openRelated=(card:RelatedCard)=>navigation?.open(card);
   const detailsRef = useRef<HTMLDivElement>(null);
-  const [summaryOpen,setSummaryOpen] = useState(false);
+  const [summaryOpen,setSummaryOpen] = useViewState('visit-summary',navigation?.section === 'summary');
   const galleryRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<PaymentDraft | null>(null);
@@ -57,6 +57,8 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
     if (!active) return;
     const section = navigation?.section ?? (initialBilling ? 'billing' : undefined);
     if (!section) return;
+    if (section === "summary") { setSummaryOpen(true); return; }
+    setSummaryOpen(false);
     const frame = requestAnimationFrame(() => { const target=detailsRef.current?.querySelector<HTMLElement>(`[data-visit-section="${section}"]`); target?.scrollIntoView({block:'start'}); target?.focus({preventScroll:true}); });
     return () => cancelAnimationFrame(frame);
   }, [active, navigation?.section, initialBilling]);
@@ -117,7 +119,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
   return <><Modal title="Szczegóły zlecenia" onClose={onClose} active={active} wide><div className="payment-details" ref={detailsRef}>
     <nav className="related-card-links" aria-label="Powiązania zlecenia">{navigation&&<button className="button secondary" onClick={onClose}>{navigation.backLabel}</button>}{garden&&<button className="button secondary" onClick={()=>openRelated({kind:'garden',id:garden.id})}>Ogród: {garden.name}</button>}{client&&<button className="button secondary" onClick={()=>openRelated({kind:'client',id:client.id})}>Klient: {client.name}</button>}</nav>
     {source && <nav className="related-card-links" aria-label="Źródło zlecenia"><button className="button secondary" onClick={()=>controller.open({kind:'task',id:source.scheduleId,originalDate:source.originalDate})}>Źródłowy termin: {source.originalDate}</button><button className="button secondary" onClick={()=>controller.open({kind:'schedule',id:source.scheduleId})}>Seria harmonogramu</button></nav>}
-    <nav className="visit-card-nav" aria-label="Nawigacja karty wizyty"><button className="button primary" onClick={() => setSummaryOpen(true)}>Podsumowanie wizyty</button><button className="button secondary" onClick={() => navigateSection('work')}>Zakres i czas</button><button className="button secondary" onClick={() => navigateSection('billing')}>Materiały i rozliczenie</button><button className="button secondary" onClick={() => navigateSection('notes')}>Notatki</button><button className="button secondary" onClick={() => navigateSection('photos')}>Zdjęcia</button></nav>
+    <nav className="visit-card-nav" aria-label="Nawigacja karty wizyty"><button className="button primary" onClick={() => navigation?.setSection("summary")}>Podsumowanie wizyty</button><button className="button secondary" onClick={()=>controller.open({kind:"report",id:job.id})}>Raporty wizyty ({job.reports?.length ?? 0})</button><button className="button secondary" onClick={() => navigateSection('work')}>Zakres i czas</button><button className="button secondary" onClick={() => navigateSection('billing')}>Materiały i rozliczenie</button><button className="button secondary" onClick={() => navigateSection('notes')}>Notatki</button><button className="button secondary" onClick={() => navigateSection('photos')}>Zdjęcia</button></nav>
     {incompleteVisitChecklists(data,job.id).length>0 && <p role="status" className="checklist-finish-warning">{job.status==='completed'?'Wizyta zakończona z niepełną checklistą.':'Checklista nie jest ukończona. Możesz zakończyć wizytę; niewykonane czynności i postęp pozostaną zachowane.'}</p>}
     <div className="job-actions"><button className="button secondary" onClick={() => navigateSection('checklists')}>Checklisty wizyty ({data.checklists.filter(c=>c.jobId===job.id).length})</button><button className="button secondary" onClick={() => requestLeave(() => { setCalculating(v => !v); setEditingJob(false); }, detailsRef.current)}>{calculating ? 'Zamknij kalkulator' : 'Oblicz materiały'}</button><button className="button secondary" onClick={() => requestLeave(() => { setEditingJob(value => !value); setCalculating(false); }, detailsRef.current)}>Edytuj zlecenie</button>{job.status !== 'completed' && <><button className="button primary" disabled={!!data.timer && !ownTimer} onClick={async () => { try { ownTimer ? (data.timer?.paused ? await resumeTimer() : await pauseTimer()) : await startTimer(job.id); setError(''); } catch(e) { setError(String(e)); } }}>{ownTimer ? (data.timer?.paused ? 'WZNÓW — Kontynuuj wizytę' : 'PAUZA — Przerwa bez naliczania') : 'START — Rozpocznij wizytę'}</button>{ownTimer && <button className="button secondary" onClick={async () => await runVisit(stopTimer)}>STOP — Zakończ pomiar</button>}<button className="button secondary" onClick={async () => { try { await completeJob(job.id); setPanel('billing'); } catch(e) { setError(String(e)); } }}>Zakończ</button></>}</div>{editingJob && <JobForm key={job.id} embedded job={job} onClose={() => setEditingJob(false)} onSave={async (draft,expected) => { await saveJob(draft,expected); setEditingJob(false); }}/>}
     {calculating && <CalculatorPanel initialGardenId={job.gardenId} jobId={job.id}/>}
@@ -156,7 +158,7 @@ export default function JobDetails({ jobId, onClose, initialBilling = false, act
     <div data-visit-section="checklists" ref={checklistRef} tabIndex={-1} className="checklist-gallery-target"><Suspense fallback={<p role="status">Otwieranie checklist…</p>}><ChecklistPanel target={{kind:'visit',jobId:job.id}} onOpenGallery={() => navigateSection('photos')}/></Suspense></div>
     <div data-visit-section="notes" tabIndex={-1} className="visit-section-target"><ContextNotes scope={{ jobId: job.id }} title="Notatki zlecenia i wizyty"/></div>
     <div data-visit-section="photos" ref={galleryRef} tabIndex={-1} className="checklist-gallery-target"><PhotoGallery key={job.id} scope={{ jobId: job.id }} title="Galeria zlecenia i wizyty"/></div>
-    {summaryOpen && <Suspense fallback={<p role="status">Otwieranie podsumowania…</p>}><VisitSummary jobId={job.id} onClose={() => setSummaryOpen(false)} onNavigate={navigateSection} onEdit={() => { setSummaryOpen(false);setEditingJob(true);setCalculating(false); }} onTime={() => {setSummaryOpen(false);if(!draft&&!removing&&panel===null)setPanel('time');navigateSection('work');}} onBilling={() => {setSummaryOpen(false);navigateSection('billing');}}/></Suspense>}
+    {summaryOpen && <Suspense fallback={<p role="status">Otwieranie podsumowania…</p>}><VisitSummary jobId={job.id} onClose={() => {setSummaryOpen(false);navigation?.setSection("work");}} onNavigate={navigateSection} onEdit={() => { setSummaryOpen(false);navigation?.setSection("work");setEditingJob(true);setCalculating(false); }} onTime={() => {setSummaryOpen(false);if(!draft&&!removing&&panel===null)setPanel('time');navigateSection('work');}} onBilling={() => {setSummaryOpen(false);navigateSection('billing');}}/></Suspense>}
     <div className="payment-ledger-footer"><Wallet size={15}/><span>Kwoty rozliczamy w groszach. Płatności częściowe sumują się tylko raz.</span><CreditCard size={15}/></div>
   </div></Modal></>;
 }
