@@ -681,3 +681,8 @@ przesunięcia, historię i wiele zabiegów przy jednej wizycie. Dotychczasowe se
 zachowują swoje reguły. Minimalny format v10 migruje dane v9 z kopią źródłową;
 zapis nadal korzysta z atomowego IndexedDB i pełnych kopii ZIP.
 [Instrukcja, reguły dat i bezpieczeństwo](docs/CARE_SCHEDULES.md).
+
+Weryfikacja GM-005: **499/499 jednostkowych, wszystkie 241 scenariuszy E2E,
+14/14 PWA offline**, TypeScript i build zaliczone. Pełny E2E wymagał aktualizacji
+jednej starej asercji wersji formatu; ponowna grupa kart ogrodów **16/16**.
+Szczegóły przebiegów i testów stref czasowych znajdują się w instrukcji GM-005.

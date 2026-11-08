@@ -89,3 +89,25 @@ Funkcja działa offline po pobraniu PWA. Brak synchronizacji między urządzenia
 Wymagany jest dostępny IndexedDB; brak miejsca lub awaria transakcji blokują
 zapis zamiast przełączać go na localStorage. Tak jak reszta lokalnej aplikacji,
 wyczyszczenie danych witryny usuwa pamięć urządzenia — odzyskiwanie wymaga kopii.
+
+## Wyniki weryfikacji
+
+- `npm test`: **499/499**, 19 plików; 37 nowych przypadków jednostkowych.
+- Pełne Chromium E2E: **240/241 w pierwszym przebiegu**. Jedynym niepowodzeniem
+  była stara asercja wpisanej na sztywno wersji 9 w teście niezmienności formatu
+  podczas nawigacji. Dane i stoper w tym teście pozostały bez zmian.
+  Asercja porównuje teraz format przed/po nawigacji oraz bieżącą wersję modelu;
+  ponowny przebieg całej grupy kart ogrodów: **16/16**. W efekcie zweryfikowano
+  wszystkie **241 scenariuszy**, w tym 18 nowych GM-005. Kod aplikacji nie
+  wymagał zmian po pełnym przebiegu.
+- Produkcyjne PWA offline: **14/14**, w tym nowy scenariusz wykonania, przesunięcia,
+  historii i ponownego otwarcia aplikacji bez sieci.
+- `npx tsc -b` i `npm run build`: zaliczone. Build zachowuje dotychczasowe
+  ostrzeżenia dotyczące rozmiaru PDF/fontkit i mieszanego importu checklist.
+- Testy dat GM-005: dodatkowo **30/30 w Europe/Warsaw** i **30/30 w
+  America/Los_Angeles**; obejmują granice miesięcy i zmiany czasu.
+- Formularz sezonowy oraz szczegóły/potwierdzenie wykonania sprawdzone przy
+  **360, 390 i 430 px**. Starsze moduły objęte pełną regresją.
+
+Rekomendacja: gotowe do przeglądu i scalenia, z jawną migracją v9 → v10 oraz
+opisanymi powyżej zasadami zakończenia i wznowienia serii. PR nie jest scalany automatycznie.
