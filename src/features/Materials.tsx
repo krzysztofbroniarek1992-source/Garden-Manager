@@ -1,3 +1,4 @@
+import { useViewState } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { useState, type FormEvent } from 'react';
 import { useGarden } from '../state';
@@ -9,7 +10,7 @@ import './gardening.css';
 
 export default function Materials() {
   const { data } = useGarden();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useViewState('material-query', '');
   const [editing, setEditing] = useState<CatalogMaterial | null>(null);
   const matches = data.materialCatalog.filter(item => `${item.name} ${item.category} ${item.notes}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl')));
   return <section className="entities-page"><div className="page-heading"><div><span className="eyebrow">BAZA DO TWOICH KOSZTORYSÓW</span><h1>Katalog materiałów</h1><p className="muted">Ceny zakupu za jednostkę. Cenę dla klienta ustalisz osobno w kalkulatorze.</p></div><button className="button primary" onClick={() => setEditing({ id: crypto.randomUUID(), name: '', category: '', unit: 'l', purchaseUnitPrice: 0, packageName: '', packageQuantity: null, notes: '' })}>Dodaj materiał</button></div>

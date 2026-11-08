@@ -102,7 +102,7 @@ export default function DeskDetails({
       wide
     >
       <div className="desk-details">
-        {note && <DocumentationLinks scope={note}/>}
+        <DocumentationLinks scope={record}/>
         <h3>{record.title}</h3>
         <div className="desk-tags">
           <span

@@ -11,7 +11,6 @@ import {
   type Todo,
 } from './model';
 import { NoteForm, TodoForm } from './Forms';
-import DeskDetails from './Details';
 import './desk.css';
 export function DeskQuickActions() {
   const { data } = useGarden();
@@ -48,11 +47,7 @@ export default function DeskOverview() {
   const { data, changeReminder, changeTodoStatus } = useGarden(),
     now = new Date(useNow());
   const navigation=useNavigation();
-  const [selected, setLocalSelected] = useState<{
-      kind: 'note' | 'todo';
-      id: string;
-    } | null>(null),
-    [error, setError] = useState('');
+  const [error, setError] = useState('');
   const reminderRows = data.notes
     .filter((n) => n.archivedAt === null && n.reminder?.status === 'active')
     .map((n) => ({
@@ -99,7 +94,7 @@ export default function DeskOverview() {
                 >
                   <button
                     className="desk-overview-open"
-                    onClick={() => row.kind === "note" ? navigation.open({kind:"note",id:row.id}) : setLocalSelected({kind:row.kind,id:row.id})}
+                    onClick={() => navigation.open({kind:row.kind,id:row.id})}
                   >
                     <strong>{row.title}</strong>
                     <small>
@@ -155,13 +150,7 @@ export default function DeskOverview() {
           {error}
         </p>
       )}
-      {selected && (
-        <DeskDetails
-          kind={selected.kind}
-          id={selected.id}
-          onClose={() => setLocalSelected(null)}
-        />
-      )}
+
     </section>
   );
 }

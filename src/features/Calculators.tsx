@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useNavigation, useViewState } from '../navigation/Navigation';
+import { useUnsavedChanges } from '../navigation/unsaved';
 import { useGarden } from '../state';
 import { materialUnits, moneyCents, type MaterialUnit } from '../domain';
 import { area, convertQuantity, dose, formatQuantity, hedge, materialCostCents, packageCount, volume } from '../gardening';
@@ -17,32 +18,34 @@ export default function Calculators() {
 }
 export function CalculatorPanel({ initialGardenId = '', initialZoneId = '', jobId = '' }: { initialGardenId?: string; initialZoneId?: string; jobId?: string }) {
   const { data, addJobMaterial } = useGarden();
+  const navigation = useNavigation();
+  const guard = useUnsavedChanges<HTMLDivElement>(false);
   const initialGarden = data.gardens.find(g => g.id === initialGardenId);
   const initialZone = initialGarden?.zones.find(z => z.id === initialZoneId);
-  const [gardenId, setGardenId] = useState(initialGardenId);
-  const [zoneId, setZoneId] = useState(initialZoneId);
-  const [selectedJob, setSelectedJob] = useState(jobId);
-  const [mode, setMode] = useState<Mode>(initialZone && initialZone.length !== null && initialZone.area === null ? 'hedge' : initialGarden ? 'volume' : 'area');
-  const [shape, setShape] = useState<'rectangle' | 'circle' | 'triangle' | 'manual'>('manual');
-  const [squareMetres, setSquareMetres] = useState(String(initialZone ? initialZone.area ?? '' : initialGarden?.area ?? ''));
-  const [length, setLength] = useState(String(initialZone?.length ?? ''));
-  const [a, setA] = useState('');
-  const [b, setB] = useState('');
-  const [thickness, setThickness] = useState('');
-  const [height, setHeight] = useState('');
-  const [width, setWidth] = useState('');
-  const [doseAmount, setDoseAmount] = useState('');
-  const [doseUnit, setDoseUnit] = useState<MaterialUnit>('g');
-  const [per, setPer] = useState<1 | 100>(1);
-  const [hedgeQuantity, setHedgeQuantity] = useState<'volume' | 'length'>('volume');
-  const [manualQuantity, setManualQuantity] = useState('');
-  const [manualUnit, setManualUnit] = useState<MaterialUnit>('szt.');
-  const [catalogId, setCatalogId] = useState('');
-  const [search, setSearch] = useState('');
-  const [purchasePrice, setPurchasePrice] = useState('0');
-  const [clientPrice, setClientPrice] = useState('0');
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
+  const [gardenId, setGardenId] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:gardenId`, initialGardenId);
+  const [zoneId, setZoneId] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:zoneId`, initialZoneId);
+  const [selectedJob, setSelectedJob] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:selectedJob`, jobId);
+  const [mode, setMode] = useViewState<Mode>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:mode`, initialZone && initialZone.length !== null && initialZone.area === null ? 'hedge' : initialGarden ? 'volume' : 'area');
+  const [shape, setShape] = useViewState<'rectangle' | 'circle' | 'triangle' | 'manual'>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:shape`, 'manual');
+  const [squareMetres, setSquareMetres] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:squareMetres`, String(initialZone ? initialZone.area ?? '' : initialGarden?.area ?? ''));
+  const [length, setLength] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:length`, String(initialZone?.length ?? ''));
+  const [a, setA] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:a`, '');
+  const [b, setB] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:b`, '');
+  const [thickness, setThickness] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:thickness`, '');
+  const [height, setHeight] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:height`, '');
+  const [width, setWidth] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:width`, '');
+  const [doseAmount, setDoseAmount] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:doseAmount`, '');
+  const [doseUnit, setDoseUnit] = useViewState<MaterialUnit>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:doseUnit`, 'g');
+  const [per, setPer] = useViewState<1 | 100>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:per`, 1);
+  const [hedgeQuantity, setHedgeQuantity] = useViewState<'volume' | 'length'>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:hedgeQuantity`, 'volume');
+  const [manualQuantity, setManualQuantity] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:manualQuantity`, '');
+  const [manualUnit, setManualUnit] = useViewState<MaterialUnit>(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:manualUnit`, 'szt.');
+  const [catalogId, setCatalogId] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:catalogId`, '');
+  const [search, setSearch] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:search`, '');
+  const [purchasePrice, setPurchasePrice] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:purchasePrice`, '0');
+  const [clientPrice, setClientPrice] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:clientPrice`, '0');
+  const [notice, setNotice] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:notice`, '');
+  const [error, setError] = useViewState(`calculator:${initialGardenId}:${initialZoneId}:${jobId}:error`, '');
   const garden = data.gardens.find(g => g.id === gardenId);
   const zone = garden?.zones.find(z => z.id === zoneId);
   const material = data.materialCatalog.find(m => m.id === catalogId);
@@ -74,12 +77,13 @@ export function CalculatorPanel({ initialGardenId = '', initialZoneId = '', jobI
   async function add() {
     if (!calculation || !material || !targetJob || calculation.quantity <= 0) return;
     try {
-      await addJobMaterial(targetJob.id, gardenId, { id: crypto.randomUUID(), name: material.name, quantity: calculation.quantity, unit: calculation.unit, unitPrice: numberOf(clientPrice), purchaseUnitPrice: numberOf(purchasePrice), catalogId: material.id, ...(zone ? { zoneId: zone.id, zoneName: zone.name } : {}) });
+      await guard.save(async()=>{await addJobMaterial(targetJob.id, gardenId, { id: crypto.randomUUID(), name: material.name, quantity: calculation.quantity, unit: calculation.unit, unitPrice: numberOf(clientPrice), purchaseUnitPrice: numberOf(purchasePrice), catalogId: material.id, ...(zone ? { zoneId: zone.id, zoneName: zone.name } : {}) });});
       setNotice(`Dodano materiał do zlecenia „${targetJob.title}”.${targetJob.settlement ? ' Zatwierdzona należność pozostała bez zmian. Uwzględnij materiał przez „Skoryguj cenę” w zleceniu.' : ''}`);
       setError('');
     } catch (e) { setError((e as Error).message); }
   }
-  return <div className="calculator-panel">
+  return <div className="calculator-panel" ref={guard.ref}>
+    <nav className="related-card-links" aria-label="Powiązania kalkulatora">{garden && <button className="button secondary" onClick={()=>navigation.open({kind:"garden",id:garden.id})}>Ogród: {garden.name}</button>}{garden && zone && <button className="button secondary" onClick={()=>navigation.open({kind:"zone",id:zone.id,gardenId:garden.id})}>Strefa: {zone.name}</button>}{targetJob && <button className="button secondary" onClick={()=>navigation.open({kind:"job",id:targetJob.id,section:"billing"})}>Zlecenie: {targetJob.title}</button>}<button className="button secondary" onClick={()=>navigation.go("materials")}>Otwórz katalog materiałów</button></nav>
     <div className="form-grid"><label className="field">Ogród do obliczeń<select disabled={!!jobId} value={gardenId} onChange={e => { setGardenId(e.target.value); setSelectedJob(''); selectZone('', data.gardens.find(g => g.id === e.target.value)); }}><option value="">Bez ogrodu — samo obliczenie</option>{data.gardens.map(g => <option value={g.id} key={g.id}>{g.name} — {data.clients.find(c => c.id === g.clientId)?.name}</option>)}</select></label>
       <label className="field">Strefa ogrodu<select disabled={!garden} value={zoneId} onChange={e => selectZone(e.target.value)}><option value="">Cały ogród / własne wymiary</option>{garden?.zones.map(z => <option value={z.id} key={z.id}>{z.name}</option>)}</select></label>
       <label className="field full-width">Kalkulator<select value={mode} onChange={e => { setMode(e.target.value as Mode); setNotice(''); }}>{Object.entries(modes).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>

@@ -1,3 +1,4 @@
+import { pageReturnLabel } from "../navigation/labels";
 import ZoneDetails from "../zones/ZoneDetails";
 import FinanceDetails from "../finance/FinanceDetails";
 import PaymentDetails from "../finance/PaymentDetails";
@@ -23,22 +24,7 @@ export default function RelatedCards() {
   const { page, cards } = navigation.route;
   const label = (index: number) => {
     const parent = cards[index - 1];
-    if (!parent)
-      return page === "clients"
-        ? "Wróć do klientów"
-        : page === "gardens"
-          ? "Wróć do listy ogrodów"
-          : page === "calendar"
-            ? "Wróć do kalendarza"
-            : page === "dashboard"
-              ? "Wróć do pulpitu"
-              : page === "history"
-                ? "Wróć do historii prac"
-                : page === "notes"
-                  ? "Wróć do notatek"
-                  : page === "templates"
-                    ? "Wróć do listy checklist"
-                    : "Wróć do zleceń";
+    if (!parent) return pageReturnLabel(page);
     if (parent.kind === "client")
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
@@ -46,6 +32,7 @@ export default function RelatedCards() {
     if (parent.kind === "zone") return "Wróć do strefy";
     if (parent.kind === "finance") return "Wróć do historii rozliczeń";
     if (parent.kind === "payment") return "Wróć do płatności";
+    if (parent.kind === "todo") return "Wróć do sprawy";
     if (parent.kind === "note") return "Wróć do notatki";
     if (parent.kind === "photo") return "Wróć do zdjęcia";
     if (parent.kind === "checklist") return "Wróć do checklisty";
@@ -57,7 +44,7 @@ export default function RelatedCards() {
   return (
     <>
       {cards.map((card, index) => {
-        const active = index === cards.length - 1;
+        const active = index === cards.length - 1 && !navigation.route.dialog;
         const context = {
           open: navigation.open,
           back: navigation.back,
@@ -95,9 +82,9 @@ export default function RelatedCards() {
                 />
               ) : card.kind === "payment" ? (
                 <PaymentDetails id={card.id} onClose={navigation.back} />
-              ) : card.kind === "note" ? (
+              ) : card.kind === "note" || card.kind === "todo" ? (
                 <DeskDetails
-                  kind="note"
+                  kind={card.kind}
                   id={card.id}
                   onClose={navigation.back}
                 />

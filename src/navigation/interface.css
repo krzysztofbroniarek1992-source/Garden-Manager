@@ -1,0 +1,169 @@
+/* Shared interaction rules; the established layouts and colours stay in place. */
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #b27735;
+  outline-offset: 3px;
+}
+.field,
+.form-grid > *,
+.gm-modal-heading > div {
+  min-width: 0;
+}
+.gm-modal-heading h2 {
+  overflow-wrap: anywhere;
+}
+.gm-modal-actions,
+.modal-actions {
+  flex-wrap: wrap;
+}
+.gm-modal-actions .button,
+.modal-actions .button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.mobile-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mobile-more-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 44px;
+  background: transparent;
+  color: #315d41;
+  font: inherit;
+}
+.mobile-more-list button:hover {
+  background: #edf2e6;
+}
+.pending-write-status {
+  position: fixed;
+  left: 50%;
+  top: max(12px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
+}
+.pending-write-status span {
+  display: block;
+  background: #183f35;
+  color: white;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px #10251b33;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .text-button,
+  .client-details-link,
+  .client-back,
+  .client-name-button,
+  .garden-name-button,
+  .job-title-button,
+  .desk-title,
+  .calendar-day-select,
+  .calendar-more-events {
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .text-button {
+    font-size: 12px;
+  }
+  .field input,
+  .field select,
+  .field textarea,
+  .gm-modal input,
+  .gm-modal select,
+  .gm-modal textarea,
+  .calculator-panel input,
+  .calculator-panel select,
+  .timer-select,
+  .search-input {
+    font-size: 16px;
+  }
+  .gm-modal {
+    scroll-padding-bottom: 24px;
+  }
+  .gm-modal-actions .button,
+  .modal-actions .button {
+    min-height: 44px;
+    min-width: 0;
+  }
+  .sidebar .nav-item,
+  .button {
+    min-height: 44px;
+  }
+  .mobile-nav {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 360px) {
+  .topbar {
+    padding-inline: 12px;
+  }
+  .breadcrumb {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .gm-modal-backdrop {
+    padding: 8px;
+  }
+  .gm-modal {
+    padding: 16px;
+    max-height: calc(100dvh - 16px);
+  }
+  .gm-modal.gm-modal-fullscreen {
+    max-height: 100dvh;
+    padding-inline: 14px;
+  }
+  .gm-modal-heading {
+    gap: 12px;
+  }
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .gm-modal .field input,
+  .gm-modal .field select,
+  .gm-modal .field textarea,
+  .calculator-panel .field input,
+  .calculator-panel .field select,
+  .timer-card .timer-select,
+  input.search-input {
+    font-size: 16px;
+  }
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 201;
+  transform: translateY(-180%);
+  border: 1px solid #315d41;
+  border-radius: 8px;
+  background: white;
+  color: #183f35;
+  padding: 12px;
+}
+.skip-link:focus {
+  transform: none;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .topbar .avatar.small {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

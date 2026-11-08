@@ -15,6 +15,8 @@ export const pages = [
   "templates",
 ] as const;
 export type Page = (typeof pages)[number];
+export const dialogs = ["menu", "settings", "new-job"] as const;
+export type ViewDialog = (typeof dialogs)[number];
 export const gardenSections = [
   "overview",
   "zones",
@@ -85,7 +87,7 @@ export type Card =
       initialBilling?: boolean;
       editBilling?: boolean;
     }
-  | { kind: "note" | "photo" | "checklist" | "payment"; id: string }
+  | { kind: "note" | "todo" | "photo" | "checklist" | "payment"; id: string }
   | {
       kind: "finance";
       id: string;
@@ -100,6 +102,7 @@ export interface Route {
   cards: Card[];
   calendar?: CalendarState;
   returnLabel?: string;
+  dialog?: ViewDialog;
 }
 export const cardKey = (card: Card) =>
   card.kind === "zone"
@@ -147,6 +150,7 @@ export function validCard(value: unknown): value is Card {
         (c.owner === "client" || c.owner === "garden") &&
         (c.filter === undefined || financeFilters.includes(c.filter))) ||
       c.kind === "note" ||
+      c.kind === "todo" ||
       c.kind === "photo" ||
       c.kind === "checklist" ||
       (c.kind === "report" &&
@@ -165,6 +169,10 @@ export function validRoute(value: unknown): value is Route {
   const r = value as Route;
   return (
     pages.includes(r.page) &&
+    (r.dialog === undefined ||
+      (dialogs.includes(r.dialog) &&
+        (r.dialog !== "new-job" ||
+          (r.page === "jobs" && r.cards?.length === 0)))) &&
     Array.isArray(r.cards) &&
     r.cards.length <= 20 &&
     r.cards.every(validCard) &&
@@ -188,6 +196,7 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
     "schedule",
     "task",
     "note",
+    "todo",
     "photo",
     "checklist",
     "report",
@@ -203,6 +212,16 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
       : null;
   let invalid = !!rawPage && !pages.includes(rawPage as Page);
   const route: Route = { page, cards: [] };
+  if (params.has("dialog")) {
+    const dialog = params.get("dialog") as ViewDialog;
+    if (
+      params.getAll("dialog").length !== 1 ||
+      !dialogs.includes(dialog) ||
+      (dialog === "new-job" && (page !== "jobs" || selected.length > 0))
+    )
+      invalid = true;
+    else route.dialog = dialog;
+  }
   if (
     params.has("date") ||
     params.has("view") ||
@@ -304,6 +323,7 @@ export function address(route: Route): string {
     if (c.kind === "task") p.set("original", c.originalDate);
     if (c.kind === "garden" && c.zoneId) p.set("zone", c.zoneId);
   }
+  if (route.dialog) p.set("dialog", route.dialog);
   if (route.calendar) {
     const v = route.calendar;
     p.set("date", v.date);
@@ -328,5 +348,6 @@ export function openCard(route: Route, input: Card): Route {
     index < 0
       ? [...route.cards, card]
       : [...route.cards.slice(0, index), validCard(merged) ? merged : card];
-  return { ...route, cards: cards.slice(-20) };
+  const { dialog: _dialog, ...context } = route;
+  return { ...context, cards: cards.slice(-20) };
 }

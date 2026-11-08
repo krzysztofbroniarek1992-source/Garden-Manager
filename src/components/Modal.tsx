@@ -41,7 +41,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
     document.body.style.overflow = 'hidden';
     const focusable = () => Array.from(panel.current?.querySelectorAll<HTMLElement>(
       'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex="0"]',
-    ) ?? []).filter(element => element.getClientRects().length > 0);
+    ) ?? []).filter(element => element.getClientRects().length > 0 && !element.closest('[hidden], [inert]'));
     const initial = focusable().find(element => element.tagName !== 'BUTTON') ?? focusable()[0];
     initial?.focus({preventScroll:true});
     element.scrollTop=scroll.current || Number(memory.get(scrollKey) ?? 0);
