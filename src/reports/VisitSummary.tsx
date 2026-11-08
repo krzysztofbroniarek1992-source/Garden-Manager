@@ -1,3 +1,4 @@
+import ZoneLinks from '../zones/ZoneLinks';
 import { useNavigation } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import TimeHistory from './TimeHistory';
@@ -83,6 +84,7 @@ export default function VisitSummary({
   return (
     <Modal title="Podsumowanie wizyty" onClose={onClose} wide>
       <div ref={guard.ref} className="visit-summary">
+        <ZoneLinks jobId={jobId}/>
         <div className="visit-summary-heading">
           <div>
             <h3>{job.title}</h3>

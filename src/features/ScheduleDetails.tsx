@@ -81,10 +81,7 @@ export default function ScheduleDetails({
             className="button secondary"
             onClick={() =>
               navigation.open({
-                kind: "garden",
-                id: garden.id,
-                section: "zones",
-                zoneId: schedule.zoneId!,
+                kind: "zone", gardenId: garden.id, id: schedule.zoneId!, section: "overview",
               })
             }
           >

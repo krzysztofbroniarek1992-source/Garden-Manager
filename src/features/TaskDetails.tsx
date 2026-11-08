@@ -193,10 +193,7 @@ export default function TaskDetails({
               className="button secondary"
               onClick={() =>
                 navigation.open({
-                  kind: "garden",
-                  id: garden.id,
-                  section: "zones",
-                  zoneId: occurrence.zoneId!,
+                  kind: "zone", gardenId: garden.id, id: occurrence.zoneId!, section: "overview",
                 })
               }
             >

@@ -1,7 +1,8 @@
+import ZoneForm from './ZoneForm';
+import ZoneFacts from '../zones/ZoneFacts';
 import { openFinance } from '../finance/open';
 import { useNavigation } from '../navigation/Navigation';
 import { useViewState } from '../navigation/Navigation';
-import { useUnsavedChanges } from '../navigation/unsaved';
 import { ContextNotes } from '../desk/Notes';
 import PhotoGallery from '../photos/PhotoGallery';
 import {
@@ -12,7 +13,6 @@ import {
   useId,
   useMemo,
   useState,
-  type FormEvent,
 } from 'react';
 import { useGarden, useNow } from '../state';
 import { localDate, moneyCents, type GardenZone, type Job } from '../domain';
@@ -332,37 +332,12 @@ export default function GardenDetails({
                             key={item.id}
                           >
                             <h4>
-                              {item.name} <small>{item.type}</small>
+                              <button className="job-title-button" aria-label={`Otwórz strefę ${item.name}`} onClick={()=>controller.open({kind:'zone',gardenId,id:item.id,section:'overview'})}>{item.name}</button> <small>{item.type}</small>
                             </h4>
-                            <p>
-                              {item.area !== null &&
-                                `${formatQuantity(item.area)} m²`}
-                              {item.area !== null &&
-                                item.length !== null &&
-                                ' · '}
-                              {item.length !== null &&
-                                `${formatQuantity(item.length)} m`}
-                            </p>
-                            <dl>
-                              {(
-                                [
-                                  ['Rośliny', item.plants],
-                                  ['Szczególne wymagania', item.requirements],
-                                  ['Wykonane zabiegi', item.treatments],
-                                ] as const
-                              ).map(
-                                ([label, value]) =>
-                                  value && (
-                                    <div key={label}>
-                                      <dt>{label}</dt>
-                                      <dd className="preserve-lines">
-                                        {value}
-                                      </dd>
-                                    </div>
-                                  ),
-                              )}
-                            </dl>
+                            <ZoneFacts zone={item}/>
                             <div className="tool-actions">
+                              <button className="button secondary" aria-label={`Szczegóły strefy ${item.name}`} onClick={()=>controller.open({kind:'zone',gardenId,id:item.id,section:'overview'})}>Otwórz strefę</button>
+                              <button className="button secondary" aria-label={`Harmonogramy strefy ${item.name}`} onClick={()=>controller.open({kind:'zone',gardenId,id:item.id,section:'plans'})}>Czynności i harmonogramy</button>
                               <button
                                 className="button secondary"
                                 aria-label={`Checklisty strefy ${item.name}`}
@@ -568,131 +543,5 @@ export default function GardenDetails({
         </Modal>
       )}
     </Modal>
-  );
-}
-
-function ZoneForm({
-  gardenId,
-  initial,
-  onClose,
-}: {
-  gardenId: string;
-  initial: GardenZone;
-  onClose: () => void;
-}) {
-  const { saveZone } = useGarden();
-  const [draft, setDraft] = useState(initial);
-  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
-  const [error, setError] = useState('');
-  const patch = <K extends keyof GardenZone>(key: K, value: GardenZone[K]) =>
-    setDraft((current) => ({ ...current, [key]: value }));
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    try {
-      await guard.save(async () => {await saveZone(gardenId, draft);onClose();});
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  return (
-    <form ref={guard.ref} onSubmit={submit} className="zone-form">
-      <h3>{initial.name ? 'Edycja strefy' : 'Nowa strefa'}</h3>
-      {error && (
-        <p role="alert" className="gm-form-error">
-          {error}
-        </p>
-      )}
-      <div className="form-grid">
-        <label className="field">
-          Nazwa strefy
-          <input
-            required
-            maxLength={150}
-            value={draft.name}
-            onChange={(e) => patch('name', e.target.value)}
-          />
-        </label>
-        <label className="field">
-          Rodzaj strefy
-          <input
-            required
-            list="zone-types"
-            maxLength={100}
-            value={draft.type}
-            onChange={(e) => patch('type', e.target.value)}
-          />
-          <datalist id="zone-types">
-            {['trawnik', 'rabata', 'żywopłot', 'drzewa', 'nawierzchnia'].map(
-              (type) => (
-                <option key={type} value={type} />
-              ),
-            )}
-          </datalist>
-        </label>
-        <label className="field">
-          Powierzchnia strefy (m²)
-          <input
-            type="number"
-            min="0"
-            step="any"
-            value={draft.area ?? ''}
-            onChange={(e) =>
-              patch(
-                'area',
-                e.target.value === '' ? null : Number(e.target.value),
-              )
-            }
-          />
-        </label>
-        <label className="field">
-          Długość strefy (m)
-          <input
-            type="number"
-            min="0"
-            step="any"
-            value={draft.length ?? ''}
-            onChange={(e) =>
-              patch(
-                'length',
-                e.target.value === '' ? null : Number(e.target.value),
-              )
-            }
-          />
-        </label>
-        <label className="field full-width">
-          Rośliny
-          <textarea
-            maxLength={5000}
-            value={draft.plants}
-            onChange={(e) => patch('plants', e.target.value)}
-          />
-        </label>
-        <label className="field full-width">
-          Szczególne wymagania
-          <textarea
-            maxLength={5000}
-            value={draft.requirements}
-            onChange={(e) => patch('requirements', e.target.value)}
-          />
-        </label>
-        <label className="field full-width">
-          Wykonane zabiegi
-          <textarea
-            maxLength={10000}
-            placeholder="Data i opis zabiegu"
-            value={draft.treatments}
-            onChange={(e) => patch('treatments', e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="gm-modal-actions">
-        <button className="button secondary" type="button" onClick={() => guard.confirm(onClose)}>
-          Anuluj edycję strefy
-        </button>
-        <button className="button primary" type="submit">
-          Zapisz strefę
-        </button>
-      </div>
-    </form>
   );
 }
