@@ -1,3 +1,4 @@
+import { AvailabilityNotice } from "../availability/CalendarAvailability";
 import CareHistory from "./CareHistory";
 import CareCompletionForm from "./CareCompletionForm";
 import { nextCareDate } from "../planning/care";
@@ -159,6 +160,7 @@ export default function TaskDetails({
           {taskStatusLabels[status]}
         </span>
         <h3>{occurrence.title}</h3>
+        {occurrence.status!=="cancelled"&&status!=="completed"&&<AvailabilityNotice date={schedule.care?occurrence.date:job?.date??occurrence.date} time={schedule.care?occurrence.time:job?.time??occurrence.time}/> }
         <p>
           <strong>
             {schedule.care ? occurrence.date : (job?.date ?? occurrence.date)} ·{" "}
@@ -413,6 +415,7 @@ export default function TaskDetails({
         {panel === "move" && (
           <form className="planning-confirm" onSubmit={move}>
             <h4>Przesunięcie jednego terminu</h4>
+            <AvailabilityNotice date={targetDate} time={time}/>
             <div className="form-grid">
               <label className="field">
                 Nowa data terminu

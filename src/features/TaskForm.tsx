@@ -1,3 +1,6 @@
+import { AvailabilityNotice } from "../availability/CalendarAvailability";
+import { activeCareDate } from "../planning/care";
+import { scheduleDates, validateRule } from "../planning/dates";
 import { useUnsavedChanges } from "../navigation/unsaved";
 import { useState, type FormEvent } from "react";
 import Modal from "../components/Modal";
@@ -89,6 +92,8 @@ export default function TaskForm({
       setError((e as Error).message);
     }
   };
+  let firstDate:string|null=null;
+  if(!initial.revision)try{validateRule(draft);firstDate=draft.care?activeCareDate(draft,draft.startDate):scheduleDates(draft,draft.startDate,"9999-12-31").next().value??null;}catch{/* Draft dates are validated on submit. */}
   return (
     <Modal
       title={initial.revision ? "Edytuj harmonogram" : "Nowe zadanie"}
@@ -96,6 +101,7 @@ export default function TaskForm({
       wide
     >
       <form ref={guard.ref} onSubmit={submit}>
+        {firstDate&&<AvailabilityNotice date={firstDate} time={draft.time}/>}
         {error && (
           <p role="alert" className="gm-form-error">
             {error}

@@ -1,3 +1,4 @@
+import AvailabilityForm from "../availability/AvailabilityForm";
 import { pageReturnLabel } from "../navigation/labels";
 import ZoneDetails from "../zones/ZoneDetails";
 import FinanceDetails from "../finance/FinanceDetails";
@@ -25,6 +26,7 @@ export default function RelatedCards() {
   const label = (index: number) => {
     const parent = cards[index - 1];
     if (!parent) return pageReturnLabel(page);
+    if(parent.kind==="availability")return "Wróć do dostępności";
     if (parent.kind === "client")
       return `Wróć do klienta ${data.clients.find((c) => c.id === parent.id)?.name ?? ""}`;
     if (parent.kind === "garden")
@@ -67,7 +69,7 @@ export default function RelatedCards() {
             value={frameScope(page, card)}
           >
             <CardNavigationContext.Provider value={context}>
-              {card.kind === "zone" ? (
+              {card.kind === "availability" ? (<AvailabilityForm dates={card.dates??[card.id]} onClose={navigation.back}/>) : card.kind === "zone" ? (
                 <ZoneDetails
                   gardenId={card.gardenId}
                   zoneId={card.id}

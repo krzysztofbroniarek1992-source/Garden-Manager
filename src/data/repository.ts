@@ -1,3 +1,4 @@
+import { validateAvailability } from '../availability/model';
 import { validateReports } from '../reports/validation';
 import { validateChecklists } from '../checklists/validation';
 import { starterTemplates } from '../checklists/starters';
@@ -84,6 +85,7 @@ export function validateData(value: unknown): asserts value is Data {
   validateLegacyData(value);
   const data = value as Data;
   validateStage2(data);
+  validateAvailability(data);
   validatePlanning(data);
   validatePhotos(data);
   validateDeskData(data);

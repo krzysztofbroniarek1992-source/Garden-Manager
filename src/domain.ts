@@ -1,3 +1,4 @@
+import type { AvailabilityDay } from './availability/model';
 import type { VisitDetails, VisitReport, VisitTimeEvent } from './reports/model';
 import type { WorkTemplate, Checklist, ChecklistTombstone } from './checklists/model';
 import type { Note, Todo, DeskTombstone } from './desk/model';
@@ -108,6 +109,7 @@ export interface Payment {
 }
 
 export interface Data {
+  availability?: AvailabilityDay[];
   reportSequence: number;
   workTemplates: WorkTemplate[];
   checklists: Checklist[];

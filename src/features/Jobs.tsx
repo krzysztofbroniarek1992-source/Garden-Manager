@@ -78,7 +78,7 @@ export default function Jobs({ history = false }: { history?: boolean }) {
       </article>;
     })}{!jobs.length && <div className="card empty-state"><ReceiptText size={36}/><h2>{search ? 'Brak wyników' : history ? 'Historia dopiero się zaczyna' : 'Wszystko pod kontrolą'}</h2><p className="muted">{search ? 'Zmień wyszukiwaną frazę.' : history ? 'Tutaj zobaczysz zakończone zlecenia.' : 'Dodaj zlecenie i zaplanuj kolejny dzień pracy.'}</p>{!history && !search && <button className="button primary" onClick={create}><Plus size={16}/> Dodaj zlecenie</button>}</div>}</div>
     {requested && !data.gardens.length && <Modal title="Nowe zlecenie" onClose={closeNew}><p role="alert" className="gm-form-error">Najpierw dodaj klienta i ogród w zakładce „Obiekty i ogrody”.</p><div className="gm-modal-actions"><button className="button secondary" onClick={closeNew}>Wróć do zleceń</button><button className="button primary" onClick={()=>navigation.go("clients")}>Otwórz klientów</button></div></Modal>}
-    {requested && data.gardens.length > 0 && editing && <JobForm job={editing} onClose={closeNew} onSave={async job => { await saveJob(job); closeNew(); }}/ >}
+    {requested && data.gardens.length > 0 && editing && <JobForm job={editing} onClose={closeNew} onSave={async (job,expected,permit) => { await saveJob(job,expected,permit); closeNew(); }}/ >}
     {deleting && <JobDeleteDialog jobId={deleting} onClose={()=>setDeleting(null)}/>}
   </>;
 }

@@ -475,8 +475,8 @@ export default function GardenDetails({
           job={jobDraft}
           clientId={garden.clientId}
           onClose={() => setJobDraft(null)}
-          onSave={async (draft, expected) => {
-            await saveJob(draft, expected);
+          onSave={async (draft, expected, permit) => {
+            await saveJob(draft, expected, permit);
             setJobDraft(null);
             select('jobs');
             openJob(draft.id);
