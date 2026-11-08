@@ -689,3 +689,41 @@ test("zone documentation, text, care schedules and finance survive JSON export a
     )
     .toBeGreaterThan(0);
 });
+
+test("a legacy zone deep link keeps its target focus when initial animation frames are batched after async boot", async ({
+  page,
+}) => {
+  // A browser can deliver both the deep-link focus and route-bootstrap frame
+  // in one batch. Hold that first batch until IndexedDB and the card are ready.
+  await page.addInitScript(() => {
+    const frames = new Map<number, FrameRequestCallback>();
+    const request = window.requestAnimationFrame.bind(window);
+    const cancel = window.cancelAnimationFrame.bind(window);
+    let sequence = 0;
+    window.requestAnimationFrame = (callback) => {
+      const id = ++sequence;
+      frames.set(id, callback);
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      frames.delete(id);
+    };
+    (window as any).releaseInitialFrames = () => {
+      window.requestAnimationFrame = request;
+      window.cancelAnimationFrame = cancel;
+      const batch = [...frames.values()];
+      frames.clear();
+      for (const callback of batch) callback(performance.now());
+    };
+  });
+  await page.goto("/#gardens?garden=garden-1&section=zones&zone=zone-doc");
+  const target = garden(page).locator('[data-zone-id="zone-doc"]');
+  await expect(target).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => !!history.state?.gardenNavigation))
+    .toBe(true);
+  const before = await snapshot(page);
+  await page.evaluate(() => (window as any).releaseInitialFrames());
+  await expect(target).toBeFocused();
+  expect(await snapshot(page)).toEqual(before);
+});

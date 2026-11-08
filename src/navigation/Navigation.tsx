@@ -156,9 +156,14 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       focus: document.activeElement as HTMLElement | null,
     });
   const apply = (next: Entry) => {
-    capture();
+    const changedView = routeKey(current.current.route) !== routeKey(next.route);
+    if (changedView) capture();
     current.current = next;
     setEntry(next);
+    // Canonicalizing the current URL is not a return to an earlier view.
+    // Restoring a just-captured bootstrap focus can race the card's deep-link
+    // focus in the same animation-frame batch and replace its selected target.
+    if (!changedView) return;
     requestAnimationFrame(() => {
       const p = positions.current.get(routeKey(next.route));
       window.scrollTo({ top: p?.y ?? 0 });
