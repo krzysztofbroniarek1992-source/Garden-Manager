@@ -686,3 +686,11 @@ Weryfikacja GM-005: **499/499 jednostkowych, wszystkie 241 scenariuszy E2E,
 14/14 PWA offline**, TypeScript i build zaliczone. Pełny E2E wymagał aktualizacji
 jednej starej asercji wersji formatu; ponowna grupa kart ogrodów **16/16**.
 Szczegóły przebiegów i testów stref czasowych znajdują się w instrukcji GM-005.
+
+### GM-006 — Dostępność i blokowanie terminów
+
+Istniejący kalendarz obsługuje całe dni oraz jeden przedział dostępności,
+zaznaczanie wielu dat, atomowe operacje masowe i ostrzeżenia z możliwością
+świadomego wyjątku. Terminy GM-005 pozostają bez automatycznych przesunięć.
+Opcjonalne ustawienia dni zachowują format v10 i kopie JSON/ZIP.
+[Instrukcja, kolizje i bezpieczeństwo](docs/AVAILABILITY.md).
