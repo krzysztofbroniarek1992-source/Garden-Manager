@@ -644,3 +644,36 @@ test("hundreds of settlements reuse monthly grouping and lazy rows instead of mo
   await page.reload();
   await expect(await rows(page)).toHaveCount(74);
 });
+
+test("returning to an aggregate view waits for an outstanding payment commit", async ({
+  page,
+}) => {
+  await openFinance(page);
+  await finance(page)
+    .getByRole("button", {
+      name: `Rozliczenie zlecenia ${partial}`,
+      exact: true,
+    })
+    .click();
+  const before = await snapshot(page);
+  await job(page)
+    .getByRole("button", { name: "Dodaj płatność", exact: true })
+    .click();
+  await job(page).getByLabel("Kwota (zł)", { exact: true }).fill("5");
+  await holdFinanceWrites(page);
+  await job(page)
+    .getByRole("button", { name: "Zapisz płatność", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("aria-busy", "true");
+  const returning = closeOpenDialogs(page);
+  await expect(job(page).getByLabel("Kwota (zł)", { exact: true })).toHaveValue(
+    "5",
+  );
+  await page.evaluate(() => (window as any).releaseFinanceWrite());
+  await returning;
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const after = await snapshot(page);
+  expect(after.payments).toHaveLength(before.payments.length + 1);
+  expect(after.jobs).toEqual(before.jobs);
+  expect(after.reportSequence).toBe(before.reportSequence);
+});

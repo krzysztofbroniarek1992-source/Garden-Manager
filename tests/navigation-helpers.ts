@@ -1,8 +1,10 @@
-import type { Dialog, Page } from "@playwright/test";
+import { expect, type Dialog, type Page } from "@playwright/test";
+import { settled } from "./atomic-fixture";
 
-/** Older module tests deliberately navigate to an aggregate view. Reload now
- * restores core cards, so close those views explicitly before using the menu.
- * Unsaved-change rejection itself is tested in shared-navigation.spec.ts. */
+/** Module tests deliberately return to an aggregate view. Wait for committed
+ * saves and close the same modal we inspected: a lazy child or an autosave can
+ * change the last visible dialog between two Playwright calls. Guard rejection
+ * itself is exercised separately in shared-navigation.spec.ts. */
 export async function closeOpenDialogs(page: Page) {
   await page.locator(".app-shell").waitFor();
   const discard = async (dialog: Dialog) => {
@@ -10,16 +12,42 @@ export async function closeOpenDialogs(page: Page) {
   };
   page.on("dialog", discard);
   try {
-    for (let index = 0; index < 20; index++) {
-      const dialog = page.getByRole("dialog").last();
-      if (!(await dialog.count())) return;
-      const element = await dialog.elementHandle();
-      await dialog
-        .getByRole("button", { name: "Zamknij okno", exact: true })
-        .click();
-      await element?.waitForElementState("hidden");
-    }
-    throw new Error("Nie udało się wrócić do widoku zbiorczego.");
+    await expect
+      .poll(
+        async () => {
+          await settled(page);
+          const dialogs = await page.getByRole("dialog").elementHandles();
+          const current = dialogs.at(-1);
+          if (!current) return 0;
+          const heading = await current.getAttribute("aria-labelledby");
+          if (!heading)
+            throw new Error("Brak identyfikatora okna do zamknięcia.");
+          const target = page.locator(
+            `[role="dialog"][aria-labelledby=${JSON.stringify(heading)}]`,
+          );
+          if (!(await target.isVisible()))
+            return page.getByRole("dialog").count();
+          try {
+            await target
+              .getByRole("button", { name: "Zamknij okno", exact: true })
+              .click({ timeout: 1000 });
+          } catch (error) {
+            // Only tolerate an actual disappearing/replaced top modal. A visible,
+            // still topmost close button that cannot be clicked remains a failure.
+            const next = (await page.getByRole("dialog").elementHandles()).at(
+              -1,
+            );
+            if (
+              (await target.isVisible()) &&
+              (await next?.getAttribute("aria-labelledby")) === heading
+            )
+              throw error;
+          }
+          return page.getByRole("dialog").count();
+        },
+        { timeout: 15000, intervals: [50, 100, 250] },
+      )
+      .toBe(0);
   } finally {
     page.off("dialog", discard);
   }
