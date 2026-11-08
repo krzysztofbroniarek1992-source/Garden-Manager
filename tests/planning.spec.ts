@@ -31,7 +31,7 @@ await page.evaluate(({ data, version }) => localStorage.setItem('garden-manager:
 }
 async function snapshot(page: Page): Promise<{ version: number; data: Data }> { await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!)); }
 async function calendar(page: Page) { await closeOpenDialogs(page); await page.getByRole('navigation', { name: 'Nawigacja główna' }).getByRole('button', { name: 'Kalendarz', exact: true }).click(); }
-async function day(page: Page, date: string) { await page.getByLabel('Przejdź do dnia', { exact: true }).fill(date); }
+async function day(page: Page, date: string) { await settled(page); await page.getByLabel('Przejdź do dnia', { exact: true }).fill(date); await expect(page).toHaveURL(new RegExp(`[?&]date=${date}(?:&|$)`)); }
 async function openTask(page: Page, title = 'Stałe koszenie') {
   await page.locator('.calendar-agenda').getByRole('button', { name: title, exact: true }).click();
   return page.getByRole('dialog', { name: 'Szczegóły zadania', exact: true });
@@ -118,6 +118,8 @@ test('edycja i zakończenie całej serii zachowują wcześniejsze zlecenia', asy
   await page.getByRole('button', { name: 'Zakończ serię Koszenie po zmianie', exact: true }).click();
   await page.getByRole('dialog', { name: 'Zakończyć serię?', exact: true }).getByLabel('Ostatni dzień serii').fill('2026-11-07');
   await page.getByRole('button', { name: 'Potwierdź zakończenie serii' }).click();
+  await expect(page.getByRole('dialog', {name:'Zakończyć serię?',exact:true})).toBeHidden();
+  expect((await snapshot(page)).data.taskSchedules[0].endedOn).toBe('2026-11-07');
   await day(page, '2026-11-14'); await expect(page.locator('.calendar-agenda')).not.toContainText('Koszenie po zmianie');
   expect((await snapshot(page)).data.jobs).toEqual(data.jobs); expect((await snapshot(page)).data.payments).toEqual(data.payments);
 });
