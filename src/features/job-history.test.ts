@@ -372,14 +372,14 @@ describe('bezpieczne zarządzanie zleceniami z ogrodu', () => {
     expect(f.store.data.jobs[0].settlement).toEqual(j.settlement);
     expect(f.store.data.payments).toEqual(d.payments);
   });
-  it('nie dodaje migracji ani pól do istniejącego formatu v9', () => {
+  it('odczyt historii nie modyfikuje bieżącego formatu danych', () => {
     const f = storeFixture(),
       before = f.storage.getItem(STORAGE_KEY);
     groupJobHistory(f.store.data.jobs, null, now);
     gardenSummary(f.store.data, 'garden-1', now);
     jobDeletionReview(f.store.data, 'job-1');
     expect(f.storage.getItem(STORAGE_KEY)).toBe(before);
-    expect(JSON.parse(before!).version).toBe(9);
-    expect(STORAGE_VERSION).toBe(9);
+    expect(JSON.parse(before!).version).toBe(STORAGE_VERSION);
+    expect(STORAGE_VERSION).toBe(10);
   });
 });

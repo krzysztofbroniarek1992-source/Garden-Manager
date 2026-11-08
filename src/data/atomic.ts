@@ -12,6 +12,7 @@ import { GardenStore } from "./store";
 export const STATE_DATABASE = "garden-manager-state";
 export const STATE_STORE = "state";
 interface State {
+  formatVersion?: number;
   revision: number;
   data: Data;
 }
@@ -32,7 +33,7 @@ const unavailable = () =>
 
 /** One authoritative snapshot. Every application command runs synchronously inside
  * a single IndexedDB readwrite transaction, including report allocation/history
- * validation and import CAS. localStorage is an expendable v9 compatibility mirror. */
+ * validation and import CAS. localStorage is an expendable compatibility mirror. */
 export class AtomicRepository {
   private connection?: Promise<IDBDatabase>;
   warning = "";
@@ -92,6 +93,7 @@ export class AtomicRepository {
               );
             }
             state = {
+              formatVersion: STORAGE_VERSION,
               revision: 0,
               data: new LocalRepository(this.storage).load(),
             };
@@ -103,7 +105,25 @@ export class AtomicRepository {
             throw new Error(
               "Nieprawidłowy stan bezpiecznej pamięci. Oryginalne dane pozostają zachowane.",
             );
+          if (
+            state.formatVersion !== undefined &&
+            state.formatVersion !== STORAGE_VERSION &&
+            state.formatVersion !== 9
+          )
+            throw new Error(
+              "Nieobsługiwana wersja bezpiecznej pamięci. Zachowano oryginalny zapis.",
+            );
           validateData(state.data);
+          if (initialize && state.formatVersion !== STORAGE_VERSION) {
+            const original = state;
+            const backup = store.get("format-v9-source");
+            backup.onsuccess = () => {
+              if (backup.result === undefined)
+                store.put(original, "format-v9-source");
+            };
+            state = { ...state, formatVersion: STORAGE_VERSION };
+            store.put(state, "current");
+          }
           result = action(state, store);
         } catch (e) {
           failure = e;
@@ -166,7 +186,11 @@ export class AtomicRepository {
             ),
           };
           validateData(data);
-          const next = { revision: state.revision + 1, data };
+          const next = {
+            formatVersion: STORAGE_VERSION,
+            revision: state.revision + 1,
+            data,
+          };
           objectStore.put(next, "current");
           return { state: next, value };
         },
