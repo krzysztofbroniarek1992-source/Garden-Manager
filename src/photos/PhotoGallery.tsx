@@ -1,3 +1,6 @@
+import { pendingWrite } from "../data/pending";
+import DocumentationLinks from "../documentation/DocumentationLinks";
+import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { NoteForm } from '../desk/Forms';
 import { newNote, type Note } from '../desk/model';
@@ -31,13 +34,14 @@ export function PhotoImage({ photo, thumbnail = false }: { photo: PhotoMetadata;
 export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzna' }: { scope: Partial<PhotoScope>; title?: string }) {
   const { data } = useGarden();
   const photos = usePhotos();
+  const navigation=useNavigation(), memoryKey=`gallery:${JSON.stringify(scope)}`;
   const [noteDraft, setNoteDraft] = useState<Note | null>(null);
   const [uploading, setUploading] = useState(false), [files, setFiles] = useState<File[]>([]);
   const [details, setDetails] = useState<PhotoDetails>(() => ({ ...resolvePhotoScope(data, { clientId: scope.clientId ?? null, gardenId: scope.gardenId ?? null, zoneId: scope.zoneId ?? null, jobId: scope.jobId ?? null }), category: 'other', description: '', capturedDate: null }));
-  const [category, setCategory] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState(''), [zone, setZone] = useState(''), [order, setOrder] = useState('newest');
-  const [limit, setLimit] = useState(24), [notice, setNotice] = useState(''), [localError, setLocalError] = useState('');
-  const [viewing, setViewing] = useState<PhotoMetadata | null>(null), [editing, setEditing] = useState<PhotoMetadata | null>(null), [removing, setRemoving] = useState<PhotoMetadata | null>(null);
-  const [beforeId, setBeforeId] = useState(''), [afterId, setAfterId] = useState(''), [comparing, setComparing] = useState(false);
+  const [category, setCategory] = useViewState(`${memoryKey}:category`,''), [from, setFrom] = useViewState(`${memoryKey}:from`,''), [to, setTo] = useViewState(`${memoryKey}:to`,''), [zone, setZone] = useViewState(`${memoryKey}:zone`,''), [order, setOrder] = useViewState(`${memoryKey}:order`,'newest');
+  const [limit, setLimit] = useViewState(`${memoryKey}:limit`,24), [notice, setNotice] = useState(''), [localError, setLocalError] = useState('');
+  const [editing, setEditing] = useState<PhotoMetadata | null>(null), [removing, setRemoving] = useState<PhotoMetadata | null>(null);
+  const [beforeId, setBeforeId] = useViewState(`${memoryKey}:beforeId`,''), [afterId, setAfterId] = useViewState(`${memoryKey}:afterId`,''), [comparing, setComparing] = useState(false);
   const uploadGuard = useUnsavedChanges(uploading && (files.length > 0 || details.description !== ''));
   const inputId = useId();
   const all = data.photos.filter(p => matchesPhotoScope(p, scope));
@@ -47,7 +51,7 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
   const before = all.find(p => p.id === beforeId && p.category === 'before'), after = all.find(p => p.id === afterId && p.category === 'after');
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setLocalError(''); setNotice('');
-    try { await photos.add(files.map(file => ({ blob: file, name: file.name })), details); setFiles([]); setUploading(false); setNotice('Zdjęcia zapisane na tym urządzeniu.'); }
+    try { await uploadGuard.save(()=>pendingWrite(()=>photos.add(files.map(file => ({ blob: file, name: file.name })), details))); setFiles([]); setUploading(false); setNotice('Zdjęcia zapisane na tym urządzeniu.'); }
     catch (e) { setLocalError((e as Error).message); }
   };
   return <section className="photo-gallery" aria-label={title}>
@@ -65,14 +69,13 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
     <div className="photo-comparison-bar"><span>Porównanie PRZED i PO: wybierz po jednym zdjęciu każdej kategorii.</span><button className="button secondary" disabled={!before || !after} onClick={() => setComparing(true)}>Porównaj PRZED i PO</button>{(beforeId || afterId) && <button className="button ghost" onClick={() => { setBeforeId(''); setAfterId(''); }}>Wyczyść porównanie</button>}</div>
     {!matches.length && <p className="photo-empty muted">Brak zdjęć dla wybranych filtrów. Dodaj dokumentację przed pracą lub po jej wykonaniu.</p>}
     <div className="photo-grid">{matches.slice(0, limit).map(p => <article className="photo-card" key={p.id}>
-      <button className="photo-thumbnail" aria-label={`Powiększ zdjęcie ${p.filename}`} onClick={() => setViewing(p)}><PhotoImage photo={p} thumbnail/></button>
+      <button className="photo-thumbnail" aria-label={`Powiększ zdjęcie ${p.filename}`} onClick={() => navigation.open({kind:"photo",id:p.id})}><PhotoImage photo={p} thumbnail/></button>
       <div className="photo-card-content"><span className={`photo-category photo-category-${p.category}`}>{photoCategories[p.category]}</span><time dateTime={photoDate(p)}>{photoDate(p)}{!p.capturedDate && ' · data dodania'}</time><strong className="photo-filename">{p.filename}</strong>{p.description && <p className="preserve-lines">{p.description}</p>}<small>{p.gardenName ?? 'Dokumentacja klienta'}{p.zoneName && ` · ${p.zoneName}`}{p.jobTitle && ` · ${p.jobTitle}`}</small>
         <div className="photo-actions"><button className="button secondary" aria-label={`Notatka do zdjęcia ${p.filename}`} onClick={() => setNoteDraft(newNote(data, { clientId: p.clientId, gardenId: p.gardenId, zoneId: p.zoneId, jobId: p.jobId }, undefined, p.id))}>Notatka do zdjęcia</button><button className="button secondary" disabled={photos.busy} aria-label={`Edytuj zdjęcie ${p.filename}`} onClick={() => setEditing(p)}>Edytuj</button><button className="button ghost" disabled={photos.busy} aria-label={`Usuń zdjęcie ${p.filename}`} onClick={() => setRemoving(p)}>Usuń</button></div>
         {(p.category === 'before' || p.category === 'after') && <button className="button secondary photo-select-comparison" aria-pressed={p.category === 'before' ? beforeId === p.id : afterId === p.id} onClick={() => p.category === 'before' ? setBeforeId(p.id) : setAfterId(p.id)}>{p.category === 'before' ? 'Wybierz PRZED' : 'Wybierz PO'}</button>}
       </div></article>)}</div>
     {matches.length > limit && <button className="button secondary" onClick={() => setLimit(v => v + 24)}>Wczytaj kolejne zdjęcia</button>}
     {noteDraft && <NoteForm initial={noteDraft} onClose={() => setNoteDraft(null)}/>}
-    {viewing && <Modal title="Podgląd zdjęcia" onClose={() => setViewing(null)} wide><div className="photo-enlarged"><PhotoImage photo={viewing}/></div><p>{photoCategories[viewing.category]} · {photoDate(viewing)}</p><p className="preserve-lines">{viewing.description}</p></Modal>}
     {editing && <PhotoEditor photo={editing} onClose={() => setEditing(null)}/>}
     {removing && <Modal title="Usunąć zdjęcie?" onClose={() => setRemoving(null)}><p>Zdjęcie <strong>{removing.filename}</strong> i miniatura zostaną usunięte z bieżącego zestawu. Zachowane kopie ZIP i punkt odzyskiwania pozostaną bez zmian.</p>{data.jobs.some(j=>j.reports?.some(r=>r.snapshot.photos.some(p=>p.photoId===removing.id)||r.snapshot.logo?.photoId===removing.id))&&<p className="report-info">To zdjęcie lub logo jest używane w zapisanej wersji raportu. Po usunięciu pliku ponowne wygenerowanie tej wersji będzie wymagało odtworzenia zdjęcia z pełnej kopii ZIP. Wcześniej pobrane PDF-y pozostaną dostępne na urządzeniu.</p>}<div className="gm-modal-actions"><button className="button secondary" disabled={photos.busy} onClick={() => setRemoving(null)}>Anuluj</button><button className="button danger" disabled={photos.busy} onClick={() => { void photos.remove(removing).then(() => { setRemoving(null); setNotice('Zdjęcie usunięte.'); }).catch(() => setRemoving(null)); }}>Potwierdź usunięcie zdjęcia</button></div></Modal>}
     {comparing && before && after && <Modal title="Porównanie PRZED i PO" onClose={() => setComparing(false)} wide><div className="photo-compare">{[before,after].map(p => <figure key={p.id}><figcaption><strong>{photoCategories[p.category]}</strong><span>{photoDate(p)}</span></figcaption><PhotoImage photo={p}/><p className="preserve-lines">{p.description}</p></figure>)}</div></Modal>}
@@ -85,4 +88,17 @@ function PhotoEditor({ photo, onClose }: { photo: PhotoMetadata; onClose: () => 
   const photos = usePhotos(); const [details, setDetails] = useState<PhotoDetails>(photo), [error, setError] = useState('');
   const guard = useUnsavedChanges(JSON.stringify(details) !== JSON.stringify(photo));
   return <Modal title="Edytuj zdjęcie" onClose={onClose} wide><form ref={guard.ref} onSubmit={e => { e.preventDefault(); void guard.save(async () => { await photos.edit(photo, details); onClose(); }).catch(e => setError((e as Error).message)); }}><div className="form-grid"><PhotoFields value={details} onChange={setDetails}/><PhotoScopeFields value={details} onChange={setDetails}/></div><p className="gm-form-note">Data dodania: {new Date(photo.addedAt).toLocaleString('pl-PL')}. Zmiana powiązań przeniesie zdjęcie do odpowiedniej galerii.</p>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button type="submit" className="button primary" disabled={photos.busy}>Zapisz opis i powiązania</button></div></form></Modal>;
+}
+
+export function PhotoDetailsView({id,onClose}:{id:string;onClose:()=>void}) {
+  const {data}=useGarden(), navigation=useNavigation();
+  const photo=data.photos.find(p=>p.id===id && p.deletedAt===null);
+  return <Modal title="Podgląd zdjęcia" onClose={onClose} wide>
+    {photo ? <>
+      <DocumentationLinks scope={photo} gardenSection="gallery" jobSection="photos"/>
+      <div className="photo-enlarged"><PhotoImage photo={photo}/></div>
+      <p>{photoCategories[photo.category]} · {photoDate(photo)}</p><p className="preserve-lines">{photo.description}</p>
+      {data.notes.filter(n=>n.photoId===photo.id).map(n=><button key={n.id} className="button secondary" onClick={()=>navigation.open({kind:'note',id:n.id})}>Notatka: {n.title}</button>)}
+    </> : <p role="status">Zdjęcie zostało usunięte lub nie jest już dostępne w tym zestawie.</p>}
+  </Modal>;
 }

@@ -1,3 +1,5 @@
+import DocumentationLinks from "../documentation/DocumentationLinks";
+import { useNavigation } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Modal from '../components/Modal';
@@ -152,6 +154,7 @@ export function ChecklistEditor({
     removeChecklistItem,
     deleteChecklist,
   } = useGarden();
+  const navigation=useNavigation();
   const c = data.checklists.find((c) => c.id === id);
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -182,6 +185,7 @@ export function ChecklistEditor({
   );
   return (
     <div className="checklist-editor">
+      <DocumentationLinks scope={c} gardenSection="plans" jobSection="checklists"/>
       <ChecklistCaption checklist={c} />
       <ChecklistProgress checklist={c} />
       {c.templateName && (
@@ -193,6 +197,7 @@ export function ChecklistEditor({
       {c.sourcePlanId && (
         <p className="gm-form-note">
           Skopiowano z planu ogrodu; postęp planu i wizyty zapisuje się osobno.
+          {data.checklists.some(p=>p.id===c.sourcePlanId) && <button className="button secondary" onClick={()=>navigation.open({kind:'checklist',id:c.sourcePlanId!})}>Otwórz źródłowy plan</button>}
         </p>
       )}
       {error && (
@@ -338,7 +343,7 @@ export function ChecklistEditor({
                 </label>
                 {photo && (
                   <div className="checklist-photo">
-                    <PhotoImage photo={photo} thumbnail />
+                    <button className="documentation-photo-link" aria-label={`Otwórz zdjęcie czynności ${item.title}`} onClick={()=>navigation.open({kind:'photo',id:photo.id})}><PhotoImage photo={photo} thumbnail /></button>
                   </div>
                 )}
                 {!photo && item.photoName && (
@@ -507,8 +512,9 @@ export default function ChecklistPanel({
 }) {
   const { data, applyWorkTemplate, applyGardenPlan, createBlankChecklist } =
     useGarden();
-  const [selected, setSelected] = useState(''),
-    [templateId, setTemplateId] = useState(''),
+  const navigation=useNavigation();
+  const setSelected=(id:string)=>navigation.open({kind:'checklist',id});
+  const [templateId, setTemplateId] = useState(''),
     [planId, setPlanId] = useState(''),
     [blank, setBlank] = useState(false),
     [name, setName] = useState(''),
@@ -651,9 +657,6 @@ export default function ChecklistPanel({
         ))}
       </div>
       {!matches.length && <p className="muted">Brak przypisanych checklist.</p>}
-      {selected && (
-        <ChecklistDetails id={selected} onClose={() => setSelected('')} />
-      )}
       {blank && (
         <Modal
           title={

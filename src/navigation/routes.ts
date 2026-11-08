@@ -25,6 +25,7 @@ export const gardenSections = [
   "notes",
 ] as const;
 export const jobSections = [
+  "summary",
   "work",
   "billing",
   "checklists",
@@ -66,6 +67,8 @@ export type Card =
       initialBilling?: boolean;
       editBilling?: boolean;
     }
+  | { kind: "note" | "photo" | "checklist"; id: string }
+  | { kind: "report"; id: string; reportId?: string }
   | { kind: "schedule"; id: string }
   | { kind: "task"; id: string; originalDate: string };
 export interface Route {
@@ -75,9 +78,11 @@ export interface Route {
   returnLabel?: string;
 }
 export const cardKey = (card: Card) =>
-  card.kind === "task"
-    ? `task:${JSON.stringify([card.id, card.originalDate])}`
-    : `${card.kind}:${card.id}`;
+  card.kind === "report"
+    ? `report:${JSON.stringify([card.id, card.reportId ?? null])}`
+    : card.kind === "task"
+      ? `task:${JSON.stringify([card.id, card.originalDate])}`
+      : `${card.kind}:${card.id}`;
 export const routeKey = (route: Route) =>
   `${route.page}:${JSON.stringify(route)}`;
 const validId = (id: unknown): id is string =>
@@ -106,6 +111,11 @@ export function validCard(value: unknown): value is Card {
   return (
     validId(c.id) &&
     (c.kind === "client" ||
+      c.kind === "note" ||
+      c.kind === "photo" ||
+      c.kind === "checklist" ||
+      (c.kind === "report" &&
+        (c.reportId === undefined || validId(c.reportId))) ||
       c.kind === "schedule" ||
       (c.kind === "task" && isDate(c.originalDate)) ||
       (c.kind === "garden" &&
@@ -136,9 +146,17 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
     ? (rawPage as Page)
     : "dashboard";
   const params = new URLSearchParams(query);
-  const selected = ["client", "garden", "job", "schedule", "task"].filter(
-    (kind) => params.has(kind),
-  );
+  const selected = [
+    "client",
+    "garden",
+    "job",
+    "schedule",
+    "task",
+    "note",
+    "photo",
+    "checklist",
+    "report",
+  ].filter((kind) => params.has(kind));
   const legacy =
     !selected.length && page === "clients"
       ? url.searchParams.get("client")
@@ -170,6 +188,7 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
   }
   if (
     selected.length > 1 ||
+    params.getAll("reportVersion").length > 1 ||
     selected.some((kind) => params.getAll(kind).length !== 1)
   )
     return { route, invalid: true };
@@ -182,12 +201,16 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
         invalid ||
         params.has("section") ||
         params.has("original") ||
-        params.has("zone"),
+        params.has("zone") ||
+        params.has("reportVersion"),
     };
   const card: unknown = {
     kind: kind ?? "client",
     id,
     ...(params.has("section") ? { section: params.get("section") } : {}),
+    ...(kind === "report" && params.has("reportVersion")
+      ? { reportId: params.get("reportVersion") }
+      : {}),
     ...(kind === "task" ? { originalDate: params.get("original") } : {}),
     ...(kind === "garden" && params.has("zone")
       ? { zoneId: params.get("zone") }
@@ -197,7 +220,8 @@ export function parseAddress(href: string): { route: Route; invalid: boolean } {
     !validCard(card) ||
     (params.has("section") && card.kind !== "garden" && card.kind !== "job") ||
     (params.has("original") && card.kind !== "task") ||
-    (params.has("zone") && card.kind !== "garden")
+    (params.has("zone") && card.kind !== "garden") ||
+    (params.has("reportVersion") && card.kind !== "report")
   )
     return { route, invalid: true };
   route.cards = [card];
@@ -209,6 +233,7 @@ export function address(route: Route): string {
   if (c) {
     p.set(c.kind, c.id);
     if ("section" in c && c.section) p.set("section", c.section);
+    if (c.kind === "report" && c.reportId) p.set("reportVersion", c.reportId);
     if (c.kind === "task") p.set("original", c.originalDate);
     if (c.kind === "garden" && c.zoneId) p.set("zone", c.zoneId);
   }

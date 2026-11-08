@@ -1,3 +1,5 @@
+import { useNavigation, useViewState } from "../navigation/Navigation";
+import { useUnsavedChanges } from "../navigation/unsaved";
 import { useState } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
@@ -9,7 +11,6 @@ import {
 import TemplateForm from './TemplateForm';
 import {
   ChecklistCaption,
-  ChecklistDetails,
   ChecklistProgress,
 } from './ChecklistPanel';
 import './checklists.css';
@@ -28,11 +29,14 @@ function AssignmentForm({
     [zoneId, setZoneId] = useState(''),
     [jobId, setJobId] = useState(''),
     [error, setError] = useState('');
+  const [baseline]=useState(()=>JSON.stringify([kind,gardenId,zoneId,jobId]));
+  const guard=useUnsavedChanges(baseline!==JSON.stringify([kind,gardenId,zoneId,jobId]));
   const garden = data.gardens.find((g) => g.id === gardenId),
     jobs = data.jobs.filter((j) => j.gardenId === gardenId);
   return (
     <Modal title="Zastosuj szablon prac" onClose={onClose}>
       <form
+        ref={guard.ref}
         className="checklist-form"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -41,7 +45,7 @@ function AssignmentForm({
               kind === 'plan'
                 ? { kind, gardenId, zoneId: zoneId || null }
                 : { kind, jobId, zoneId: zoneId || null };
-            onApplied(await applyWorkTemplate(template.id, target));
+            await guard.save(async()=>onApplied(await applyWorkTemplate(template.id, target)));
           } catch (e) {
             setError((e as Error).message);
           }
@@ -125,7 +129,7 @@ function AssignmentForm({
           </p>
         )}
         <div className="gm-modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" onClick={()=>guard.confirm(onClose)}>
             Anuluj
           </button>
           <button
@@ -143,16 +147,17 @@ function AssignmentForm({
 export default function TemplateLibrary() {
   const { data, copyWorkTemplate, archiveWorkTemplate, deleteWorkTemplate } =
     useGarden();
-  const [tab, setTab] = useState<'templates' | 'checklists'>('templates'),
-    [query, setQuery] = useState(''),
-    [category, setCategory] = useState(''),
-    [status, setStatus] = useState('active'),
-    [kind, setKind] = useState(''),
-    [garden, setGarden] = useState('');
+  const navigation=useNavigation();
+  const setSelected=(id:string)=>navigation.open({kind:'checklist',id});
+  const [tab, setTab] = useViewState<'templates' | 'checklists'>('library-tab','templates'),
+    [query, setQuery] = useViewState('library-query',''),
+    [category, setCategory] = useViewState('library-category',''),
+    [status, setStatus] = useViewState('library-status','active'),
+    [kind, setKind] = useViewState('library-kind',''),
+    [garden, setGarden] = useViewState('library-garden','');
   const [draft, setDraft] = useState<WorkTemplate | null>(null),
     [applying, setApplying] = useState<WorkTemplate | null>(null),
     [removing, setRemoving] = useState<WorkTemplate | null>(null),
-    [selected, setSelected] = useState(''),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   const categories = [
@@ -426,9 +431,6 @@ export default function TemplateLibrary() {
             setSelected(id);
           }}
         />
-      )}
-      {selected && (
-        <ChecklistDetails id={selected} onClose={() => setSelected('')} />
       )}
       {removing && (
         <Modal title="Usunąć szablon prac?" onClose={() => setRemoving(null)}>

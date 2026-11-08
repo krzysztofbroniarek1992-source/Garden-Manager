@@ -179,7 +179,8 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const agenda = events.filter((event) => event.date === selected);
   const open = (event: Event) => {
     setLastEvent(event.id);
-    if (event.deskId)
+    if (event.deskId && event.kind === "reminder") navigation.open({kind:"note",id:event.deskId});
+    else if (event.deskId)
       setSelectedDesk({
         kind: event.kind === "reminder" ? "note" : "todo",
         id: event.deskId,

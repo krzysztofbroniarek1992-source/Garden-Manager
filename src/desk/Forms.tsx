@@ -79,7 +79,7 @@ export function NoteForm({
       onClose={onClose}
       wide
     >
-      <form onSubmit={submit} className="desk-form">
+      <form ref={guard.ref} onSubmit={submit} className="desk-form">
         {error && (
           <p role="alert" className="gm-form-error">
             {error}

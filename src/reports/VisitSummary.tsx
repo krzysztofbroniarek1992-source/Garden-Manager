@@ -1,3 +1,4 @@
+import { useNavigation } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import TimeHistory from './TimeHistory';
 import { useState } from 'react';
@@ -15,7 +16,6 @@ import { PhotoImage } from '../photos/PhotoGallery';
 import { photoCategories } from '../photos/model';
 import { pauseDuration, reportDuration } from './presentation';
 import { visitTime, visitZone } from './model';
-import ReportPanel from './ReportPanel';
 import './reports.css';
 export type VisitSection =
   'work' | 'billing' | 'checklists' | 'notes' | 'photos';
@@ -34,6 +34,7 @@ export default function VisitSummary({
   onTime: () => void;
   onBilling: () => void;
 }) {
+  const navigation=useNavigation();
   const { data, saveVisitDetails } = useGarden(),
     now = useNow(),
     job = data.jobs.find((j) => j.id === jobId),
@@ -58,8 +59,7 @@ export default function VisitSummary({
       JSON.stringify([work, remarks, zoneId]),
     ),
     [error, setError] = useState(''),
-    [notice, setNotice] = useState(''),
-    [reporting, setReporting] = useState(false);
+    [notice, setNotice] = useState('');
   const guard = useUnsavedChanges<HTMLDivElement>(baseline !== JSON.stringify([work,remarks,zoneId]));
   if (!job || !garden || !client)
     return (
@@ -103,7 +103,7 @@ export default function VisitSummary({
           <button
             className="button primary"
             disabled={job.status !== 'completed' || active || dirty}
-            onClick={() => setReporting(true)}
+            onClick={() => navigation.open({kind:"report",id:jobId})}
           >
             Generuj raport PDF
           </button>
@@ -360,9 +360,6 @@ export default function VisitSummary({
             należności.
           </p>
         </section>
-        {reporting && (
-          <ReportPanel jobId={jobId} onClose={() => setReporting(false)} />
-        )}
       </div>
     </Modal>
   );

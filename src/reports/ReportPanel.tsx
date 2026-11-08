@@ -1,3 +1,6 @@
+import DocumentationLinks from "../documentation/DocumentationLinks";
+import { useNavigation } from "../navigation/Navigation";
+import { pendingWrite } from "../data/pending";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
@@ -122,22 +125,25 @@ export function PublicReportPreview({ report }: { report: VisitReport }) {
 }
 export default function ReportPanel({
   jobId,
+  reportId,
   onClose,
 }: {
   jobId: string;
+  reportId?: string;
   onClose: () => void;
 }) {
+  const navigation=useNavigation();
   const { data, saveVisitReport, snapshot } = useGarden(),
     photos = usePhotos(),
     job = data.jobs.find((j) => j.id === jobId);
   const [options, setOptions] = useState<ReportOptions>(defaultReportOptions),
     [prepared, setPrepared] = useState<PreparedReport | null>(null),
-    [historical, setHistorical] = useState<VisitReport | null>(null),
     [historyBytes, setHistoryBytes] = useState<Uint8Array | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [showPdf, setShowPdf] = useState(false);
+  const historical = reportId ? job?.reports?.find(r => r.id === reportId) ?? null : null;
   const saved = prepared && job?.reports?.some(r => r.id === prepared.record.id);
   const guard = useUnsavedChanges<HTMLDivElement>(!saved && (!!prepared || JSON.stringify(options) !== JSON.stringify(defaultReportOptions())));
   const service = useMemo(
@@ -170,10 +176,10 @@ export default function ReportPanel({
     },
     [url],
   );
-  if (!job)
+  if (!job || (reportId && !job.reports?.some(r=>r.id===reportId)))
     return (
       <Modal title="Raport wizyty" onClose={onClose}>
-        <p>Wizyta nie jest już dostępna.</p>
+        <p>Wizyta lub zapisana wersja raportu nie jest już dostępna.</p>
       </Modal>
     );
   const images = data.photos.filter((p) => eligibleReportPhoto(data, job, p)),
@@ -183,7 +189,6 @@ export default function ReportPanel({
   const patch = (next: Partial<ReportOptions>) => {
     setOptions({ ...options, ...next });
     setPrepared(null);
-    setHistorical(null);
     setHistoryBytes(null);
     setNotice('');
     setShowPdf(false);
@@ -203,7 +208,9 @@ export default function ReportPanel({
   return (
     <Modal title="Raport PDF dla klienta" onClose={onClose} wide>
       <div ref={guard.ref} className="report-builder">
+        <DocumentationLinks scope={{jobId}} gardenSection="jobs" jobSection="summary"/>
         <h3>{job.title}</h3>
+        {!reportId && <>
         <p className="gm-form-note">
           Raport korzysta z zapisanego opisu wykonanych prac i danych wizyty.
           Podgląd pozwala sprawdzić treść przed zapisaniem raportu i pobraniem
@@ -298,7 +305,7 @@ export default function ReportPanel({
                 e.target.value = '';
                 if (file)
                   void run(async () => {
-                    await photos.add([{ blob: file, name: file.name }], {
+                    await pendingWrite(()=>photos.add([{ blob: file, name: file.name }], {
                       clientId: null,
                       gardenId: job.gardenId,
                       zoneId: null,
@@ -306,7 +313,7 @@ export default function ReportPanel({
                       category: 'other',
                       description: '',
                       capturedDate: null,
-                    });
+                    }));
                     setNotice(
                       'Logo zapisano w galerii w kategorii INNE. Wybierz je z listy logo.',
                     );
@@ -315,6 +322,24 @@ export default function ReportPanel({
             />
           </label>
         </details>
+        <div className="report-actions">
+          <button
+            className="button primary"
+            disabled={busy || job.status !== 'completed'}
+            onClick={() =>
+              void run(async () => {
+                const result = await service.prepare(jobId, options);
+                setPrepared(result);
+                setHistoryBytes(null);
+                setShowPdf(false);
+              })
+            }
+          >
+            Przygotuj podgląd raportu
+          </button>
+        </div>
+        </>}
+        {reportId && historical && !historyBytes && <button className="button secondary" disabled={busy} onClick={()=>void run(async()=>{setHistoryBytes(await service.regenerate(historical));})}>Przygotuj plik zapisanej wersji</button>}
         {error && (
           <p className="gm-form-error" role="alert">
             {error}
@@ -325,25 +350,8 @@ export default function ReportPanel({
             {notice}
           </p>
         )}
-        <div className="report-actions">
-          <button
-            className="button primary"
-            disabled={busy || job.status !== 'completed'}
-            onClick={() =>
-              void run(async () => {
-                const result = await service.prepare(jobId, options);
-                setPrepared(result);
-                setHistorical(null);
-                setHistoryBytes(null);
-                setShowPdf(false);
-              })
-            }
-          >
-            Przygotuj podgląd raportu
-          </button>
-        </div>
         {busy && <p role="status">Przygotowywanie raportu…</p>}
-        {record && bytes && (
+        {record && (bytes || historical) && (
           <section className="report-preview" aria-label="Podgląd raportu">
             <p className="report-preview-state">
               {historical
@@ -356,7 +364,7 @@ export default function ReportPanel({
             <div className="report-actions">
               <button
                 className="button secondary"
-                disabled={!saved && !historical}
+                disabled={!bytes || (!saved && !historical)}
                 title={!saved && !historical ? 'Najpierw zapisz raport, aby zatwierdzić numer dokumentu.' : undefined}
                 onClick={() => setShowPdf((v) => !v)}
               >
@@ -364,11 +372,12 @@ export default function ReportPanel({
               </button>
               <button
                 className="button primary"
-                disabled={busy}
+                disabled={busy || !bytes}
                 onClick={() =>
                   void run(async () => {
+                    if (!bytes) return;
                     if (!historical && prepared)
-                      await service.save(jobId, prepared);
+                      await pendingWrite(()=>service.save(jobId, prepared!));
                     download(bytes, filename(record));
                     setNotice(
                       'Raport zapisany w historii i przygotowany do pobrania.',
@@ -390,7 +399,7 @@ export default function ReportPanel({
             )}
           </section>
         )}
-        <section
+        {!reportId && <section
           className="report-history"
           aria-label="Historia raportów wizyty"
         >
@@ -415,14 +424,7 @@ export default function ReportPanel({
                     className="button secondary"
                     disabled={busy}
                     aria-label={`Podgląd wersji ${r.version}`}
-                    onClick={() =>
-                      void run(async () => {
-                        setHistoryBytes(await service.regenerate(r));
-                        setHistorical(r);
-                        setPrepared(null);
-                        setShowPdf(false);
-                      })
-                    }
+                    onClick={()=>navigation.open({kind:'report',id:jobId,reportId:r.id})}
                   >
                     Podgląd
                   </button>
@@ -447,7 +449,7 @@ export default function ReportPanel({
           {!job.reports?.length && (
             <p className="muted">Nie zapisano jeszcze raportu tej wizyty.</p>
           )}
-        </section>
+        </section>}
       </div>
     </Modal>
   );
