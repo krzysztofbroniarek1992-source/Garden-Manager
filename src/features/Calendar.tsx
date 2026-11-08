@@ -10,6 +10,8 @@ import {
 import { useGarden, useNow } from "../state";
 import { localDate, type Job } from "../domain";
 import { addDays, addMonths, isDate, weekStart } from "../planning/dates";
+import { occurrenceCard } from "../navigation/planning-links";
+import { taskStatus } from "../planning/model";
 import { taskOccurrencesBetween } from "../planning/occurrences";
 import { taskStatusLabels, type TaskOccurrence } from "../planning/model";
 import JobForm from "./JobForm";
@@ -121,13 +123,13 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
     const from = cells[0] < selected ? cells[0] : selected;
     const to = cells.at(-1)! > selected ? cells.at(-1)! : selected;
     const tasks: Event[] = taskOccurrencesBetween(data, from, to)
-      .filter((item) => !item.jobId)
+      .filter((item) => !item.jobId || item.careCycle !== undefined)
       .map((item) => ({
         id: `work:${item.id}`,
         date: item.date,
         time: item.time,
         title: item.title,
-        status: item.status,
+        status: taskStatus(data, item),
         gardenId: item.gardenId,
         clientId: item.clientId,
         jobId: null,
@@ -174,13 +176,12 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
   const agenda = events.filter((event) => event.date === selected);
   const open = (event: Event) => {
     setLastEvent(event.id);
-    if (event.deskId) navigation.open({kind:event.kind === "reminder" ? "note" : "todo", id:event.deskId});
-    else if (event.task)
+    if (event.deskId)
       navigation.open({
-        kind: "task",
-        id: event.task.scheduleId,
-        originalDate: event.task.originalDate,
+        kind: event.kind === "reminder" ? "note" : "todo",
+        id: event.deskId,
       });
+    else if (event.task) navigation.open(occurrenceCard(event.task));
     else setSelectedJob(event.jobId);
   };
   const overdue = (event: Event) =>

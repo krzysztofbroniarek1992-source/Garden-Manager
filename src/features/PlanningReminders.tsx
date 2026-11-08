@@ -1,3 +1,4 @@
+import { occurrenceCard } from "../navigation/planning-links";
 import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useMemo, useState } from "react";
 import { useGarden, useNow } from "../state";
@@ -27,7 +28,10 @@ export default function PlanningReminders() {
     ].map(([title, from, to]) => {
       const tasks = taskOccurrencesBetween(data, from, to, true, 21).map(
         (item) => {
-          const job = data.jobs.find((job) => job.id === item.jobId);
+          const job =
+            item.careCycle === undefined
+              ? data.jobs.find((job) => job.id === item.jobId)
+              : undefined;
           return {
             id: item.id,
             title: job?.title ?? item.title,
@@ -42,7 +46,11 @@ export default function PlanningReminders() {
       const jobs = data.jobs
         .filter(
           (job) =>
-            !job.taskOccurrenceId &&
+            (!job.taskOccurrenceId ||
+              data.taskOccurrences.some(
+                (o) =>
+                  o.id === job.taskOccurrenceId && o.careCycle !== undefined,
+              )) &&
             job.status !== "completed" &&
             job.date >= from &&
             job.date <= to,
@@ -98,11 +106,7 @@ export default function PlanningReminders() {
                     key={row.id}
                     onClick={() =>
                       row.task
-                        ? navigation.open({
-                            kind: "task",
-                            id: row.task.scheduleId,
-                            originalDate: row.task.originalDate,
-                          })
+                        ? navigation.open(occurrenceCard(row.task))
                         : setJobId(row.jobId!)
                     }
                   >

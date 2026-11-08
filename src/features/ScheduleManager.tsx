@@ -108,8 +108,10 @@ export default function ScheduleManager({
             }}
           >
             <p>
-              {ending.title}: istniejące zlecenia zostaną zachowane. Nie będą
-              planowane nowe terminy po wskazanej dacie.
+              {ending.title}:{" "}
+              {ending.care
+                ? "bieżący niewykonany zabieg zostanie zamknięty bez wykonania, a seria nie utworzy kolejnych terminów. Data oznacza zakończenie serii. Historia i zlecenia pozostaną zachowane."
+                : "istniejące zlecenia zostaną zachowane. Nie będą planowane nowe terminy po wskazanej dacie."}
             </p>
             {error && (
               <p role="alert" className="gm-form-error">

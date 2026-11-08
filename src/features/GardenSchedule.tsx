@@ -1,6 +1,7 @@
 import { useNavigation } from "../navigation/Navigation";
 import {
   nextScheduleOccurrence,
+  occurrenceCard,
   occurrenceDate,
 } from "../navigation/planning-links";
 import { localDate } from "../domain";
@@ -23,10 +24,10 @@ export default function GardenSchedule({
   const openCalendar = (id: string) => {
     const o = nextScheduleOccurrence(data, id, localDate());
     if (!o) return;
-    const date = occurrenceDate(data, id, o.originalDate);
+    const date = occurrenceDate(data, id, o.originalDate, o.careCycle);
     navigation.openCalendar(
       { date, anchor: date, view: "day", gardenId },
-      { kind: "task", id, originalDate: o.originalDate },
+      occurrenceCard(o),
     );
   };
   return (

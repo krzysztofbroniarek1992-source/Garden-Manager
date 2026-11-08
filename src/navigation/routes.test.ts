@@ -132,3 +132,32 @@ describe("calendar and planning addresses", () => {
     expect(parseAddress(`http://localhost:5173/${hash}`).invalid).toBe(true);
   });
 });
+
+describe("GM-005 stable care-cycle addresses", () => {
+  it("distinguishes two cycles sharing a planned civil date and preserves old card identities", () => {
+    const one = {
+        kind: "task" as const,
+        id: "care",
+        originalDate: "2027-04-10",
+        cycle: 1,
+      },
+      two = { ...one, cycle: 3 };
+    const route: Route = { page: "calendar", cards: [one, two] };
+    expect(validRoute(route)).toBe(true);
+    expect(parseAddress("http://localhost:5173/" + address(route))).toEqual({
+      route: { page: "calendar", cards: [two] },
+      invalid: false,
+    });
+    expect(openCard(route, one).cards).toEqual([one]);
+  });
+  it.each([
+    "#calendar?cycle=1",
+    "#calendar?task=x&original=2027-04-01&cycle=0",
+    "#calendar?task=x&original=2027-04-01&cycle=-1",
+    "#calendar?task=x&original=2027-04-01&cycle=NaN",
+    "#calendar?task=x&original=2027-04-01&cycle=1&cycle=2",
+    "#calendar?garden=g&cycle=1",
+  ])("rejects malformed %s", (hash) => {
+    expect(parseAddress("http://localhost:5173/" + hash).invalid).toBe(true);
+  });
+});

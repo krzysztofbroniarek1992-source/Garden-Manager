@@ -119,6 +119,7 @@ export default function RelatedCards() {
                 <TaskDetails
                   scheduleId={card.id}
                   originalDate={card.originalDate}
+                  cycle={card.cycle}
                   onClose={navigation.back}
                 />
               ) : card.kind === "schedule" ? (
