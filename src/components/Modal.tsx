@@ -17,7 +17,11 @@ export function closeTopModal() {
   return true;
 }
 let previousBodyOverflow = '';
-function syncModalStack() { modalStack.forEach(element => { element.inert = element !== modalStack.at(-1); if (element.inert) element.dataset.modalCovered = "true"; else delete element.dataset.modalCovered; }); }
+function syncModalStack() {
+  // React reactivates children before parents. The visible portal order, not
+  // effect execution order, determines which dialog must receive focus/Back.
+  modalStack.sort((a,b) => a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+  modalStack.forEach(element => { element.inert = element !== modalStack.at(-1); if (element.inert) element.dataset.modalCovered = "true"; else delete element.dataset.modalCovered; }); }
 
 interface ModalProps {
   title: string;
