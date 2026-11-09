@@ -286,7 +286,9 @@ scripts/android-device-check.sh GardenManager-A.apk GardenManager-Android-debug.
 
 Skrypt wyłącza sieć emulatora, instaluje A, wykonuje test prawdziwego WebView i
 native bridge (origin, brak SW, moduły, PDF offline, Android Back/ostrzeżenie),
-przygotowuje dane v10, prawdziwy blob zdjęcia/miniatury oraz aktywny stoper,
+przygotowuje pełne dane v10 z istniejącej fixture regresyjnej (niepuste harmonogramy
+GM-005, wystąpienia, dostępność, płatności, notatki, sprawy, checklisty, katalog,
+zatwierdzone rozliczenia i zapisany raport), prawdziwy blob zdjęcia/miniatury oraz aktywny stoper,
 wykonuje force-stop, instaluje B przez `adb install -r` i w nowym procesie
 porównuje **cały** zapis v10, SHA zdjęcia/miniatury i ciągłość stopera. Następnie
 ponawia odczyt po kolejnym force-stop. Nie odinstalowuje aplikacji.
@@ -295,6 +297,8 @@ Workflow wykonuje ten scenariusz na emulatorze API 35. Lokalny brak `/dev/kvm`
 nie jest zaliczonym testem emulatora. Testy systemowego aparatu, wyboru miejsca,
 odbiorców udostępniania, fizycznego restartu oraz zachowania producenta telefonu
 nie są zastępowane testami JVM/Chromium ani powyższym runnerem.
+Fixture testowego APK można odtworzyć poleceniem
+`node scripts/generate-android-test-data.mjs`; nie korzysta ono z danych użytkownika.
 
 ## Lista odbioru na fizycznym telefonie — nie odznaczać bez wykonania
 

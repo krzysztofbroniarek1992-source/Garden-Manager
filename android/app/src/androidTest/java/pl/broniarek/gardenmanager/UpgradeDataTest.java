@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.json.*;
+import java.util.Scanner;
 import static org.junit.Assert.*;
 import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 
@@ -15,11 +16,19 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 public class UpgradeDataTest {
     private Context target(){return InstrumentationRegistry.getInstrumentation().getTargetContext();}
     @Test public void seedBeforeUpdate() throws Exception {
+        String fixture;
+        try(Scanner input=new Scanner(InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("upgrade-data.json"),"UTF-8")) {
+            fixture=input.useDelimiter("\\A").next();
+        }
+        JSONObject definitions=new JSONObject(fixture);
+        for(String key:new String[]{"clients","gardens","jobs","payments","taskSchedules","taskOccurrences","availability","notes","todos","checklists","workTemplates","materialCatalog"})
+            assertTrue("Upgrade fixture must exercise non-empty "+key,definitions.getJSONArray(key).length()>0);
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
-            String expected=async(scenario,READ_STATE+"""
-                const d=state.data;d.clients[0].name='GM009 upgrade preserved';
-                d.jobs[0].status='in-progress';d.timer={jobId:d.jobs[0].id,startedAt:Date.now()-12600000,paused:false};
+            String expected=async(scenario,READ_STATE+"const d=JSON.parse("+JSONObject.quote(fixture)+");"+"""
+                d.clients[0].name='GM009 upgrade preserved';
+                const running=d.jobs.find(j=>j.id==='field-today');
+                running.status='in-progress';d.timer={jobId:running.id,startedAt:Date.now()-12600000,paused:false};
                 const canvas=document.createElement('canvas');canvas.width=16;canvas.height=16;canvas.getContext('2d').fillRect(0,0,16,16);
                 const image=await new Promise(ok=>canvas.toBlob(ok,'image/jpeg'));
                 const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await image.arrayBuffer()))).map(n=>n.toString(16).padStart(2,'0')).join('');

@@ -1,0 +1,1050 @@
+{
+  "reportSequence": 1,
+  "workTemplates": [
+    {
+      "id": "starter-lawn-v1",
+      "name": "Koszenie trawnika",
+      "category": "Trawniki",
+      "description": "Przykładowa lista do dostosowania do zakresu wizyty.",
+      "items": [
+        {
+          "id": "starter-lawn-1",
+          "title": "Kontrola terenu i przeszkód"
+        },
+        {
+          "id": "starter-lawn-2",
+          "title": "Przygotowanie kosiarki"
+        },
+        {
+          "id": "starter-lawn-3",
+          "title": "Koszenie"
+        },
+        {
+          "id": "starter-lawn-4",
+          "title": "Podkaszanie krawędzi"
+        },
+        {
+          "id": "starter-lawn-5",
+          "title": "Oczyszczenie nawierzchni"
+        },
+        {
+          "id": "starter-lawn-6",
+          "title": "Spakowanie sprzętu"
+        }
+      ],
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1,
+      "archivedAt": null
+    },
+    {
+      "id": "starter-hedge-v1",
+      "name": "Cięcie żywopłotu",
+      "category": "Żywopłoty",
+      "description": "Przykładowa lista do dostosowania do zakresu wizyty.",
+      "items": [
+        {
+          "id": "starter-hedge-1",
+          "title": "Ocena zakresu prac"
+        },
+        {
+          "id": "starter-hedge-2",
+          "title": "Zabezpieczenie otoczenia"
+        },
+        {
+          "id": "starter-hedge-3",
+          "title": "Cięcie żywopłotu"
+        },
+        {
+          "id": "starter-hedge-4",
+          "title": "Zebranie odpadów"
+        },
+        {
+          "id": "starter-hedge-5",
+          "title": "Rozdrobnienie lub załadunek odpadów, jeśli przewidziano"
+        },
+        {
+          "id": "starter-hedge-6",
+          "title": "Oczyszczenie terenu"
+        },
+        {
+          "id": "starter-hedge-7",
+          "title": "Spakowanie sprzętu"
+        }
+      ],
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1,
+      "archivedAt": null
+    },
+    {
+      "id": "starter-trees-v1",
+      "name": "Pielęgnacja drzew i krzewów",
+      "category": "Drzewa i krzewy",
+      "description": "Przykładowa lista do dostosowania do zakresu wizyty.",
+      "items": [
+        {
+          "id": "starter-trees-1",
+          "title": "Ocena stanu roślin"
+        },
+        {
+          "id": "starter-trees-2",
+          "title": "Kontrola bezpieczeństwa"
+        },
+        {
+          "id": "starter-trees-3",
+          "title": "Wykonanie cięć"
+        },
+        {
+          "id": "starter-trees-4",
+          "title": "Uprzątnięcie odpadów"
+        },
+        {
+          "id": "starter-trees-5",
+          "title": "Dokumentacja fotograficzna"
+        },
+        {
+          "id": "starter-trees-6",
+          "title": "Spakowanie sprzętu"
+        }
+      ],
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1,
+      "archivedAt": null
+    },
+    {
+      "id": "starter-protection-v1",
+      "name": "Zabieg ochrony roślin",
+      "category": "Ochrona roślin",
+      "description": "Dawkę i warunki zabiegu przepisz z aktualnej etykiety konkretnego preparatu. Lista nie określa dawek ani mieszanin.",
+      "items": [
+        {
+          "id": "starter-protection-1",
+          "title": "Identyfikacja problemu"
+        },
+        {
+          "id": "starter-protection-2",
+          "title": "Sprawdzenie etykiety preparatu i warunków zabiegu"
+        },
+        {
+          "id": "starter-protection-3",
+          "title": "Ocena pogody i bezpieczeństwa otoczenia"
+        },
+        {
+          "id": "starter-protection-4",
+          "title": "Przygotowanie środków ochrony osobistej"
+        },
+        {
+          "id": "starter-protection-5",
+          "title": "Wykonanie zabiegu zgodnie z etykietą"
+        },
+        {
+          "id": "starter-protection-6",
+          "title": "Zapis preparatu, dawki, daty i warunków"
+        },
+        {
+          "id": "starter-protection-7",
+          "title": "Oczyszczenie sprzętu zgodnie z wymaganiami"
+        }
+      ],
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1,
+      "archivedAt": null
+    }
+  ],
+  "checklists": [
+    {
+      "id": "plan-doc",
+      "kind": "plan",
+      "gardenId": "garden-1",
+      "jobId": null,
+      "zoneId": "zone-doc",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": "Rabata dokumentacji",
+      "jobTitle": null,
+      "name": "Plan dokumentacji",
+      "description": "",
+      "category": "Inne",
+      "items": [
+        {
+          "id": "52795ac2-b8c1-4122-819c-267246c1dd8c",
+          "title": "Sprawdzenie roślin",
+          "status": "pending",
+          "note": "",
+          "completedAt": null,
+          "photoId": null,
+          "photoName": null,
+          "createdAt": 1793696400000,
+          "updatedAt": 1793696400000,
+          "revision": 1
+        }
+      ],
+      "templateId": null,
+      "templateName": null,
+      "templateRevision": null,
+      "sourcePlanId": null,
+      "assignmentKey": null,
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1
+    },
+    {
+      "id": "checklist-doc",
+      "kind": "visit",
+      "gardenId": "garden-1",
+      "jobId": "job-1",
+      "zoneId": "zone-doc",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": "Rabata dokumentacji",
+      "jobTitle": "Wizyta dokumentacji",
+      "name": "Plan dokumentacji",
+      "description": "",
+      "category": "Inne",
+      "items": [
+        {
+          "id": "6ff95776-1151-44d9-8ca0-5e9deb3245cd",
+          "title": "Sprawdzenie roślin",
+          "status": "pending",
+          "note": "",
+          "completedAt": null,
+          "photoId": null,
+          "photoName": null,
+          "createdAt": 1793696400000,
+          "updatedAt": 1793696400000,
+          "revision": 1
+        }
+      ],
+      "templateId": null,
+      "templateName": null,
+      "templateRevision": null,
+      "sourcePlanId": "plan-doc",
+      "assignmentKey": "[\"visit\",\"job-1\",\"plan\",\"plan-doc\"]",
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1
+    },
+    {
+      "id": "field-list",
+      "kind": "visit",
+      "gardenId": "garden-1",
+      "jobId": "field-today",
+      "zoneId": "zone-doc",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": "Rabata różana",
+      "jobTitle": "Terenowe koszenie",
+      "name": "Przygotowanie terenu",
+      "description": "",
+      "category": "Inne",
+      "items": [
+        {
+          "id": "efe1de9a-dbd1-4cfd-bb5b-83d775ad61cd",
+          "title": "Sprawdź bramę",
+          "status": "pending",
+          "note": "",
+          "completedAt": null,
+          "photoId": null,
+          "photoName": null,
+          "createdAt": 1813492800000,
+          "updatedAt": 1813492800000,
+          "revision": 1
+        }
+      ],
+      "templateId": null,
+      "templateName": null,
+      "templateRevision": null,
+      "sourcePlanId": null,
+      "assignmentKey": null,
+      "createdAt": 1813492800000,
+      "updatedAt": 1813492800000,
+      "revision": 1
+    }
+  ],
+  "checklistTombstones": [],
+  "notes": [
+    {
+      "id": "note-doc",
+      "title": "Obserwacja dokumentacji",
+      "body": "Ważna obserwacja po wizycie",
+      "category": "observation",
+      "priority": "normal",
+      "createdAt": 1793696400000,
+      "updatedAt": 1793696400000,
+      "revision": 1,
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "jobId": "job-1",
+      "clientName": "Anna Kowalska",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": "Rabata dokumentacji",
+      "jobTitle": "Wizyta dokumentacji",
+      "archivedAt": null,
+      "photoId": null,
+      "photoName": null,
+      "reminder": {
+        "date": "2026-11-03",
+        "time": null,
+        "status": "active",
+        "completedAt": null
+      }
+    },
+    {
+      "id": "field-note",
+      "title": "Uwaga terenowa",
+      "body": "Nie zadepcz rabaty",
+      "category": null,
+      "priority": "normal",
+      "createdAt": 1813492800000,
+      "updatedAt": 1813492800000,
+      "revision": 1,
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": null,
+      "jobId": "field-today",
+      "clientName": "Anna Kowalska",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": null,
+      "jobTitle": "Terenowe koszenie",
+      "archivedAt": null,
+      "photoId": null,
+      "photoName": null,
+      "reminder": null
+    }
+  ],
+  "todos": [
+    {
+      "id": "todo-final",
+      "title": "Zamówić korę do rabaty",
+      "description": "Sprawa powiązana z rabatą",
+      "priority": "high",
+      "createdAt": 1794819600000,
+      "updatedAt": 1794819600000,
+      "revision": 1,
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "jobId": "job-1",
+      "clientName": "Anna Kowalska",
+      "gardenName": "Ogród przy Lipowej",
+      "zoneName": "Rabata różana",
+      "jobTitle": "Wizyta częściowo opłacona",
+      "dueDate": "2026-11-17",
+      "dueTime": "10:00",
+      "status": "open",
+      "completedAt": null
+    }
+  ],
+  "deskTombstones": [],
+  "photos": [],
+  "photoRestoreId": null,
+  "taskSchedules": [
+    {
+      "id": "care-series",
+      "title": "Pielęgnacja róż",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "startDate": "2026-11-01",
+      "endDate": "2027-02-28",
+      "time": "08:00",
+      "recurrence": {
+        "frequency": "days",
+        "interval": 14,
+        "months": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ]
+      },
+      "endedOn": null,
+      "revision": 1,
+      "updatedAt": 1794819600000
+    },
+    {
+      "id": "care-lawn-series",
+      "title": "Pielęgnacja trawnika",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-lawn",
+      "zoneName": "Trawnik",
+      "startDate": "2026-11-01",
+      "endDate": "2027-02-28",
+      "time": "08:00",
+      "recurrence": {
+        "frequency": "days",
+        "interval": 14,
+        "months": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ]
+      },
+      "endedOn": null,
+      "revision": 1,
+      "updatedAt": 1794819600000
+    },
+    {
+      "id": "care-weekend-series",
+      "title": "Pielęgnacja róż",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-6",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata weekendowa",
+      "startDate": "2026-11-01",
+      "endDate": "2027-02-28",
+      "time": "08:00",
+      "recurrence": {
+        "frequency": "days",
+        "interval": 14,
+        "months": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ]
+      },
+      "endedOn": null,
+      "revision": 1,
+      "updatedAt": 1794819600000
+    },
+    {
+      "id": "care-e2e",
+      "title": "Nawożenie GM-005",
+      "notes": "Dokładny opis czynności",
+      "startDate": "2027-04-01",
+      "endDate": null,
+      "time": "09:00",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "care": {
+        "season": null,
+        "material": "Materiał zapisany przez ogrodnika"
+      },
+      "recurrence": {
+        "frequency": "days",
+        "interval": 30,
+        "months": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ]
+      },
+      "endedOn": null,
+      "revision": 1,
+      "updatedAt": 1813492800000
+    },
+    {
+      "id": "field-care",
+      "title": "Nawożenie GM-005",
+      "notes": "Dokładny opis czynności",
+      "startDate": "2027-06-20",
+      "endDate": null,
+      "time": "09:00",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "care": {
+        "season": null,
+        "material": "Materiał zapisany przez ogrodnika"
+      },
+      "recurrence": {
+        "frequency": "days",
+        "interval": 30,
+        "months": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ]
+      },
+      "endedOn": null,
+      "revision": 1,
+      "updatedAt": 1813492800000
+    }
+  ],
+  "taskOccurrences": [
+    {
+      "id": "task:care-series:2026-11-01",
+      "scheduleId": "care-series",
+      "originalDate": "2026-11-01",
+      "date": "2026-11-01",
+      "time": "08:00",
+      "title": "Pielęgnacja róż",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "updatedAt": 1794819600000,
+      "revision": 1,
+      "status": "planned",
+      "jobId": "job-1"
+    },
+    {
+      "id": "task:care-series:2026-11-15",
+      "scheduleId": "care-series",
+      "originalDate": "2026-11-15",
+      "date": "2026-11-17",
+      "time": "08:00",
+      "title": "Pielęgnacja róż",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "updatedAt": 1794819600000,
+      "revision": 1,
+      "status": "planned",
+      "jobId": null
+    },
+    {
+      "id": "task:care-series:2026-11-29",
+      "scheduleId": "care-series",
+      "originalDate": "2026-11-29",
+      "date": "2026-11-29",
+      "time": "08:00",
+      "title": "Pielęgnacja róż",
+      "notes": "Kontrola róż i porządkowanie rabaty",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "updatedAt": 1794819600000,
+      "revision": 1,
+      "status": "cancelled",
+      "jobId": null
+    },
+    {
+      "id": "task:care-e2e:2027-04-01:care:1",
+      "careCycle": 1,
+      "completion": null,
+      "scheduleId": "care-e2e",
+      "originalDate": "2027-04-01",
+      "date": "2027-04-01",
+      "time": "09:00",
+      "title": "Nawożenie GM-005",
+      "notes": "Dokładny opis czynności",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "updatedAt": 1813492800000,
+      "revision": 1,
+      "status": "planned",
+      "jobId": null
+    },
+    {
+      "id": "task:field-care:2027-06-20:care:1",
+      "careCycle": 1,
+      "completion": null,
+      "scheduleId": "field-care",
+      "originalDate": "2027-06-20",
+      "date": "2027-06-20",
+      "time": "09:00",
+      "title": "Nawożenie GM-005",
+      "notes": "Dokładny opis czynności",
+      "clientId": "client-1",
+      "gardenId": "garden-1",
+      "zoneId": "zone-doc",
+      "zoneName": "Rabata różana",
+      "updatedAt": 1813492800000,
+      "revision": 2,
+      "status": "planned",
+      "jobId": "job:task:field-care:2027-06-20:care:1"
+    }
+  ],
+  "clients": [
+    {
+      "id": "client-1",
+      "name": "Anna Kowalska",
+      "phone": "500 100 200",
+      "email": "anna@example.com",
+      "notes": "Dane testowe. Proszę zamknąć furtkę po wizycie."
+    },
+    {
+      "id": "client-2",
+      "name": "Piotr Nowak",
+      "phone": "500 200 300",
+      "email": "piotr@example.com",
+      "notes": "Dane testowe. Kontakt przed przyjazdem."
+    },
+    {
+      "id": "client-3",
+      "name": "Zielona Przystań",
+      "phone": "500 300 400",
+      "email": "biuro@example.com",
+      "notes": "Dane testowe. Obsługa terenu wspólnego."
+    },
+    {
+      "id": "client-4",
+      "name": "Maria Wiśniewska",
+      "phone": "500 400 500",
+      "email": "maria@example.com",
+      "notes": "Dane testowe. Podlewanie po nawożeniu."
+    },
+    {
+      "id": "client-5",
+      "name": "Tomasz Zieliński",
+      "phone": "500 500 600",
+      "email": "tomasz@example.com",
+      "notes": "Dane testowe. Ogród przy domu."
+    }
+  ],
+  "gardens": [
+    {
+      "id": "garden-1",
+      "clientId": "client-1",
+      "name": "Ogród przy Lipowej",
+      "address": "ul. Lipowa 12, Warszawa",
+      "area": 650,
+      "notes": "Dane testowe. Trawnik, rabaty i żywopłot.",
+      "zones": [
+        {
+          "id": "zone-doc",
+          "name": "Rabata różana",
+          "type": "rabata",
+          "area": 12.3456789,
+          "length": null,
+          "plants": "Róże 'New Dawn'\nSzałwia",
+          "requirements": "Podlewanie rano",
+          "treatments": "2026-10-20: Przycięto róże\nKontrola stanu liści"
+        },
+        {
+          "id": "zone-lawn",
+          "name": "Trawnik",
+          "type": "trawnik",
+          "area": 200,
+          "length": null,
+          "plants": "Mieszanka traw",
+          "requirements": "Podlewanie rano",
+          "treatments": ""
+        }
+      ]
+    },
+    {
+      "id": "garden-2",
+      "clientId": "client-2",
+      "name": "Ogród na Zaciszu",
+      "address": "ul. Zaciszna 8, Warszawa",
+      "area": 1200,
+      "notes": "Dane testowe. Duży trawnik i drzewa owocowe.",
+      "zones": []
+    },
+    {
+      "id": "garden-3",
+      "clientId": "client-3",
+      "name": "Teren osiedla",
+      "address": "ul. Ogrodowa 24, Warszawa",
+      "area": 2400,
+      "notes": "Dane testowe. Teren wspólny osiedla.",
+      "zones": []
+    },
+    {
+      "id": "garden-4",
+      "clientId": "client-4",
+      "name": "Różany zakątek",
+      "address": "ul. Różana 5, Warszawa",
+      "area": 420,
+      "notes": "Dane testowe. Róże i rabaty bylinowe.",
+      "zones": []
+    },
+    {
+      "id": "garden-5",
+      "clientId": "client-5",
+      "name": "Ogród pod lasem",
+      "address": "ul. Leśna 31, Warszawa",
+      "area": 900,
+      "notes": "Dane testowe. Nasadzenia i system nawadniania.",
+      "zones": []
+    },
+    {
+      "id": "garden-6",
+      "clientId": "client-1",
+      "name": "Działka weekendowa",
+      "address": "ul. Polna 4, Łomianki",
+      "area": 800,
+      "notes": "Dane testowe. Drugi obiekt klientki.",
+      "zones": [
+        {
+          "id": "zone-doc",
+          "name": "Rabata weekendowa",
+          "type": "rabata",
+          "area": 12.3456789,
+          "length": null,
+          "plants": "Róże 'New Dawn'\nSzałwia",
+          "requirements": "Podlewanie rano",
+          "treatments": "2026-10-20: Przycięto róże\nKontrola stanu liści"
+        }
+      ]
+    }
+  ],
+  "materialCatalog": [
+    {
+      "id": "material-final",
+      "name": "Kora sosnowa",
+      "category": "Podłoża",
+      "unit": "l",
+      "purchaseUnitPrice": 2,
+      "packageName": "worek",
+      "packageQuantity": 50,
+      "notes": "Materiał do rabaty"
+    }
+  ],
+  "jobs": [
+    {
+      "date": "2026-11-01",
+      "time": "08:00",
+      "status": "completed",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 1000,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Pielęgnacja ogrodu"
+      ],
+      "settlement": {
+        "calculatedLaborCents": 100000,
+        "suggestedLaborCents": null,
+        "finalLaborCents": 100000,
+        "materialsCents": 0,
+        "approvedAt": 1793696400000,
+        "source": "fixed"
+      },
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "job-1",
+      "gardenId": "garden-1",
+      "title": "Wizyta częściowo opłacona",
+      "reports": [
+        {
+          "id": "report-doc",
+          "number": "BO/2026/000001",
+          "version": 1,
+          "generatedAt": 1793696400000,
+          "rendererVersion": 1,
+          "fingerprint": "f15c375d41ab54f51d17786b90310031dac26e8b4d2179746d4925f97ed19369",
+          "options": {
+            "showTime": true,
+            "showFinance": false,
+            "showMaterials": true,
+            "showChecklists": false,
+            "showPhotos": false,
+            "showRemarks": false,
+            "photoIds": [],
+            "logoPhotoId": null
+          },
+          "snapshot": {
+            "company": "BRONIAREK OGRODY",
+            "clientName": "Anna Kowalska",
+            "gardenName": "Ogród przy Lipowej",
+            "address": "ul. Lipowa 12, Warszawa",
+            "zoneName": null,
+            "visitDate": "2026-11-03",
+            "workDescription": "Pielęgnacja ogrodu",
+            "time": {
+              "workSeconds": 3600,
+              "recordedPauseMs": 0,
+              "historySince": null,
+              "corrections": []
+            },
+            "materials": [],
+            "checklists": null,
+            "remarks": null,
+            "finance": null,
+            "photos": [],
+            "logo": null
+          }
+        }
+      ],
+      "taskOccurrenceId": "task:care-series:2026-11-01"
+    },
+    {
+      "date": "2026-11-03",
+      "time": "09:00",
+      "status": "completed",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 500,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Pielęgnacja ogrodu"
+      ],
+      "settlement": {
+        "calculatedLaborCents": 50000,
+        "suggestedLaborCents": null,
+        "finalLaborCents": 50000,
+        "materialsCents": 0,
+        "approvedAt": 1793696400000,
+        "source": "fixed"
+      },
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "finance-paid",
+      "gardenId": "garden-6",
+      "title": "Opłacona działka",
+      "visitDetails": {
+        "zoneId": "zone-doc",
+        "zoneName": "Rabata weekendowa",
+        "publicWork": "Wykonane prace",
+        "clientRemarks": "",
+        "revision": 1,
+        "updatedAt": 1794819600000
+      }
+    },
+    {
+      "date": "2026-11-03",
+      "time": "09:00",
+      "status": "completed",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 200,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Pielęgnacja ogrodu"
+      ],
+      "settlement": null,
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "finance-pending",
+      "gardenId": "garden-1",
+      "title": "Wizyta bez zatwierdzenia",
+      "visitDetails": {
+        "zoneId": "zone-lawn",
+        "zoneName": "Trawnik",
+        "publicWork": "Wykonane prace",
+        "clientRemarks": "",
+        "revision": 1,
+        "updatedAt": 1794819600000
+      }
+    },
+    {
+      "date": "2026-11-03",
+      "time": "09:00",
+      "status": "planned",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 300,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Pielęgnacja ogrodu"
+      ],
+      "settlement": null,
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "finance-advance",
+      "gardenId": "garden-6",
+      "title": "Zaplanowana praca z zaliczką"
+    },
+    {
+      "date": "2026-11-03",
+      "time": "09:00",
+      "status": "completed",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 2000,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Pielęgnacja ogrodu"
+      ],
+      "settlement": {
+        "calculatedLaborCents": 200000,
+        "suggestedLaborCents": null,
+        "finalLaborCents": 200000,
+        "materialsCents": 0,
+        "approvedAt": 1793696400000,
+        "source": "fixed"
+      },
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "finance-other",
+      "gardenId": "garden-2",
+      "title": "Praca innego klienta"
+    },
+    {
+      "date": "2026-11-01",
+      "time": "08:00",
+      "status": "completed",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 1000,
+      "seconds": 3601,
+      "materials": [],
+      "activities": [
+        "Rabata różana"
+      ],
+      "settlement": {
+        "calculatedLaborCents": 100000,
+        "suggestedLaborCents": null,
+        "finalLaborCents": 100000,
+        "materialsCents": 0,
+        "approvedAt": 1793696400000,
+        "source": "fixed"
+      },
+      "notes": "Rabata różana",
+      "id": "care-unassigned",
+      "gardenId": "garden-1",
+      "title": "Róże w opisie bez przypisania strefy"
+    },
+    {
+      "date": "2027-06-20",
+      "time": "09:00",
+      "status": "planned",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 200,
+      "seconds": 0,
+      "materials": [],
+      "activities": [],
+      "settlement": null,
+      "notes": "Uwaga na młode róże.",
+      "id": "field-today",
+      "gardenId": "garden-1",
+      "title": "Terenowe koszenie",
+      "visitDetails": {
+        "zoneId": "zone-lawn",
+        "zoneName": "Trawnik",
+        "publicWork": "Wykonane prace",
+        "clientRemarks": "",
+        "revision": 1,
+        "updatedAt": 1794819600000
+      }
+    },
+    {
+      "date": "2027-06-21",
+      "time": "09:00",
+      "status": "planned",
+      "billing": "fixed",
+      "rate": 100,
+      "fixedPrice": 200,
+      "seconds": 0,
+      "materials": [],
+      "activities": [],
+      "settlement": null,
+      "notes": "Zlecenie testowe — dane demonstracyjne.",
+      "id": "field-next",
+      "gardenId": "garden-1",
+      "title": "Jutrzejszy żywopłot",
+      "visitDetails": {
+        "zoneId": "zone-lawn",
+        "zoneName": "Trawnik",
+        "publicWork": "Wykonane prace",
+        "clientRemarks": "",
+        "revision": 1,
+        "updatedAt": 1794819600000
+      }
+    },
+    {
+      "id": "job:task:field-care:2027-06-20:care:1",
+      "taskOccurrenceId": "task:field-care:2027-06-20:care:1",
+      "gardenId": "garden-1",
+      "title": "Nawożenie GM-005",
+      "date": "2027-06-20",
+      "time": "09:00",
+      "notes": "Dokładny opis czynności\nStrefa: Rabata różana",
+      "status": "in-progress",
+      "billing": "hourly",
+      "rate": 120,
+      "fixedPrice": 0,
+      "seconds": 0,
+      "materials": [],
+      "activities": [
+        "Nawożenie GM-005"
+      ],
+      "settlement": null
+    }
+  ],
+  "payments": [
+    {
+      "id": "finance-partial",
+      "jobId": "job-1",
+      "amountCents": 25000,
+      "receivedDate": "2026-11-02",
+      "method": "transfer",
+      "note": "Pierwsza część"
+    },
+    {
+      "id": "finance-full",
+      "jobId": "finance-paid",
+      "amountCents": 50000,
+      "receivedDate": "2026-11-03",
+      "method": "cash",
+      "note": "Pełna wpłata"
+    },
+    {
+      "id": "finance-deposit",
+      "jobId": "finance-advance",
+      "amountCents": 10000,
+      "receivedDate": "2026-11-01",
+      "method": "blik",
+      "note": "Zaliczka na planowane prace"
+    }
+  ],
+  "settings": {
+    "hourlyRate": 120
+  },
+  "timer": null,
+  "availability": [
+    {
+      "date": "2027-06-21",
+      "kind": "until",
+      "from": null,
+      "to": "14:00",
+      "reason": "pawnshop",
+      "note": "Zmiana popołudniowa",
+      "revision": 1,
+      "updatedAt": 1813492800000
+    }
+  ]
+}
