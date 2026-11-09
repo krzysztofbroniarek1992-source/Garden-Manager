@@ -763,19 +763,17 @@ test("an empty v9 dataset can close or leave the addressed new-job view without 
     data,
   );
   await page.goto("/#jobs?dialog=new-job");
-  await expect(newJob(page).getByRole("alert")).toContainText(
-    "Najpierw dodaj klienta i ogród",
-  );
+  await expect(newJob(page).getByRole("button", { name: "+ Nowy klient", exact: true })).toBeVisible();
+  await expect(newJob(page).getByRole("button", { name: "+ Nowy ogród", exact: true })).toBeDisabled();
   const before = await snapshot(page);
   await newJob(page)
-    .getByRole("button", { name: "Wróć do zleceń", exact: true })
+    .getByRole("button", { name: "Anuluj", exact: true })
     .click();
   await expect(newJob(page)).toBeHidden();
   await expect(page).toHaveURL(/#jobs$/);
   await page.goto("/#jobs?dialog=new-job");
-  await newJob(page)
-    .getByRole("button", { name: "Otwórz klientów", exact: true })
-    .click();
+  await newJob(page).getByRole("button", { name: "Zamknij okno", exact: true }).click();
+  await page.getByRole("navigation", { name: "Nawigacja główna", exact: true }).getByRole("button", { name: "Klienci", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: /^Klienci 0$/ }),
   ).toBeVisible();

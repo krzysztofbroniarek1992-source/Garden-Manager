@@ -603,13 +603,12 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
           </button>
           <button
             className="button secondary agenda-button"
-            disabled={!data.gardens.length}
             onClick={() =>
               setNewJob({
                 id: crypto.randomUUID(),
                 gardenId:
                   data.gardens.find((g) => g.id === state.gardenId)?.id ??
-                  data.gardens[0].id,
+                  data.gardens[0]?.id ?? "",
                 title: "",
                 date: selected,
                 time: "08:00",
@@ -628,7 +627,7 @@ export default function Calendar({ onOpenJobs }: { onOpenJobs?: () => void }) {
             + Nowe zlecenie na ten dzień
           </button>
           {!data.gardens.length && (
-            <p>Przed dodaniem zlecenia dodaj klienta i ogród.</p>
+            <p>Klienta i ogród możesz dodać w formularzu zlecenia.</p>
           )}
           {onOpenJobs && (
             <button

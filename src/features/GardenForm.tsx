@@ -1,25 +1,27 @@
 import { useUnsavedChanges } from '../navigation/unsaved';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import type { Garden } from '../domain';
 import { useGarden } from '../state';
 import Modal from '../components/Modal';
-export default function GardenForm({ initial, isNew, onClose }: { initial: Garden; isNew: boolean; onClose: () => void }) {
+export default function GardenForm({ initial, isNew, onClose, onSaved }: { initial: Garden; isNew: boolean; onClose: () => void; onSaved?: (saved: Garden) => void }) {
   const { data, saveGarden } = useGarden();
   const [original] = useState(initial);
   const [wasNew] = useState(isNew);
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
+  const inFlight = useRef(false);
   const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(original));
   async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!editing) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!editing || inFlight.current) return;
+    inFlight.current = true;
     try {
       if (!editing.name.trim()) throw new Error('Podaj nazwę ogrodu.');
       if (!editing.address.trim()) throw new Error('Podaj adres ogrodu.');
       if (!editing.clientId) throw new Error('Najpierw dodaj klienta w zakładce „Klienci”.');
-      await guard.save(async () => { await saveGarden({ ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() }, wasNew ? null : original);
-      onClose(); });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać ogrodu.'); }
+      const saved = { ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() };
+      await guard.save(async () => { await saveGarden(saved, wasNew ? null : original); onSaved?.(saved); onClose(); });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać ogrodu.'); } finally { inFlight.current = false; }
   }
 
  return <Modal title={wasNew ? 'Nowy ogród' : 'Edytuj ogród'} onClose={() => onClose()}>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { MaterialForm } from "./Materials";
+import { useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useGarden } from "../state";
 import {
@@ -6,6 +7,7 @@ import {
   materialsTotalCents,
   moneyCents,
   type Material,
+  type CatalogMaterial,
 } from "../domain";
 export function ActivitiesEditor({
   value,
@@ -79,6 +81,29 @@ export function MaterialsEditor({
 }) {
   const { data } = useGarden();
   const [catalogQuery, setCatalogQuery] = useState("");
+  const [creating, setCreating] = useState<CatalogMaterial | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const appendCatalog = (item: CatalogMaterial) =>
+    onChange([
+      ...(valueRef.current.length === 1 &&
+      !valueRef.current[0].name &&
+      valueRef.current[0].quantity === 1 &&
+      valueRef.current[0].unitPrice === 0 &&
+      valueRef.current[0].purchaseUnitPrice === undefined &&
+      !valueRef.current[0].catalogId
+        ? []
+        : valueRef.current),
+      {
+        id: crypto.randomUUID(),
+        catalogId: item.id,
+        name: item.name,
+        quantity: 1,
+        unit: item.unit,
+        purchaseUnitPrice: item.purchaseUnitPrice,
+        unitPrice: item.purchaseUnitPrice,
+      },
+    ]);
   const patchMaterial = <K extends keyof Material>(
     id: string,
     key: K,
@@ -130,19 +155,7 @@ export function MaterialsEditor({
               const item = data.materialCatalog.find(
                 (m) => m.id === e.target.value,
               );
-              if (item)
-                onChange([
-                  ...value,
-                  {
-                    id: crypto.randomUUID(),
-                    name: item.name,
-                    quantity: 1,
-                    unit: item.unit,
-                    purchaseUnitPrice: item.purchaseUnitPrice,
-                    unitPrice: item.purchaseUnitPrice,
-                    catalogId: item.id,
-                  },
-                ]);
+              if (item) appendCatalog(item);
             }}
           >
             <option value="">Wybierz materiał</option>
@@ -160,6 +173,24 @@ export function MaterialsEditor({
           </select>
         </label>
       </div>
+      <button
+        type="button"
+        className="button secondary quick-create"
+        onClick={() =>
+          setCreating({
+            id: crypto.randomUUID(),
+            name: "",
+            category: "",
+            unit: "l",
+            purchaseUnitPrice: 0,
+            packageName: "",
+            packageQuantity: null,
+            notes: "",
+          })
+        }
+      >
+        + Nowy materiał w katalogu
+      </button>
       <div className="materials-list">
         {value.map((item, index) => (
           <div className="material-row material-row-extended" key={item.id}>
@@ -251,6 +282,13 @@ export function MaterialsEditor({
           </div>
         ))}
       </div>
+      {creating && (
+        <MaterialForm
+          initial={creating}
+          onClose={() => setCreating(null)}
+          onSaved={appendCatalog}
+        />
+      )}
       <div className="materials-total">
         <span>Materiały razem</span>
         <strong>{materialPreview}</strong>

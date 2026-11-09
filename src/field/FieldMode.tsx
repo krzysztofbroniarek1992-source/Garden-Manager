@@ -35,10 +35,9 @@ export default function FieldMode() {
     );
   };
   const create = () => {
-    if (!data.gardens.length) return;
     setDraft({
       id: crypto.randomUUID(),
-      gardenId: data.gardens[0].id,
+      gardenId: data.gardens[0]?.id ?? "",
       title: "",
       date: localDate(new Date(now)),
       time: "08:00",
@@ -65,7 +64,6 @@ export default function FieldMode() {
         </div>
         <button
           className="button primary"
-          disabled={!data.gardens.length}
           onClick={create}
         >
           <Plus size={20} />
@@ -121,7 +119,7 @@ export default function FieldMode() {
       )}
       {!data.gardens.length && (
         <p className="report-info">
-          Najpierw dodaj klienta i ogród.
+          Klienta i ogród możesz dodać także w formularzu zlecenia.
           <button
             className="button secondary"
             onClick={() => navigation.go("clients")}
