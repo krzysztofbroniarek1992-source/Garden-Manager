@@ -22,13 +22,14 @@ export default function Materials() {
 }
 function MaterialForm({ initial, onClose }: { initial: CatalogMaterial; onClose: () => void }) {
   const { saveCatalogMaterial } = useGarden();
+  const [original] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState('');
-  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(initial));
+  const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(original));
   const patch = <K extends keyof CatalogMaterial>(key: K, value: CatalogMaterial[K]) => setDraft(current => ({ ...current, [key]: value }));
   async function submit(event: FormEvent) {
     event.preventDefault();
-    try { await guard.save(async () => {await saveCatalogMaterial(draft);onClose();}); } catch (e) { setError((e as Error).message); }
+    try { await guard.save(async () => {await saveCatalogMaterial(draft, original.name ? original : null);onClose();}); } catch (e) { setError((e as Error).message); }
   }
   return <Modal title={initial.name ? 'Edytuj materiał' : 'Nowy materiał'} onClose={onClose}><form ref={guard.ref} onSubmit={submit}>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="form-grid">
     <label className="field full-width">Nazwa materiału<input required maxLength={150} value={draft.name} onChange={e => patch('name', e.target.value)}/></label>
