@@ -14,9 +14,10 @@ export default function ZoneForm({
   onClose: () => void;
 }) {
   const { saveZone } = useGarden();
+  const [original] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const guard = useUnsavedChanges(
-    JSON.stringify(draft) !== JSON.stringify(initial),
+    JSON.stringify(draft) !== JSON.stringify(original),
   );
   const [error, setError] = useState("");
   const patch = <K extends keyof GardenZone>(key: K, value: GardenZone[K]) =>
@@ -25,7 +26,7 @@ export default function ZoneForm({
     event.preventDefault();
     try {
       await guard.save(async () => {
-        await saveZone(gardenId, draft);
+        await saveZone(gardenId, draft, original.name ? original : null);
         onClose();
       });
     } catch (e) {

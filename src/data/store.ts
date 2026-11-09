@@ -1,3 +1,4 @@
+import { assertUnchanged } from './entity-edit';
 import { controlVisitTimer, finishFieldVisit, saveVisitActivities, type TimerAction } from '../field/commands';
 import { changeAvailability, checkJobAvailability } from '../availability/commands';
 import type { AvailabilityRule, AvailabilityExpected, AvailabilityPermit } from '../availability/model';
@@ -50,7 +51,10 @@ export class GardenStore {
     this.data = next;
   }
 
-  saveClient = (client: Client) => this.commit(data => ({ ...data, clients: upsert(data.clients, { ...client, name: client.name.trim() }) }));
+  saveClient = (client: Client, expected?: Client | null) => this.commit(data => {
+    assertUnchanged(data.clients.find(c=>c.id===client.id), expected, ['id','name','phone','email','notes'], 'klienta');
+    return { ...data, clients: upsert(data.clients, { ...client, name: client.name.trim() }) };
+  });
 
   deleteClient = (id: string) => this.commit(data => {
     if (data.gardens.some(garden => garden.clientId === id)) throw new Error('Klient ma przypisane ogrody. Najpierw usuń lub przenieś jego ogrody.');
@@ -58,8 +62,9 @@ export class GardenStore {
     return { ...data, clients: data.clients.filter(client => client.id !== id), photos: data.photos.map(p => p.clientId === id ? { ...p, clientId: null, gardenId: null, zoneId: null, jobId: null, deletedAt: this.clock(), updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
-  saveGarden = (garden: Garden) => this.commit(data => {
+  saveGarden = (garden: Garden, expected?: Garden | null) => this.commit(data => {
     const existing = data.gardens.find(item => item.id === garden.id);
+    assertUnchanged(existing, expected, ['id','clientId','name','address','area','notes'], 'ogrodu');
     if (existing && existing.clientId !== garden.clientId && data.jobs.some(job => job.gardenId === garden.id && data.payments.some(payment => payment.jobId === job.id))) {
       throw new Error('Ogród ma zlecenia z płatnościami. Nie można zmienić ich właściciela.');
     }
@@ -67,9 +72,10 @@ export class GardenStore {
     return { ...data, gardens: upsert(data.gardens, { ...garden, name: garden.name.trim(), zones: existing?.zones ?? garden.zones }), photos: data.photos.map(p => p.deletedAt === null && p.gardenId === garden.id && p.clientId !== garden.clientId ? { ...p, clientId: garden.clientId, clientName: data.clients.find(c => c.id === garden.clientId)?.name.slice(0,300) ?? '', updatedAt: this.clock(), revision: p.revision + 1 } : p) };
   });
 
-  saveZone = (gardenId: string, zone: GardenZone) => this.commit(data => {
+  saveZone = (gardenId: string, zone: GardenZone, expected?: GardenZone | null) => this.commit(data => {
     const garden = data.gardens.find(item => item.id === gardenId);
     if (!garden) throw new Error('Nie znaleziono ogrodu.');
+    assertUnchanged(garden.zones.find(z=>z.id===zone.id), expected, ['id','name','type','area','length','plants','requirements','treatments'], 'strefy');
     return { ...data, gardens: upsert(data.gardens, { ...garden, zones: upsert(garden.zones, { ...zone, name: zone.name.trim() }) }) };
   });
 
@@ -78,9 +84,10 @@ export class GardenStore {
     photos: data.photos.map(p => p.gardenId === gardenId && p.zoneId === zoneId ? { ...p, zoneId: null, updatedAt: this.clock(), revision: p.revision + 1 } : p),
   }));
 
-  saveCatalogMaterial = (item: CatalogMaterial) => this.commit(data => ({ ...data,
-    materialCatalog: upsert(data.materialCatalog, { ...item, name: item.name.trim(), category: item.category.trim() }),
-  }));
+  saveCatalogMaterial = (item: CatalogMaterial, expected?: CatalogMaterial | null) => this.commit(data => {
+    assertUnchanged(data.materialCatalog.find(m=>m.id===item.id), expected, ['id','name','category','unit','purchaseUnitPrice','packageName','packageQuantity','notes'], 'materiału');
+    return { ...data, materialCatalog: upsert(data.materialCatalog, { ...item, name: item.name.trim(), category: item.category.trim() }) };
+  });
 
   /** Append to the latest job; never replace visit, settlement or payment data. */
   addJobMaterial = (jobId: string, gardenId: string, material: Material | Material[]) => this.commit(data => {

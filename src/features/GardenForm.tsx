@@ -5,9 +5,11 @@ import { useGarden } from '../state';
 import Modal from '../components/Modal';
 export default function GardenForm({ initial, isNew, onClose }: { initial: Garden; isNew: boolean; onClose: () => void }) {
   const { data, saveGarden } = useGarden();
+  const [original] = useState(initial);
+  const [wasNew] = useState(isNew);
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
-  const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(initial));
+  const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(original));
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
@@ -15,12 +17,12 @@ export default function GardenForm({ initial, isNew, onClose }: { initial: Garde
       if (!editing.name.trim()) throw new Error('Podaj nazwę ogrodu.');
       if (!editing.address.trim()) throw new Error('Podaj adres ogrodu.');
       if (!editing.clientId) throw new Error('Najpierw dodaj klienta w zakładce „Klienci”.');
-      await guard.save(async () => { await saveGarden({ ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() });
+      await guard.save(async () => { await saveGarden({ ...editing, name: editing.name.trim(), address: editing.address.trim(), notes: editing.notes.trim() }, wasNew ? null : original);
       onClose(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać ogrodu.'); }
   }
 
- return <Modal title={isNew ? 'Nowy ogród' : 'Edytuj ogród'} onClose={() => onClose()}>
+ return <Modal title={wasNew ? 'Nowy ogród' : 'Edytuj ogród'} onClose={() => onClose()}>
       <form ref={guard.ref} onSubmit={submit}>
         {error && <p className="gm-form-error" role="alert">{error}</p>}
         {!data.clients.length && <p className="gm-form-error" role="alert">Najpierw dodaj klienta w zakładce „Klienci”. Każdy ogród musi mieć właściciela.</p>}
@@ -32,7 +34,7 @@ export default function GardenForm({ initial, isNew, onClose }: { initial: Garde
           <label className="field full-width">Notatki<textarea maxLength={3000} value={editing.notes} onChange={event => setEditing({ ...editing, notes: event.target.value })} placeholder="Dostęp do ogrodu, kod do furtki, rodzaj roślin…" /></label>
         </div>
         <p className="gm-form-note">* Pole wymagane. Jeden klient może mieć przypisanych wiele ogrodów.</p>
-        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit" disabled={!data.clients.length}>{isNew ? 'Dodaj ogród' : 'Zapisz zmiany'}</button></div>
+        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit" disabled={!data.clients.length}>{wasNew ? 'Dodaj ogród' : 'Zapisz zmiany'}</button></div>
       </form>
     </Modal>;
 }

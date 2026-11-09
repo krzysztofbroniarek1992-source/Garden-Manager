@@ -5,20 +5,22 @@ import { useGarden } from '../state';
 import Modal from '../components/Modal';
 export default function ClientForm({ initial, isNew, onClose }: { initial: Client; isNew: boolean; onClose: () => void }) {
   const { saveClient } = useGarden();
+  const [original] = useState(initial);
+  const [wasNew] = useState(isNew);
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
-  const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(initial));
+  const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(original));
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
     try {
       if (!editing.name.trim()) throw new Error('Podaj imię i nazwisko lub nazwę firmy.');
-      await guard.save(async () => { await saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() });
+      await guard.save(async () => { await saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() }, wasNew ? null : original);
       onClose(); });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać klienta.'); }
   }
 
- return <Modal title={isNew ? 'Nowy klient' : 'Edytuj klienta'} onClose={() => onClose()}>
+ return <Modal title={wasNew ? 'Nowy klient' : 'Edytuj klienta'} onClose={() => onClose()}>
       <form ref={guard.ref} onSubmit={submit}>
         {error && <p className="gm-form-error" role="alert">{error}</p>}
         <div className="form-grid">
@@ -28,7 +30,7 @@ export default function ClientForm({ initial, isNew, onClose }: { initial: Clien
           <label className="field full-width">Notatki<textarea maxLength={3000} value={editing.notes} onChange={event => setEditing({ ...editing, notes: event.target.value })} placeholder="Preferowany kontakt, wskazówki, ważne informacje…" /></label>
         </div>
         <p className="gm-form-note">* Pole wymagane. Ogrody przypiszesz w zakładce „Obiekty”.</p>
-        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit">{isNew ? 'Dodaj klienta' : 'Zapisz zmiany'}</button></div>
+        <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary" type="submit">{wasNew ? 'Dodaj klienta' : 'Zapisz zmiany'}</button></div>
       </form>
     </Modal>;
 }
