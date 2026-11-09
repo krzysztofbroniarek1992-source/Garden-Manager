@@ -423,7 +423,12 @@ danych istniejącego telefonu oraz nie obchodzą podpisu. Od tej chwili zachowuj
 
 `scripts/android-camera-check.mjs` działa na prawdziwym WebView emulatora API 35,
 przez ADB/CDP. Osobna aplikacja `camera-fixture` (wyłącznie testowa, poza docelowym APK)
-realizuje zewnętrzny Intent i zapisuje prawdziwy JPEG do przyznanego URI. Scenariusze:
+realizuje zewnętrzny Intent i zapisuje prawdziwy JPEG do przyznanego URI. Android 11+
+ogranicza implicit IMAGE_CAPTURE do preinstalowanych aparatów, dlatego skrypt testowy
+instaluje fixture jako aplikację systemową **wyłącznie w jednorazowym emulatorze
+writable-system**. Ma ona osobny UID i korzysta z rzeczywistych grantów URI. Docelowy
+APK nie zawiera fixture, nie ustawia jej komponentu i **nie wymaga roota**. Skrypty
+odmawiają wykonania na fizycznym telefonie. Scenariusze:
 zwykły wynik, odtworzenie aktywności (`always_finish_activities`), zabicie procesu
 Garden Managera w tle przez `am kill` podczas pracy aparatu i po galerii, anulowanie,
 jawny zapis, poprawny cel, brak duplikatów i odświeżenie. Test śmierci procesu wymaga

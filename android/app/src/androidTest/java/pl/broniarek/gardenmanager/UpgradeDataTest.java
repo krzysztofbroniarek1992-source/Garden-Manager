@@ -25,7 +25,7 @@ public class UpgradeDataTest {
             assertTrue("Upgrade fixture must exercise non-empty "+key,definitions.getJSONArray(key).length()>0);
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
-            String expected=async(scenario,READ_STATE+"const d=JSON.parse("+JSONObject.quote(fixture)+");"+"""
+            String expected=async(scenario,"return navigator.locks.request('garden-manager-photos',async()=>{"+READ_STATE+"const d=JSON.parse("+JSONObject.quote(fixture)+");"+"""
                 d.clients[0].name='GM009 upgrade preserved';
                 const running=d.jobs.find(j=>j.id==='field-today');
                 running.status='in-progress';d.timer={jobId:running.id,startedAt:Date.now()-12600000,paused:false};
@@ -35,10 +35,13 @@ public class UpgradeDataTest {
                 const p={id:'gm009-photo',assetId:'gm009-asset',filename:'native.jpg',clientId:d.clients[0].id,gardenId:d.gardens[0].id,zoneId:null,jobId:null,clientName:d.clients[0].name,gardenName:d.gardens[0].name,zoneName:null,jobTitle:null,category:'before',description:'Upgrade fixture',capturedDate:null,addedAt:Date.now(),updatedAt:Date.now(),deletedAt:null,revision:1,mimeType:'image/jpeg',width:16,height:16,thumbnailWidth:16,thumbnailHeight:16,size:image.size,thumbnailSize:image.size,sha256:digest,thumbnailSha256:digest};
                 d.photos.push(p);
                 const photoDB=await new Promise((ok,no)=>{const r=indexedDB.open('garden-manager-photos',1);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
-                await new Promise((ok,no)=>{const t=photoDB.transaction('assets','readwrite');t.objectStore('assets').put({id:p.assetId,image,thumbnail:image,createdAt:Date.now()});t.oncomplete=ok;t.onabort=()=>no(t.error)});photoDB.close();
+                await new Promise((ok,no)=>{const t=photoDB.transaction('assets','readwrite');t.objectStore('assets').put({id:p.assetId,image,thumbnail:image,createdAt:Date.now()});t.oncomplete=ok;t.onabort=()=>no(t.error)});
                 const main=await new Promise(ok=>{const r=indexedDB.open('garden-manager-state',1);r.onsuccess=()=>ok(r.result)});
                 await new Promise((ok,no)=>{const t=main.transaction('state','readwrite');t.objectStore('state').put({...state,revision:state.revision+1,data:d},'current');t.oncomplete=ok;t.onabort=()=>no(t.error)});main.close();
+                const seeded=await new Promise((ok,no)=>{const r=photoDB.transaction('assets').objectStore('assets').get(p.assetId);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});photoDB.close();
+                if(!seeded?.image || seeded.image.size!==image.size) throw Error('Photo fixture must exist before upgrade');
                 return JSON.stringify(d);
+                });
                 """);
             assertTrue(target().getSharedPreferences("gm009-device-test",Context.MODE_PRIVATE).edit().putString("expected",expected).commit());
         }

@@ -113,9 +113,10 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -writable-system -camera-back none
           script: |
             scripts/android-device-check.sh artifacts/GardenManager-A.apk artifacts/GardenManager-Android-debug.apk artifacts/GardenManager-test.apk
-            adb install -r artifacts/Camera-fixture-test-only.apk
+            scripts/android-install-camera-fixture.sh artifacts/Camera-fixture-test-only.apk
             adb shell am instrument -w -r -e class pl.broniarek.gardenmanager.CameraFlowSetupTest pl.broniarek.gardenmanager.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/android-camera-setup.txt
             grep -q 'OK (1 test)' artifacts/android-camera-setup.txt
             node scripts/android-camera-check.mjs
