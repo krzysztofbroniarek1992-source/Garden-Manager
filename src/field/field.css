@@ -1,0 +1,280 @@
+.field-mode {
+  max-width: 1100px;
+  margin: 0 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gm-modal .field-mode .button,
+.field-mode .button,
+.field-mode input,
+.field-mode select,
+.field-mode textarea {
+  min-height: 48px;
+  font-size: 16px;
+  max-width: 100%;
+}
+.field-mode .button {
+  white-space: normal;
+  text-align: center;
+  gap: 8px;
+}
+.field-mode .icon-button {
+  min-width: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+.field-mode h1 {
+  font-size: clamp(1.3rem, 4.5vw, 1.8rem);
+  line-height: 1.25;
+  margin: 6px 0;
+}
+.field-mode h2 {
+  font-size: 1.15rem;
+  margin: 12px 0;
+}
+.field-mode section {
+  min-width: 0;
+}
+.field-mode input[type="checkbox"] {
+  min-width: 28px;
+  min-height: 28px;
+}
+.field-job-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 16px;
+  margin: 10px 0;
+  text-align: left;
+  border: 1px solid #d8e2d8;
+  border-radius: 12px;
+  background: #fff;
+  color: #203c2d;
+  gap: 7px;
+  min-height: 64px;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.field-job-row:focus-visible,
+.field-mode button:focus-visible,
+.field-mobile-entry:focus-visible {
+  outline: 3px solid #ba600b;
+  outline-offset: 3px;
+}
+.field-job-row span {
+  color: #4d6054;
+  font-size: 14px;
+}
+.field-active {
+  padding: 12px;
+  background: #eaf3e9;
+  border-radius: 14px;
+  border: 1px solid #b0c8aa;
+  margin-bottom: 18px;
+}
+.field-active h2 {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.field-visit-heading p {
+  margin: 5px 0;
+}
+.field-timer {
+  background: #eff4ee;
+  border: 1px solid #c5d6bf;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 14px 0;
+}
+.field-timer-active {
+  background: #e8f2e7;
+  border-color: #829f77;
+}
+.field-timer-state {
+  font-weight: 800;
+  font-size: 14px;
+  color: #20432c;
+  margin: 0 0 8px;
+}
+.field-time {
+  display: block;
+  font-size: clamp(2.5rem, 9vw, 4.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: 1px;
+  color: #203f2b;
+}
+.field-timer-buttons {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.field-mode .field-timer-buttons .button {
+  flex: 1;
+  min-height: 64px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.field-timer > p:last-child {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3d5842;
+  margin: 12px 0 0;
+}
+.field-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.field-quick-actions .button {
+  min-height: 64px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.field-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.field-section-tabs .button {
+  flex: 1 1 auto;
+}
+.field-section {
+  border-top: 1px solid #dce5da;
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.field-actions,
+.field-related,
+.field-completion {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.field-completion {
+  border-top: 1px solid #dce5da;
+  padding-top: 15px;
+}
+.field-completion > h2,
+.field-completion > p,
+.field-completion > .field-care,
+.field-completion > .availability-warning {
+  width: 100%;
+}
+.field-completion h2 {
+  margin: 0;
+}
+.field-activities {
+  padding-left: 24px;
+  line-height: 1.8;
+}
+.field-saved {
+  padding: 12px;
+  border-radius: 10px;
+  background: #eaf4e9;
+  color: #245329;
+}
+.field-checklist-progress {
+  padding: 12px 0;
+}
+.field-dashboard-entry {
+  margin-bottom: 16px;
+}
+.field-mobile-entry {
+  display: none;
+}
+@media (max-width: 760px) {
+  .field-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .field-mode .form-grid,
+  .field-mode .material-row-extended,
+  .field-mode .catalog-job-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .field-mode .material-row {
+    flex-wrap: wrap;
+  }
+  .field-mode .material-row .field {
+    min-width: 0;
+  }
+  .field-mode .photo-filters,
+  .field-mode .photo-pickers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .field-mode .photo-section-heading,
+  .field-mode .desk-section-heading,
+  .field-mode .materials-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .field-mode input[type="file"] {
+    width: 100%;
+    min-width: 0;
+    font-size: 13px;
+  }
+  .field-mode .field-actions > .button {
+    flex: 1 1 auto;
+  }
+  .field-mobile-entry {
+    display: flex;
+    position: fixed;
+    right: 14px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    align-items: center;
+    gap: 7px;
+    min-width: 72px;
+    min-height: 48px;
+    padding: 10px 14px;
+    border-radius: 28px;
+    border: 2px solid #fff;
+    background: #244d35;
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 3px 12px #12351e38;
+  }
+  .field-mode .page-heading {
+    align-items: stretch;
+    gap: 12px;
+  }
+  .field-mode .page-heading > .button {
+    width: 100%;
+  }
+  .field-mode .checklist-item-top {
+    flex-wrap: wrap;
+  }
+  .field-mode .checklist-item-status {
+    min-width: 0;
+    width: 100%;
+  }
+}
+@media (max-width: 360px) {
+  .field-timer {
+    padding: 12px;
+  }
+  .field-mode .button {
+    padding: 10px 9px;
+  }
+  .field-quick-actions .button {
+    font-size: 14px;
+  }
+  .field-mode .job-activity-row {
+    gap: 6px;
+  }
+  .field-mode .job-activity-row > .field {
+    min-width: 0;
+    flex: 1;
+  }
+}

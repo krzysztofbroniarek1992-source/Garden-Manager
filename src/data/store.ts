@@ -1,3 +1,4 @@
+import { controlVisitTimer, finishFieldVisit, saveVisitActivities, type TimerAction } from '../field/commands';
 import { changeAvailability, checkJobAvailability } from '../availability/commands';
 import type { AvailabilityRule, AvailabilityExpected, AvailabilityPermit } from '../availability/model';
 import { auditTimeChanges, reconcileVisitDetails, saveVisitDetails, saveVisitReport } from '../reports/commands';
@@ -82,11 +83,12 @@ export class GardenStore {
   }));
 
   /** Append to the latest job; never replace visit, settlement or payment data. */
-  addJobMaterial = (jobId: string, gardenId: string, material: Material) => this.commit(data => {
+  addJobMaterial = (jobId: string, gardenId: string, material: Material | Material[]) => this.commit(data => {
     const job = data.jobs.find(item => item.id === jobId);
     if (!job || job.gardenId !== gardenId) throw new Error('Zlecenie nie należy już do wybranego ogrodu. Wybierz je ponownie.');
-    if (job.materials.some(item => item.id === material.id)) throw new Error('Ten wynik jest już zapisany w zleceniu.');
-    return { ...data, jobs: upsert(data.jobs, { ...job, materials: [...job.materials, material] }) };
+    const items = Array.isArray(material) ? material : [material];
+    if (new Set(items.map(m=>m.id)).size !== items.length || items.some(m=>job.materials.some(item => item.id === m.id))) throw new Error('Ten wynik jest już zapisany w zleceniu.');
+    return { ...data, jobs: upsert(data.jobs, { ...job, materials: [...job.materials, ...items] }) };
   });
 
   deleteGarden = (id: string) => this.commit(data => {
@@ -256,6 +258,10 @@ export class GardenStore {
       return applyChecklist && templateId ? checklists.applyWorkTemplate(result.data,templateId,{kind: 'visit',jobId,zoneId:garden?.zones.some(z=>z.id===zoneId)?zoneId:null},this.clock()).data : result.data; }, true);
     return jobId;
   };
+
+  controlVisitTimer = (jobId: string, action: TimerAction, expected: Data['timer'], expectedEventId: string | null) => this.commit(data => controlVisitTimer(data,jobId,action,expected,this.clock(),expectedEventId),true);
+  finishFieldVisit = (jobId: string) => this.commit(data => finishFieldVisit(data,jobId,this.clock()),true);
+  saveVisitActivities = (jobId: string, gardenId: string, activities: string[], expected: string[]) => this.commit(data => saveVisitActivities(data,jobId,gardenId,activities,expected));
 
   startTimer = (jobId: string) => this.commit(data => startWork(data, jobId, this.clock()), true);
   pauseTimer = () => this.commit(data => pauseActiveTimer(data, this.clock()), true);

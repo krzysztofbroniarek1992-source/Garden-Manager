@@ -4,7 +4,7 @@ import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { NoteForm } from '../desk/Forms';
 import { newNote, type Note } from '../desk/model';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent, type RefObject } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
 import { usePhotos } from './state';
@@ -31,7 +31,7 @@ export function PhotoImage({ photo, thumbnail = false }: { photo: PhotoMetadata;
   if (error) return <span className="photo-missing">{error}</span>;
   return url ? <img src={url} alt={photo.description || photo.filename} loading={thumbnail ? 'lazy' : 'eager'} decoding="async"/> : <span className="photo-loading">Wczytywanie zdjęcia…</span>;
 }
-export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzna' }: { scope: Partial<PhotoScope>; title?: string }) {
+export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzna', cameraInputRef }: { scope: Partial<PhotoScope>; title?: string; cameraInputRef?: RefObject<HTMLInputElement | null> }) {
   const { data } = useGarden();
   const photos = usePhotos();
   const navigation=useNavigation(), memoryKey=`gallery:${JSON.stringify(scope)}`;
@@ -55,6 +55,7 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
     catch (e) { setLocalError((e as Error).message); }
   };
   return <section className="photo-gallery" aria-label={title}>
+    {cameraInputRef && <input ref={cameraInputRef} type="file" hidden aria-label="Zrób zdjęcie aparatem" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e=>{const selected=Array.from(e.target.files??[]);if(selected.length){setFiles(selected);setDetails(current=>({...current,category:'during'}));setUploading(true);}e.target.value='';}}/>}
     <div className="photo-section-heading"><div><h3>{title}</h3><p className="muted">{all.length} zdjęć · historia według daty wykonania lub dodania</p></div><button className="button secondary" disabled={photos.busy || !photos.ready} onClick={() => uploadGuard.confirm(() => setUploading(v => !v))}>Dodaj zdjęcia</button></div>
     {photos.error && <div className="photo-error" role="alert"><p>{photos.error}</p><button className="button secondary" disabled={photos.busy} onClick={() => { void photos.retry().catch(() => {}); }}>Ponów dostęp i porządkowanie zdjęć</button></div>}
     {photos.busy && <p role="status">{photos.progress}</p>}{notice && <p role="status" className="photo-notice">{notice}</p>}

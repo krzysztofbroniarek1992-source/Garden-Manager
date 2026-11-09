@@ -2,13 +2,12 @@ import { availabilityConflict, availabilityMessage, availabilitySignature, type 
 import '../availability/availability.css';
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { useRef, useState, type FormEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ActivitiesEditor, MaterialsEditor } from './VisitFields';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
-import { materialUnits, materialsTotalCents, moneyCents, type Job, type Material } from '../domain';
+import type { Job } from '../domain';
 export default function JobForm({ job, onClose, onSave, clientId: initialClientId, embedded = false }: { job: Job; clientId?: string; embedded?: boolean; onClose: () => void; onSave: (job: Job, expected?: Job, permit?: AvailabilityPermit) => void | Promise<void> }) {
   const { data, snapshot } = useGarden();
-  const [catalogQuery, setCatalogQuery] = useState('');
   const [draft, setDraft] = useState(job);
   const [original] = useState(job);
   const [wasExisting] = useState(() => data.jobs.some(item => item.id === job.id));
@@ -19,7 +18,6 @@ export default function JobForm({ job, onClose, onSave, clientId: initialClientI
   const inFlight=useRef(false);
   const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(original));
   const patch = <K extends keyof Job>(key: K, value: Job[K]) => {setDraft(current => ({ ...current, [key]: value }));if(key==='date'||key==='time')setAvailabilityPrompt(false);};
-  const patchMaterial = <K extends keyof Material>(id: string, key: K, value: Material[K]) => patch('materials', draft.materials.map(item => item.id === id ? { ...item, [key]: value } : item));
   const scheduling=!wasExisting||draft.date!==original.date||draft.time!==original.time;
   const availability= scheduling && draft.status!=='completed' ? availabilityConflict(data,draft.date,draft.time) : null;
   const persist=async(override=false)=>{
@@ -32,25 +30,13 @@ export default function JobForm({ job, onClose, onSave, clientId: initialClientI
   };
   const submit=async(event:FormEvent)=>{event.preventDefault();await persist();};
   const existing = data.jobs.some(item => item.id === job.id);
-  let materialPreview = 'Sprawdź kwoty materiałów';
-  try { materialPreview = moneyCents(materialsTotalCents(draft)); } catch { /* Invalid draft values are reported on save without crashing the form. */ }
   const contents = <form ref={guard.ref} onSubmit={submit}>
     {error && <div className="error-banner" role="alert">{error}</div>}
     {availability&&<div className="availability-warning" role="alert"><strong>Uwaga! Termin koliduje z dostępnością: {availabilityMessage(availability)}</strong><p>Sprawdzamy godzinę rozpoczęcia, nie rzeczywisty czas stopera. Możesz zmienić termin albo świadomie zrobić wyjątek.</p>{availabilityPrompt&&<div role="group" aria-label="Potwierdzenie kolizji dostępności"><button type="button" className="button secondary" onClick={()=>{setAvailabilityPrompt(false);guard.ref.current?.querySelector<HTMLInputElement>('input[type="date"]')?.focus();}}>Zmień termin</button><button type="button" className="button danger" onClick={()=>persist(true)}>Zaplanuj mimo wszystko</button></div>}</div>}
     {draft.settlement && <p className="job-frozen-price-note">To zlecenie ma zatwierdzoną należność. Edycja czasu, stawki lub materiałów nie zmieni jej samoczynnie. Nową cenę zatwierdzisz jawnie w szczegółach rozliczenia.</p>}
     <div className="form-grid"><label className="field full">Nazwa pracy<input autoFocus required maxLength={150} value={draft.title} onChange={e => patch('title', e.target.value)} placeholder="np. Jesienne porządki i pielęgnacja"/></label><label className="field full">Klient<select required value={clientId} onChange={e => { setClientId(e.target.value); const matches = data.gardens.filter(g => g.clientId === e.target.value); patch('gardenId', matches.length === 1 ? matches[0].id : ''); }}><option value="">Wybierz klienta</option>{data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="field full">Ogród i klient<select required value={draft.gardenId} onChange={e => patch('gardenId', e.target.value)}><option value="">Wybierz ogród</option>{gardens.map(g => <option key={g.id} value={g.id}>{g.name} — {data.clients.find(c => c.id === g.clientId)?.name}</option>)}</select></label><label className="field">Data<input required type="date" value={draft.date} onChange={e => patch('date', e.target.value)}/></label><label className="field">Godzina<input required type="time" value={draft.time} onChange={e => patch('time', e.target.value)}/></label><label className="field">Sposób rozliczenia<select value={draft.billing} onChange={e => patch('billing', e.target.value as Job['billing'])}><option value="hourly">Godzinowe</option><option value="fixed">Ryczałtowe</option></select></label>{draft.billing === 'hourly' ? <label className="field">Stawka (zł/h)<input required type="number" min="0" step="0.01" value={draft.rate} onChange={e => patch('rate', Number(e.target.value))}/></label> : <label className="field">Kwota ryczałtu (zł)<input required type="number" min="0" step="0.01" value={draft.fixedPrice} onChange={e => patch('fixedPrice', Number(e.target.value))}/></label>}<label className="field full">Notatka<textarea rows={2} maxLength={2000} value={draft.notes} onChange={e => patch('notes', e.target.value)} placeholder="Zakres prac, dojazd, ważne informacje…"/></label></div>
-    <section className="job-activities-editor" aria-label="Czynności w ramach jednej wizyty"><div className="materials-heading"><div><h3>Czynności podczas wizyty</h3><p className="muted">Jeden łączny czas pracy. Dodawanie czynności nie zatrzymuje stopera.</p></div><button className="button ghost" type="button" onClick={() => patch('activities', [...draft.activities, ''])}><Plus size={16}/>Dodaj czynność</button></div><div className="job-activity-fields">{draft.activities.map((activity, index) => <div className="job-activity-row" key={index}><label className="field">Czynność {index + 1}<input required maxLength={160} value={activity} onChange={event => patch('activities', draft.activities.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder="np. cięcie żywopłotu lub sprzątanie"/></label><button className="icon-button" type="button" aria-label={`Usuń czynność ${index + 1}`} onClick={() => patch('activities', draft.activities.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16}/></button></div>)}</div></section>
-    <div className="materials-heading"><div><h3>Materiały</h3><p className="muted">Rozliczane osobno, poza kosztem pracy.</p></div><button className="button ghost" type="button" onClick={() => patch('materials', [...draft.materials, { id: crypto.randomUUID(), name: '', quantity: 1, unitPrice: 0 }])}><Plus size={16}/> Dodaj</button></div>
-    <div className="form-grid catalog-job-picker"><label className="field">Szukaj materiału w katalogu<input type="search" value={catalogQuery} onChange={e => setCatalogQuery(e.target.value)}/></label><label className="field">Dodaj z katalogu<select value="" onChange={e => { const item = data.materialCatalog.find(m => m.id === e.target.value); if (item) patch('materials', [...draft.materials, { id: crypto.randomUUID(), name: item.name, quantity: 1, unit: item.unit, purchaseUnitPrice: item.purchaseUnitPrice, unitPrice: item.purchaseUnitPrice, catalogId: item.id }]); }}><option value="">Wybierz materiał</option>{data.materialCatalog.filter(m => `${m.name} ${m.category}`.toLocaleLowerCase('pl').includes(catalogQuery.toLocaleLowerCase('pl'))).map(m => <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>)}</select></label></div>
-    <div className="materials-list">{draft.materials.map((item, index) => <div className="material-row material-row-extended" key={item.id}>
-      <label className="field material-name">Materiał<input required aria-label={`Nazwa materiału ${index + 1}`} maxLength={150} placeholder="np. Nawóz" value={item.name} onChange={e => patchMaterial(item.id, 'name', e.target.value)}/></label>
-      <label className="field">Ilość<input required aria-label={`Ilość materiału ${index + 1}`} type="number" min="0.000000001" step="any" value={item.quantity} onChange={e => patchMaterial(item.id, 'quantity', Number(e.target.value))}/></label>
-      <label className="field">Jednostka<select aria-label={`Jednostka materiału ${index + 1}`} value={item.unit ?? ''} onChange={e => patchMaterial(item.id, 'unit', e.target.value ? e.target.value as Material['unit'] : undefined)}><option value="">jedn.</option>{materialUnits.map(u => <option key={u}>{u}</option>)}</select></label>
-      <label className="field">Zakup (zł / jedn.)<input aria-label={`Cena zakupu materiału ${index + 1}`} type="number" min="0" step="0.01" value={item.purchaseUnitPrice ?? ''} onChange={e => patchMaterial(item.id, 'purchaseUnitPrice', e.target.value === '' ? undefined : Number(e.target.value))}/></label>
-      <label className="field">Dla klienta (zł / jedn.)<input required aria-label={`Cena materiału ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => patchMaterial(item.id, 'unitPrice', Number(e.target.value))}/></label>
-      <button className="icon-button" type="button" aria-label={`Usuń materiał ${index + 1}`} onClick={() => patch('materials', draft.materials.filter(m => m.id !== item.id))}><Trash2 size={16}/></button>
-    </div>)}</div>
-    <div className="materials-total"><span>Materiały razem</span><strong>{materialPreview}</strong></div>
+    <ActivitiesEditor value={draft.activities} onChange={value => patch('activities',value)}/>
+    <MaterialsEditor value={draft.materials} onChange={value => patch('materials',value)}/>
     <div className="modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button type="submit" className="button primary">Zapisz zlecenie</button></div>
   </form>;
   return embedded ? contents : <Modal title={existing ? 'Edytuj zlecenie' : 'Nowe zlecenie'} onClose={onClose} wide>{contents}</Modal>;
