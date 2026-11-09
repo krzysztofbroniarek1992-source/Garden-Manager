@@ -125,11 +125,13 @@ public class GardenFilesPlugin extends Plugin {
     }
     @PluginMethod public void pickBackup(PluginCall call) {
         if(!pickerActive.compareAndSet(false,true)) {call.reject("Trwa wybór innego pliku. Poczekaj na jego zakończenie.");return;}
-        try {
-            Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                .setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult(call,intent,"picked");
-        } catch(Exception e) {pickerActive.set(false);call.reject("Nie udało się otworzyć wyboru kopii ZIP.",e);}
+        getActivity().runOnUiThread(()->{
+            try {
+                Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivityForResult(call,intent,"picked");
+            } catch(Exception e) {pickerActive.set(false);call.reject("Nie udało się otworzyć wyboru kopii ZIP.",e);}
+        });
     }
     @ActivityCallback private void picked(PluginCall call, ActivityResult result) {
         pickerActive.set(false);
