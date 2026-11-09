@@ -24,11 +24,10 @@ export default function Jobs({ history = false }: { history?: boolean }) {
   const run = async (action: () => void) => { try { await action(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Nie udało się zapisać zmian.'); } };
   const requested = navigation.route.dialog === "new-job";
   const create = () => {
-    if (!data.gardens.length) { setError('Najpierw dodaj klienta i ogród w zakładce Obiekty.'); return; }
     navigation.dialog('new-job');
   };
   useEffect(() => {
-    if (requested && data.gardens.length) setEditing({ id: crypto.randomUUID(), gardenId: data.gardens[0].id, title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null });
+    if (requested) setEditing({ id: crypto.randomUUID(), gardenId: data.gardens[0]?.id ?? '', title: '', date: localDate(), time: '08:00', status: 'planned', billing: 'hourly', rate: data.settings.hourlyRate, fixedPrice: 0, seconds: 0, materials: [], notes: '', activities: [], settlement: null });
     else setEditing(null);
   }, [requested]);
   const closeNew = () => navigation.back();
@@ -77,8 +76,7 @@ export default function Jobs({ history = false }: { history?: boolean }) {
         </div>
       </article>;
     })}{!jobs.length && <div className="card empty-state"><ReceiptText size={36}/><h2>{search ? 'Brak wyników' : history ? 'Historia dopiero się zaczyna' : 'Wszystko pod kontrolą'}</h2><p className="muted">{search ? 'Zmień wyszukiwaną frazę.' : history ? 'Tutaj zobaczysz zakończone zlecenia.' : 'Dodaj zlecenie i zaplanuj kolejny dzień pracy.'}</p>{!history && !search && <button className="button primary" onClick={create}><Plus size={16}/> Dodaj zlecenie</button>}</div>}</div>
-    {requested && !data.gardens.length && <Modal title="Nowe zlecenie" onClose={closeNew}><p role="alert" className="gm-form-error">Najpierw dodaj klienta i ogród w zakładce „Obiekty i ogrody”.</p><div className="gm-modal-actions"><button className="button secondary" onClick={closeNew}>Wróć do zleceń</button><button className="button primary" onClick={()=>navigation.go("clients")}>Otwórz klientów</button></div></Modal>}
-    {requested && data.gardens.length > 0 && editing && <JobForm job={editing} onClose={closeNew} onSave={async (job,expected,permit) => { await saveJob(job,expected,permit); closeNew(); }}/ >}
+    {requested && editing && <JobForm job={editing} onClose={closeNew} onSave={async (job,expected,permit) => { await saveJob(job,expected,permit); closeNew(); }}/ >}
     {deleting && <JobDeleteDialog jobId={deleting} onClose={()=>setDeleting(null)}/>}
   </>;
 }

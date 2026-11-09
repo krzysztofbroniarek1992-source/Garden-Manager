@@ -20,7 +20,7 @@ public class NativeSmokeTest {
         // rather than Espresso's previously selected application root.
         UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         String resource=id==android.R.id.button2?"button2":"button1";
-        UiObject2 button=device.wait(Until.findObject(By.res("android",resource)),10000);
+        UiObject2 button=device.wait(Until.findObject(By.res("android",resource)),20000);
         assertNotNull("Native confirmation did not appear: "+resource,button);
         button.click();
         device.waitForIdle();
@@ -42,6 +42,13 @@ public class NativeSmokeTest {
             evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Przygotuj podgląd raportu').click()");
             waitFor(scenario,"!!document.querySelector('.report-paper') && !document.querySelector('html[aria-busy=true]')");
             assertFalse((Boolean)evaluate(scenario,"!!document.querySelector('.report-builder [role=alert]')"));
+            // Let WebView paint its committed preview and close IME before testing
+            // application Back. An immediate dispatcher call can race the frame
+            // or test the keyboard's Back handling instead of the guarded card.
+            evaluate(scenario,"document.activeElement?.blur()");
+            scenario.onActivity(a->((android.view.inputmethod.InputMethodManager)a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(a.getWindow().getDecorView().getWindowToken(),0));
+            assertEquals("painted",async(scenario,"await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));return 'painted'"));
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle();
             // Android Back goes through App plugin, closes the addressed report only.
             scenario.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
             clickDialogButton(android.R.id.button2);

@@ -1,6 +1,6 @@
 import { useViewState } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useGarden } from '../state';
 import { materialUnits, money, type CatalogMaterial } from '../domain';
 import { formatQuantity } from '../gardening';
@@ -20,16 +20,19 @@ export default function Materials() {
     {editing && <MaterialForm initial={editing} onClose={() => setEditing(null)}/>}
   </section>;
 }
-function MaterialForm({ initial, onClose }: { initial: CatalogMaterial; onClose: () => void }) {
-  const { saveCatalogMaterial } = useGarden();
+export function MaterialForm({ initial, onClose, onSaved }: { initial: CatalogMaterial; onClose: () => void; onSaved?: (saved: CatalogMaterial) => void }) {
+  const { saveCatalogMaterial, snapshot } = useGarden();
+  const inFlight = useRef(false);
   const [original] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState('');
   const guard = useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(original));
   const patch = <K extends keyof CatalogMaterial>(key: K, value: CatalogMaterial[K]) => setDraft(current => ({ ...current, [key]: value }));
   async function submit(event: FormEvent) {
-    event.preventDefault();
-    try { await guard.save(async () => {await saveCatalogMaterial(draft, original.name ? original : null);onClose();}); } catch (e) { setError((e as Error).message); }
+    event.preventDefault(); event.stopPropagation();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try { await guard.save(async () => { await saveCatalogMaterial(draft, original.name ? original : null); const saved = (await snapshot()).materialCatalog.find(m => m.id === draft.id); if (!saved) throw new Error('Materiał nie jest już dostępny. Odśwież katalog.'); onSaved?.(saved); onClose(); }); } catch (e) { setError((e as Error).message); } finally { inFlight.current = false; }
   }
   return <Modal title={initial.name ? 'Edytuj materiał' : 'Nowy materiał'} onClose={onClose}><form ref={guard.ref} onSubmit={submit}>{error && <p role="alert" className="gm-form-error">{error}</p>}<div className="form-grid">
     <label className="field full-width">Nazwa materiału<input required maxLength={150} value={draft.name} onChange={e => patch('name', e.target.value)}/></label>

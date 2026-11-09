@@ -1,68 +1,206 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-const camera = vi.hoisted(() => ({ getPhoto: vi.fn(), pickImages: vi.fn() }));
-vi.mock("@capacitor/camera", () => ({
-  Camera: camera,
-  CameraSource: { Camera: "CAMERA" },
-  CameraResultType: { Uri: "uri" },
-}));
-import { selectPhotos } from "./camera";
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  camera.getPhoto.mockReset();
-  camera.pickImages.mockReset();
-});
-describe("Android camera adapter (mock bridge)", () => {
-  it("passes orientation and privacy options then returns a File to the existing processor", async () => {
-    camera.getPhoto.mockResolvedValue({ webPath: "local-camera" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () => new Response(new Blob(["image"], { type: "image/jpeg" })),
-      ),
-    );
-    const files = await selectPhotos("camera");
-    expect(camera.getPhoto).toHaveBeenCalledWith(
-      expect.objectContaining({
-        correctOrientation: true,
-        saveToGallery: false,
-        resultType: "uri",
-      }),
-    );
-    expect(files?.[0].type).toBe("image/jpeg");
-    expect(await files?.[0].text()).toBe("image");
-  });
-  it("uses bounded multi-selection for the gallery", async () => {
-    camera.pickImages.mockResolvedValue({
-      photos: [{ webPath: "one" }, { webPath: "two" }],
+import { describe, expect, it, vi } from "vitest";
+import {
+  CameraCoordinator,
+  type CameraPort,
+  type MediaOperation,
+} from "./camera";
+const scope = {
+  clientId: "client-1",
+  gardenId: "garden-1",
+  jobId: "job-1",
+  zoneId: null,
+};
+function setup() {
+  let current: MediaOperation | null = null;
+  let deliver!: (op: MediaOperation) => void;
+  const port: CameraPort = {
+    acquire: vi.fn(async ({ operation }) => {
+      current = { ...operation, status: "launching" };
+      return new Promise<MediaOperation>((r) => {
+        deliver = r;
+      });
+    }),
+    readPending: vi.fn(async () => ({ operation: current })),
+    acknowledge: vi.fn(async ({ id }) => {
+      if (current?.id === id) current = null;
+    }),
+  };
+  const read = vi.fn(async () => new Blob(["jpeg"], { type: "image/jpeg" }));
+  const coordinator = new CameraCoordinator(port, read);
+  const ready = (status: MediaOperation["status"] = "ready") => {
+    current = {
+      ...current!,
+      status,
+      files: [
+        {
+          uri: `file:///data/user/0/app/files/pending-media/${current!.id}/capture.jpg`,
+          name: "zdjecie.jpg",
+          mime: "image/jpeg",
+          size: 4,
+        },
+      ],
+    };
+    return current;
+  };
+  return {
+    port,
+    read,
+    coordinator,
+    ready,
+    deliver: () => deliver(current!),
+    get: () => current,
+    set: (op: MediaOperation) => {
+      current = op;
+    },
+  };
+}
+describe("camera coordinator (mock bridge, not native hardware)", () => {
+  it("persists context before delivery; normal result preserves scope and waits for explicit acknowledgement", async () => {
+    const f = setup(),
+      selected = f.coordinator.select("camera", scope, "during");
+    expect(f.get()).toMatchObject({
+      scope,
+      source: "camera",
+      category: "during",
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("photo")),
-    );
-    expect(await selectPhotos("gallery")).toHaveLength(2);
-    expect(camera.pickImages).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 20 }),
-    );
+    f.ready();
+    f.deliver();
+    const result = await selected;
+    expect(result?.files).toHaveLength(1);
+    expect(result?.operation.scope).toEqual(scope);
+    expect(f.port.acknowledge).not.toHaveBeenCalled();
+    await f.coordinator.finish(result!.operation.id);
+    expect(f.get()).toBeNull();
   });
-  it("cancellation produces no empty input", async () => {
-    camera.getPhoto.mockRejectedValue(new Error("User cancelled photos app"));
-    expect(await selectPhotos("camera")).toBeNull();
+  it("stores only identifiers, so long display names cannot invalidate a camera result", async () => {
+    const f = setup();
+    const resolved = { ...scope, clientName: "A".repeat(150), gardenName: "B".repeat(150), jobTitle: "C".repeat(150) };
+    const selected = f.coordinator.select("camera", resolved, "other");
+    expect(f.get()?.scope).toEqual(scope);
+    f.ready(); f.deliver(); expect((await selected)?.files).toHaveLength(1);
   });
-  it("permission refusal remains a visible error", async () => {
-    camera.getPhoto.mockRejectedValue(new Error("Camera permission denied"));
-    await expect(selectPhotos("camera")).rejects.toThrow("uprawnienia");
+  it("deduplicates restored event vs normal promise in either order", async () => {
+    for (const eventFirst of [true, false]) {
+      const f = setup(),
+        selected = f.coordinator.select("camera", scope, "before");
+      f.ready();
+      if (eventFirst)
+        await f.coordinator.restore({
+          pluginId: "GardenCamera",
+          methodName: "acquire",
+          success: true,
+        });
+      f.deliver();
+      await selected;
+      await f.coordinator.restore({
+        pluginId: "GardenCamera",
+        methodName: "acquire",
+        success: true,
+      });
+      expect(f.read).toHaveBeenCalledTimes(1);
+      expect(f.coordinator.recovery).toBeNull();
+    }
   });
-  it("camera failure remains a visible error", async () => {
-    camera.getPhoto.mockRejectedValue(new Error("No camera found"));
-    await expect(selectPhotos("camera")).rejects.toThrow("No camera found");
+  it("recovers after a new JS process or reload exactly once without business writes", async () => {
+    const f = setup();
+    void f.coordinator.select("gallery", scope, "other");
+    f.ready();
+    const restored = new CameraCoordinator(f.port, f.read);
+    await Promise.all([
+      restored.restore(),
+      restored.restore({
+        pluginId: "GardenCamera",
+        methodName: "acquire",
+        success: true,
+      }),
+    ]);
+    expect(restored.recovery?.operation.scope).toEqual(scope);
+    expect(restored.recovery?.files).toHaveLength(1);
+    expect(f.read).toHaveBeenCalledTimes(1);
+    await restored.finish(restored.recovery!.operation.id);
+    await restored.restore();
+    expect(restored.recovery).toBeNull();
   });
-  it("rejects unreadable local photo URIs", async () => {
-    camera.getPhoto.mockResolvedValue({ webPath: "missing" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("", { status: 404 })),
-    );
-    await expect(selectPhotos("camera")).rejects.toThrow("odczytać");
+  it("ignores unrelated plugin results, wrong operation ids and repeated handled events", async () => {
+    const f = setup();
+    void f.coordinator.select("camera", scope, "other");
+    const op = f.ready();
+    await f.coordinator.restore({
+      pluginId: "GardenFiles",
+      methodName: "pickBackup",
+      success: true,
+    });
+    await f.coordinator.accept({ ...op, id: crypto.randomUUID() });
+    expect(f.read).not.toHaveBeenCalled();
+    await f.coordinator.finish(op.id);
+    await f.coordinator.accept(op);
+    expect(f.read).not.toHaveBeenCalled();
+  });
+  it("does not let an old restored event claim the current pending result", async () => {
+    const f = setup(); void f.coordinator.select("camera", scope, "other"); f.ready();
+    await f.coordinator.restore({ pluginId: "GardenCamera", methodName: "acquire", success: true, data: {id: crypto.randomUUID()} });
+    expect(f.read).not.toHaveBeenCalled();
+  });
+  it("keeps a failed file read available for an explicit retry", async () => {
+    const f = setup(); void f.coordinator.select("camera", scope, "other"); f.ready();
+    const restored = new CameraCoordinator(f.port, f.read);
+    f.read.mockRejectedValueOnce(new Error("Odczyt przerwany"));
+    await restored.restore(); expect(restored.error).toContain("przerwany"); expect(f.get()?.status).toBe("ready");
+    await restored.restore(); expect(restored.recovery?.files).toHaveLength(1);
+    expect(restored.interrupted).toBeNull();
+  });
+  it("cancellation resolves with no files and clears the operation", async () => {
+    const f = setup(),
+      selected = f.coordinator.select("camera", scope, "other");
+    f.ready("cancelled");
+    f.deliver();
+    expect(await selected).toBeNull();
+    expect(f.get()).toBeNull();
+  });
+  it.each(["Brak uprawnienia do aparatu.", "Brak miejsca na zdjęcie."])(
+    "reports genuine native errors: %s",
+    async (message) => {
+      const f = setup(),
+        selected = f.coordinator.select("camera", scope, "other");
+      f.set({ ...f.ready("error"), message });
+      f.deliver();
+      await expect(selected).rejects.toThrow(message);
+      expect(f.get()).toBeNull();
+    },
+  );
+  it("rejects expired context without guessing its target", async () => {
+    const f = setup();
+    void f.coordinator.select("camera", scope, "other");
+    f.set({ ...f.ready(), startedAt: Date.now() - 25 * 3600000 });
+    const restarted = new CameraCoordinator(f.port, f.read);
+    await restarted.restore();
+    expect(restarted.error).toContain("wygasł");
+    expect(restarted.recovery).toBeNull();
+    expect(f.read).not.toHaveBeenCalled();
+  });
+  it("bounds multiple gallery files and raw size before fetching", async () => {
+    const f = setup(),
+      selected = f.coordinator.select("gallery", scope, "other");
+    const op = f.ready();
+    f.set({ ...op, files: Array.from({ length: 21 }, () => op.files![0]) });
+    f.deliver();
+    await expect(selected).rejects.toThrow("20");
+    expect(f.read).not.toHaveBeenCalled();
+    const g = setup(),
+      large = g.coordinator.select("camera", scope, "other");
+    const item = g.ready();
+    g.set({ ...item, files: [{ ...item.files![0], size: 26 * 1024 * 1024 }] });
+    g.deliver();
+    await expect(large).rejects.toThrow("25 MB");
+    expect(g.read).not.toHaveBeenCalled();
+  });
+  it("keeps recovery retryable when a temporary file cannot be read, without creating a photo", async () => {
+    const f = setup(),
+      selected = f.coordinator.select("camera", scope, "other");
+    f.read.mockRejectedValueOnce(new Error("Nie udało się odczytać zdjęcia."));
+    f.ready();
+    f.deliver();
+    await expect(selected).rejects.toThrow("odczytać");
+    expect(f.coordinator.recovery).toBeNull();
   });
 });

@@ -14,7 +14,7 @@ export interface PhotoMetadata extends PhotoDetails {
   size: number; thumbnailSize: number; sha256: string; thumbnailSha256: string;
 }
 export interface PhotoAsset { id: string; image: Blob; thumbnail: Blob; createdAt: number }
-export interface PhotoInput { blob: Blob; name: string }
+export interface PhotoInput { blob: Blob; name: string; /** Acquisition idempotency key; does not change the persisted schema. */ id?: string }
 export interface PreparedImage extends Omit<PhotoAsset, 'id' | 'createdAt'> {
   width: number; height: number; thumbnailWidth: number; thumbnailHeight: number; sha256: string; thumbnailSha256: string;
 }

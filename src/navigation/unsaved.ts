@@ -10,7 +10,7 @@ interface Guard {
 const guards = new Set<Guard>();
 let suppressed = 0;
 function visible(g: Guard) {
-  return !!g.element?.isConnected && !g.element.closest("[hidden], [inert]");
+  return !!g.element?.isConnected && !g.element.closest("[hidden], [inert]:not([data-modal-covered])");
 }
 export function hasUnsaved(root?: HTMLElement | null) {
   if (suppressed) return false;

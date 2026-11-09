@@ -1,23 +1,25 @@
 import { useUnsavedChanges } from '../navigation/unsaved';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import type { Client } from '../domain';
 import { useGarden } from '../state';
 import Modal from '../components/Modal';
-export default function ClientForm({ initial, isNew, onClose }: { initial: Client; isNew: boolean; onClose: () => void }) {
+export default function ClientForm({ initial, isNew, onClose, onSaved }: { initial: Client; isNew: boolean; onClose: () => void; onSaved?: (saved: Client) => void }) {
   const { saveClient } = useGarden();
   const [original] = useState(initial);
   const [wasNew] = useState(isNew);
   const [editing, setEditing] = useState(initial);
   const [error, setError] = useState('');
+  const inFlight = useRef(false);
   const guard = useUnsavedChanges(JSON.stringify(editing) !== JSON.stringify(original));
   async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!editing) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!editing || inFlight.current) return;
+    inFlight.current = true;
     try {
       if (!editing.name.trim()) throw new Error('Podaj imię i nazwisko lub nazwę firmy.');
-      await guard.save(async () => { await saveClient({ ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() }, wasNew ? null : original);
-      onClose(); });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać klienta.'); }
+      const saved = { ...editing, name: editing.name.trim(), phone: editing.phone.trim(), email: editing.email.trim(), notes: editing.notes.trim() };
+      await guard.save(async () => { await saveClient(saved, wasNew ? null : original); onSaved?.(saved); onClose(); });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Nie udało się zapisać klienta.'); } finally { inFlight.current = false; }
   }
 
  return <Modal title={wasNew ? 'Nowy klient' : 'Edytuj klienta'} onClose={() => onClose()}>

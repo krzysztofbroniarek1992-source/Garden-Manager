@@ -35,6 +35,14 @@ async function fixture() {
 }
 
 describe('zdjęcia i IndexedDB', () => {
+  it('ponowiony zapis tej samej operacji aparatu zachowuje jeden plik i metadane', async () => {
+    const { service, store, assets } = await fixture();
+    const inputs = [{ blob: jpeg, name: 'native.jpg', id: 'operation_0' }];
+    const [first, second] = await Promise.all([service.add(inputs, details), service.add(inputs, details)]);
+    expect(second).toEqual(first); expect(store.data.photos).toHaveLength(1); expect(await assets.list()).toHaveLength(1);
+    await expect(service.add(inputs, { ...details, jobId: null })).rejects.toThrow('już zapisany');
+    expect(store.data.photos).toHaveLength(1);
+  });
   it('przechowuje bloby i miniatury osobno, a w localStorage wyłącznie metadane', async () => {
     const { add, storage, store, assets } = await fixture(); const before = structuredClone(store.data);
     const [photo] = await add(); const asset = await assets.get(photo.assetId);

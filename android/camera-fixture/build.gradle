@@ -1,0 +1,8 @@
+// Emulator-only external activity. Never a dependency of the Garden Manager APK.
+apply plugin: 'com.android.application'
+android {
+    namespace 'pl.broniarek.gardenmanager.fixture'
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig { applicationId 'pl.broniarek.gardenmanager.fixture'; minSdk 24; targetSdk 36; versionCode 1; versionName '1' }
+}
+dependencies { implementation 'androidx.core:core:1.17.0' }

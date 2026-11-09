@@ -43,14 +43,14 @@ export async function mockAndroid(page: Page, data = fieldData()) {
           ].map((name) => ({ name, rtype: "promise" })),
         },
         {
-          name: "Camera",
-          methods: ["getPhoto", "pickImages"].map((name) => ({
+          name: "GardenCamera",
+          methods: ["acquire", "readPending", "acknowledge"].map((name) => ({
             name,
             rtype: "promise",
           })),
         },
       ],
-      convertFileSrc: (uri: string) => uri,
+      convertFileSrc: (uri: string) => uri.startsWith("file://") ? "/src/reports/fixtures/garden.jpg" : uri,
       nativeCallback: (
         _plugin: string,
         _method: string,
@@ -69,12 +69,14 @@ export async function mockAndroid(page: Page, data = fieldData()) {
             delete state.listeners[args.callbackId];
           return {};
         }
-        if (plugin === "Camera") {
-          if (state.deniedCamera) throw new Error("Camera permission denied");
-          if (state.cancelCamera) throw new Error("User cancelled photos app");
-          return method === "getPhoto"
-            ? { webPath: "/src/reports/fixtures/garden.jpg" }
-            : { photos: [{ webPath: "/src/reports/fixtures/garden.jpg" }] };
+        if (plugin === "GardenCamera") {
+          const read = () => JSON.parse(sessionStorage.getItem("mock-pending-media") || "null");
+          if (method === "readPending") return { operation: read() };
+          if (method === "acknowledge") { if (read()?.id === args.id) sessionStorage.removeItem("mock-pending-media"); return {}; }
+          const op = { ...args.operation, status: state.cancelCamera ? "cancelled" : state.deniedCamera ? "error" : "ready", message: "Brak uprawnienia do aparatu.", files: [{ uri: `file:///data/user/0/app/files/pending-media/${args.operation.id}/capture.jpg`, name: "zdjecie.jpg", mime: "image/jpeg", size: 100 }] };
+          sessionStorage.setItem("mock-pending-media", JSON.stringify(op));
+          if (state.holdCamera) return new Promise(resolve => { state.deliverCamera = () => resolve(op); });
+          return op;
         }
         if (method === "readNavigation")
           return {

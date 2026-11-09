@@ -17,6 +17,11 @@ export function closeTopModal() {
   return true;
 }
 let previousBodyOverflow = '';
+function syncModalStack() {
+  // React reactivates children before parents. The visible portal order, not
+  // effect execution order, determines which dialog must receive focus/Back.
+  modalStack.sort((a,b) => a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+  modalStack.forEach(element => { element.inert = element !== modalStack.at(-1); if (element.inert) element.dataset.modalCovered = "true"; else delete element.dataset.modalCovered; }); }
 
 interface ModalProps {
   title: string;
@@ -46,6 +51,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
     const element = panel.current!;
     if (!modalStack.length) previousBodyOverflow = document.body.style.overflow;
     modalStack.push(element);
+    syncModalStack();
     modalClosers.set(element, () => close.current());
     document.body.style.overflow = 'hidden';
     const focusable = () => Array.from(panel.current?.querySelectorAll<HTMLElement>(
@@ -84,6 +90,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
       const index = modalStack.indexOf(element);
       modalClosers.delete(element);
       if (index >= 0) modalStack.splice(index, 1);
+      syncModalStack();
       if (!modalStack.length) document.body.style.overflow = previousBodyOverflow;
       if (previous?.isConnected && previous.getClientRects().length) previous.focus({preventScroll:true});
     };

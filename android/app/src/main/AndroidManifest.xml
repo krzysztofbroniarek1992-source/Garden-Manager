@@ -40,7 +40,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/garden_file_paths"/>
         </provider>
     </application>
-    <queries><intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="application/pdf"/></intent></queries>
+    <queries><intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent><intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="application/pdf"/></intent></queries>
 
     <!-- Permissions -->
 
