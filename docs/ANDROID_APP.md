@@ -329,11 +329,29 @@ Fixture testowego APK można odtworzyć poleceniem
 - Jednostkowe: 605/605; JVM adaptera plików: 10/10.
 - PWA offline: 17/17, TypeScript i produkcyjny build web: zaliczone.
 - Pakiet produkcyjny bez sieci/serwera: 1/1 (Chromium, symulacja).
-- Pełny E2E i emulator: weryfikacja w toku; końcowe wyniki w opisie PR.
-- Lokalne APK A/B rzeczywiście zbudowane; podpis i zawartość sprawdzone.
+- Pełny E2E Chromium: **324/324**, jeden kompletny zielony przebieg.
+- Emulator Android API 35 w GitHub Actions: **4/4 wykonania** (3 różne testy):
+  natywny start/PDF offline/Back, przygotowanie pełnej fixture, porównanie po
+  aktualizacji A → B i ponowne porównanie po force-stop. Oba odczyty zachowały
+  cały zestaw v10, SHA zdjęcia/miniatury oraz aktywny timer.
+- Weryfikacja emulatora: [zielony przebieg](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/42594146864),
+  kod aplikacji `febe20ec87c95863652e471fdc84ab1f440a4bcc`.
+- Android lint: 0 błędów, 29 ostrzeżeń dotyczących ikon/zasobów, kolejności
+  manifestu, reguł ekstrakcji kopii systemowych i warunku SDK. Nie blokują
+  debug APK; nie są deklaracją pełnego odbioru wizualnego na każdym urządzeniu.
+- Czyste `npm ci`, TypeScript, produkcyjne buildy web/Android, `git diff --check`,
+  kontrola zawartości APK, podpis apksigner i zipalign: zaliczone.
+- Lokalne oraz CI APK A/B rzeczywiście zbudowane. Sprawdzony plik CI B ma
+  9 257 993 bajty i SHA256
+  `84a58767d1b2e840169f37f916241059c650cbd5fee7353c06406169bde61753`.
+  [Artefakt APK](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/42594146864/artifacts/13661464923)
+  zawiera parę A/B ze zgodnym podpisem. Późniejsze buildy mają osobne artefakty;
+  używaj jednej pary z tego samego przebiegu i sprawdź opis PR dla najnowszego pliku.
+- Testy aparatu/galerii, importu ZIP i operacji plików w Chromium są symulacją
+  bridge. Testy JVM sprawdzają rzeczywiste operacje na plikach, ale nie aparat,
+  systemowy picker ani zewnętrzny czytnik PDF. Te integracje wymagają telefonu.
 - Fizyczny telefon: niewykonane; lista odbioru powyżej.
 
-
-Rekomendacja dotyczy wersji **testowej**. Nie jest deklaracją gotowości
+Rekomendacja: gotowe do przeglądu i scalenia jako wersja **testowa** Androida. Nie jest deklaracją gotowości
 produkcyjnej przed przejściem wymaganych prób na fizycznym telefonie i ustaleniem
 stałego podpisywania kolejnych wydań.
