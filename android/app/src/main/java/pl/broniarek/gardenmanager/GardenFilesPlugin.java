@@ -67,13 +67,13 @@ public class GardenFilesPlugin extends Plugin {
     }
     private interface Work { void run() throws Exception; }
     @PluginMethod public void begin(PluginCall call) { work(call,()->{
-        String token=stages.begin(call.getString("name","garden-manager"),call.getString("mime",""),call.getLong("size",-1L));
+        String token=stages.begin(call.getString("name","garden-manager"),call.getString("mime",""),call.getInt("size",-1).longValue());
         JSObject out=new JSObject();out.put("token",token);call.resolve(out);
     }); }
     @PluginMethod public void append(PluginCall call) { work(call,()->{
         String encoded=call.getString("base64","");
         if(encoded.length()>350000) throw new IOException("Fragment pliku jest zbyt duży.");
-        stages.append(call.getString("token"),call.getLong("offset",-1L),Base64.decode(encoded,Base64.DEFAULT));call.resolve();
+        stages.append(call.getString("token"),call.getInt("offset",-1).longValue(),Base64.decode(encoded,Base64.DEFAULT));call.resolve();
     }); }
     @PluginMethod public void discard(PluginCall call) { work(call,()->{stages.discard(call.getString("token"));call.resolve();}); }
     @PluginMethod public void finish(PluginCall call) { work(call,()->{

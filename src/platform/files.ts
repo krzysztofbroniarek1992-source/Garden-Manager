@@ -25,7 +25,13 @@ export interface NativeFiles {
     name?: string;
   }>;
 }
-const native = registerPlugin<NativeFiles>("GardenFiles");
+export const gardenFiles = registerPlugin<
+  NativeFiles & {
+    releasePhoto(options: { uri: string }): Promise<void>;
+    readNavigation(): Promise<{ address?: string }>;
+    saveNavigation(options: { address: string }): Promise<void>;
+  }
+>("GardenFiles");
 export const MAX_NATIVE_FILE = 200 * 1024 * 1024;
 const CHUNK = 192 * 1024;
 
@@ -34,7 +40,7 @@ export async function nativeFile(
   blob: Blob,
   name: string,
   action: FileAction,
-  port: NativeFiles = native,
+  port: NativeFiles = gardenFiles,
 ) {
   if (blob.size > MAX_NATIVE_FILE)
     throw new Error("Plik przekracza limit 200 MB.");
@@ -78,7 +84,7 @@ export async function deliverFile(
   return true;
 }
 export async function pickBackup(
-  port: NativeFiles = native,
+  port: NativeFiles = gardenFiles,
 ): Promise<File | null> {
   const result = await port.pickBackup();
   if (result.cancelled) return null;

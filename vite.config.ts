@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ mode }) => ({
+  // Generated native HTML and test traces must never reload an open form.
+  server: { watch: { ignored: ['**/android/**', '**/test-results*/**', '**/playwright-report/**', '**/artifacts/**'] } },
   // Native assets are installed atomically with the APK; no second SW cache.
   plugins: [react(), tailwindcss(), ...(mode === 'android' ? [] : [VitePWA({
     registerType: 'autoUpdate',

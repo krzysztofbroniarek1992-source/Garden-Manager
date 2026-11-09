@@ -1,9 +1,5 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { gardenFiles, isAndroid } from "./files";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
-
-const filesPort = registerPlugin<{
-  releasePhoto(options: { uri: string }): Promise<void>;
-}>("GardenFiles");
 
 /** Selection only: the existing photo service validates, compresses and commits. */
 export async function selectPhotos(
@@ -52,8 +48,8 @@ export async function selectPhotos(
           }),
         );
       } finally {
-        if (photo.path && Capacitor.getPlatform() === "android")
-          await filesPort.releasePhoto({ uri: photo.path }).catch(() => {});
+        if (photo.path && isAndroid())
+          await gardenFiles.releasePhoto({ uri: photo.path }).catch(() => {});
       }
     }
     return files;
