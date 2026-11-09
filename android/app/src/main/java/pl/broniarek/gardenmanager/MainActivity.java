@@ -11,6 +11,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override public void onCreate(Bundle savedInstanceState) {
         registerPlugin(GardenFilesPlugin.class);
+        registerPlugin(GardenCameraPlugin.class);
         super.onCreate(savedInstanceState);
         // Android 15/16 enforces edge-to-edge. Keep both system bars and IME
         // outside the WebView so existing fixed toolbars/modal layouts stay usable.

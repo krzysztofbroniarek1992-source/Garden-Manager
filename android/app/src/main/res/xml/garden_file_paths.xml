@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths><cache-path name="exports" path="garden-exports/"/></paths>
+<paths><cache-path name="exports" path="garden-exports/"/><files-path name="pending_media" path="pending-media/"/></paths>

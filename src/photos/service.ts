@@ -18,7 +18,13 @@ export class PhotoService {
     for (const [index, input] of inputs.entries()) { progress?.(`Przygotowywanie zdjęcia ${index + 1} z ${inputs.length}…`); prepared.push(await this.processor.process(input)); }
     return locked(async () => {
       const data = await this.store.snapshot(), scope = resolvePhotoScope(data, details), now = this.clock();
-      const metadata: PhotoMetadata[] = prepared.map((p, index) => ({ id: crypto.randomUUID(), assetId: crypto.randomUUID(), filename: inputs[index].name.slice(0, 200), ...details, ...scope,
+      if (inputs.some(input => input.id && !/^[A-Za-z0-9_-]{1,100}$/.test(input.id))) throw new Error('Nieprawidłowy identyfikator zdjęcia.');
+      const existing = inputs.map(input => input.id ? data.photos.find(p => p.id === input.id) : undefined);
+      if (existing.some(Boolean)) {
+        if (!existing.every((p, i) => p && p.deletedAt === null && p.sha256 === prepared[i].sha256 && (['clientId','gardenId','zoneId','jobId'] as const).every(key => p[key] === scope[key]))) throw new Error('Ten wybór zdjęć został już zapisany. Odśwież dokumentację.');
+        return existing as PhotoMetadata[];
+      }
+      const metadata: PhotoMetadata[] = prepared.map((p, index) => ({ id: inputs[index].id ?? crypto.randomUUID(), assetId: crypto.randomUUID(), filename: inputs[index].name.slice(0, 200), ...details, ...scope,
         addedAt: now, updatedAt: now, deletedAt: null, revision: 1, mimeType: 'image/jpeg', width: p.width, height: p.height, thumbnailWidth: p.thumbnailWidth, thumbnailHeight: p.thumbnailHeight,
         size: p.image.size, thumbnailSize: p.thumbnail.size, sha256: p.sha256, thumbnailSha256: p.thumbnailSha256 }));
       const assets = prepared.map((p, index) => ({ id: metadata[index].assetId, image: p.image, thumbnail: p.thumbnail, createdAt: now }));

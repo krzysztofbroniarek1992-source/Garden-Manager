@@ -1,3 +1,5 @@
+import RecoveredPhotos from "./RecoveredPhotos";
+import { cameraCoordinator } from "./camera";
 import { App } from "@capacitor/app";
 import type { PluginListenerHandle } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
@@ -68,25 +70,38 @@ export default function AndroidLifecycle() {
       }),
     );
     void listen(
-      App.addListener("appRestoredResult", () => {
-        setNotice(
-          "Android odtworzył wynik wyboru pliku po zamknięciu procesu. Otwórz właściwą wizytę i wybierz plik ponownie. Nie dodano żadnych danych automatycznie.",
-        );
+      App.addListener("appRestoredResult", (event) => {
+        void cameraCoordinator
+          .restore(event)
+          .catch((error) => setNotice((error as Error).message));
       }),
     );
+    const recover = () => {
+      void cameraCoordinator
+        .restore()
+        .catch((error) => setNotice((error as Error).message));
+    };
+    recover();
+    window.addEventListener("focus", recover);
     return () => {
       disposed = true;
+      window.removeEventListener("focus", recover);
       handles.forEach((h) => {
         void h.remove();
       });
     };
   }, []);
-  return notice ? (
-    <div className="native-notice" role="status">
-      {notice}
-      <button className="button ghost" onClick={() => setNotice("")}>
-        OK
-      </button>
-    </div>
-  ) : null;
+  return (
+    <>
+      <RecoveredPhotos />
+      {notice ? (
+        <div className="native-notice" role="status">
+          {notice}
+          <button className="button ghost" onClick={() => setNotice("")}>
+            OK
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
 }
