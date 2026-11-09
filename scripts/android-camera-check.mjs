@@ -131,6 +131,7 @@ try {
     const before = await state(page);
     const gallery = mode === "gallery-process";
     if (gallery) {
+      await page.getByRole('navigation', {name:'Sekcje wizyty terenowej',exact:true}).getByRole('button',{name:'Zdjęcia',exact:true}).click();
       await page
         .getByRole("button", { name: "Dodaj zdjęcia", exact: true })
         .click();
