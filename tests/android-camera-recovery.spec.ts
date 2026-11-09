@@ -138,3 +138,15 @@ test("unrelated restored file operation produces no process-death warning", asyn
   await expect(page.locator(".native-notice")).toBeHidden();
   expect(await snapshot(page)).toEqual(before);
 });
+
+test('unmounting a gallery keeps an unconfirmed native selection available without writing it',async({page})=>{
+  await mockAndroid(page);await page.goto(fieldURL);
+  await page.getByRole('button',{name:'Zrób zdjęcie',exact:true}).click();await settled(page);
+  await expect(page.getByText(/Wybrano 1 zdjęć/)).toBeVisible();
+  page.once('dialog',d=>d.accept());
+  await page.getByRole('navigation',{name:'Nawigacja główna',exact:true}).getByRole('button',{name:'Pulpit',exact:true}).click();
+  const recovered=page.getByRole('dialog',{name:'Wybrane zdjęcia',exact:true});await expect(recovered).toBeVisible();
+  expect((await snapshot(page)).photos).toHaveLength(0);await expect(recovered.getByLabel(/^Zlecenie zdjęcia/)).toHaveValue('field-today');
+  await recovered.getByRole('button',{name:'Zapisz zdjęcia',exact:true}).click();await expect(recovered).toBeHidden();await settled(page);
+  expect((await snapshot(page)).photos).toHaveLength(1);
+});
