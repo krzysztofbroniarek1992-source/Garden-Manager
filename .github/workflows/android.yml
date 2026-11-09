@@ -15,6 +15,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   android:
     runs-on: ubuntu-24.04
@@ -87,11 +90,11 @@ jobs:
         if: always()
         run: |
           mkdir -p artifacts
-          timeout 15s adb logcat -d > artifacts/android-logcat.txt || true
+          if [ ! -s artifacts/android-logcat.txt ]; then timeout 15s adb logcat -d > artifacts/android-logcat.txt || true; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Android-test-reports
           path: |
             android/app/build/reports/tests/
-            artifacts/android-logcat.txt
+            artifacts/android-*
