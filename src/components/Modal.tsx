@@ -8,6 +8,14 @@ import { useContext } from 'react';
 import { useCardNavigation } from '../features/card-navigation';
 
 const modalStack: HTMLElement[] = [];
+const modalClosers = new Map<HTMLElement, () => void>();
+/** Android Back uses exactly the same close and unsaved/pending guards as X/Escape. */
+export function closeTopModal() {
+  const element = modalStack.at(-1);
+  if (!element) return false;
+  modalClosers.get(element)?.();
+  return true;
+}
 let previousBodyOverflow = '';
 
 interface ModalProps {
@@ -38,6 +46,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
     const element = panel.current!;
     if (!modalStack.length) previousBodyOverflow = document.body.style.overflow;
     modalStack.push(element);
+    modalClosers.set(element, () => close.current());
     document.body.style.overflow = 'hidden';
     const focusable = () => Array.from(panel.current?.querySelectorAll<HTMLElement>(
       'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex="0"]',
@@ -73,6 +82,7 @@ export default function Modal({ title, onClose, children, wide, fullScreen=false
       if (element.getClientRects().length) scroll.current=element.scrollTop;
       document.removeEventListener('keydown', handleKey);
       const index = modalStack.indexOf(element);
+      modalClosers.delete(element);
       if (index >= 0) modalStack.splice(index, 1);
       if (!modalStack.length) document.body.style.overflow = previousBodyOverflow;
       if (previous?.isConnected && previous.getClientRects().length) previous.focus({preventScroll:true});

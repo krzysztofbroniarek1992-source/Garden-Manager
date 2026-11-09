@@ -8,3 +8,9 @@ playwright-report/
 test-results/
 test-results-pwa/
 *.local
+
+# Native build products and private signing keys
+*.keystore
+*.jks
+artifacts/
+test-results-android/

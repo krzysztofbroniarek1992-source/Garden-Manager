@@ -1,10 +1,12 @@
+import { isAndroid } from '../platform/files';
+import { selectPhotos } from '../platform/camera';
 import { pendingWrite } from "../data/pending";
 import DocumentationLinks from "../documentation/DocumentationLinks";
 import { useNavigation, useViewState } from "../navigation/Navigation";
 import { useUnsavedChanges } from '../navigation/unsaved';
 import { NoteForm } from '../desk/Forms';
 import { newNote, type Note } from '../desk/model';
-import { useEffect, useId, useState, type FormEvent, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import Modal from '../components/Modal';
 import { useGarden } from '../state';
 import { usePhotos } from './state';
@@ -44,6 +46,21 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
   const [beforeId, setBeforeId] = useViewState(`${memoryKey}:beforeId`,''), [afterId, setAfterId] = useViewState(`${memoryKey}:afterId`,''), [comparing, setComparing] = useState(false);
   const uploadGuard = useUnsavedChanges(uploading && (files.length > 0 || details.description !== ''));
   const inputId = useId();
+  const selectionLock = useRef(false);
+  const [selecting, setSelecting] = useState(false);
+  const chooseNative = (source: 'camera' | 'gallery', during = false) => {
+    if (selectionLock.current) return;
+    selectionLock.current = true; setSelecting(true);
+    setLocalError('');
+    void pendingWrite(async () => {
+      const selected = await selectPhotos(source);
+      if (!selected?.length) return;
+      setFiles(selected);
+      if (during) setDetails(current => ({ ...current, category: 'during' }));
+      setUploading(true);
+    }).catch(error => setLocalError((error as Error).message)).finally(() => { selectionLock.current = false; setSelecting(false); });
+  };
+
   const all = data.photos.filter(p => matchesPhotoScope(p, scope));
   const zones = data.gardens.filter(g => (!scope.clientId || g.clientId === scope.clientId) && (!scope.gardenId || g.id === scope.gardenId)).flatMap(g => g.zones);
   const matches = all.filter(p => (!category || p.category === category) && (!from || photoDate(p) >= from) && (!to || photoDate(p) <= to) && (!zone || (zone === 'none' ? p.zoneId === null : p.zoneId === zone)))
@@ -55,12 +72,14 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
     catch (e) { setLocalError((e as Error).message); }
   };
   return <section className="photo-gallery" aria-label={title}>
-    {cameraInputRef && <input ref={cameraInputRef} type="file" hidden aria-label="Zrób zdjęcie aparatem" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e=>{const selected=Array.from(e.target.files??[]);if(selected.length){setFiles(selected);setDetails(current=>({...current,category:'during'}));setUploading(true);}e.target.value='';}}/>}
+    {cameraInputRef && <input ref={cameraInputRef} disabled={selecting} type="file" hidden aria-label="Zrób zdjęcie aparatem" accept="image/jpeg,image/png,image/webp" capture="environment" onClick={e=>{if(isAndroid()){e.preventDefault();chooseNative('camera',true);}}} onChange={e=>{const selected=Array.from(e.target.files??[]);if(selected.length){setFiles(selected);setDetails(current=>({...current,category:'during'}));setUploading(true);}e.target.value='';}}/>}
     <div className="photo-section-heading"><div><h3>{title}</h3><p className="muted">{all.length} zdjęć · historia według daty wykonania lub dodania</p></div><button className="button secondary" disabled={photos.busy || !photos.ready} onClick={() => uploadGuard.confirm(() => setUploading(v => !v))}>Dodaj zdjęcia</button></div>
     {photos.error && <div className="photo-error" role="alert"><p>{photos.error}</p><button className="button secondary" disabled={photos.busy} onClick={() => { void photos.retry().catch(() => {}); }}>Ponów dostęp i porządkowanie zdjęć</button></div>}
     {photos.busy && <p role="status">{photos.progress}</p>}{notice && <p role="status" className="photo-notice">{notice}</p>}
+    {selecting && <p role="status">Oczekiwanie na aparat lub wybór zdjęć…</p>}
+    {!uploading && localError && <p className="gm-form-error" role="alert">{localError}</p>}
     {uploading && <form ref={uploadGuard.ref} className="photo-upload" onSubmit={submit}><h4>Nowe zdjęcia</h4><p className="gm-form-note">JPEG, PNG lub WebP, do 25 MB na plik i 20 zdjęć jednocześnie. Duże zdjęcia zmniejszamy; w pełnej kopii będą zapisane ich przygotowane wersje.</p>
-      <div className="photo-pickers"><label className="field">Zdjęcia z urządzenia<input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => setFiles(Array.from(e.target.files ?? []))}/></label><label className="field">Aparat telefonu<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => setFiles(Array.from(e.target.files ?? []))}/></label></div>
+      <div className="photo-pickers"><label className="field">Zdjęcia z urządzenia<input id={inputId} disabled={selecting} type="file" accept="image/jpeg,image/png,image/webp" multiple onClick={e=>{if(isAndroid()){e.preventDefault();chooseNative('gallery');}}} onChange={e => setFiles(Array.from(e.target.files ?? []))}/></label><label className="field">Aparat telefonu<input disabled={selecting} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onClick={e=>{if(isAndroid()){e.preventDefault();chooseNative('camera');}}} onChange={e => setFiles(Array.from(e.target.files ?? []))}/></label></div>
       <p className="muted">{files.length ? `Wybrano ${files.length} zdjęć: ${files.map(f => f.name).join(', ')}` : 'Wybierz pliki lub użyj aparatu, jeśli przeglądarka go udostępnia.'}</p>
       <div className="form-grid"><PhotoFields value={details} onChange={setDetails}/><PhotoScopeFields value={details} onChange={setDetails}/></div>
       {localError && localError !== photos.error && <p className="gm-form-error" role="alert">{localError}</p>}<div className="photo-actions"><button className="button secondary" type="button" disabled={photos.busy} onClick={() => uploadGuard.confirm(() => { setUploading(false); setFiles([]); })}>Anuluj dodawanie</button><button className="button primary" type="submit" disabled={photos.busy || !files.length}>Zapisz zdjęcia</button></div>
