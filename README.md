@@ -71,7 +71,9 @@ ogrody, zlecenia, czynności, materiały, płatności, ustawienia i aktywny stop
 Przed zapisem nowego formatu zachowuje dokładną kopię źródła:
 `garden-manager:backup:v2` dla 0.2 lub `garden-manager:backup:v1` dla 0.1.
 Kopie nie są nadpisywane przy kolejnych uruchomieniach. Klucz kopii localStorage
-pozostaje `garden-manager:v1`, a format eksportu i zapisu ma numer 9 (wersja 0.3.6).
+pozostaje `garden-manager:v1`, a aktualny format eksportu i zapisu to **v10**
+(po GM-005). Zapis v9 jest obsługiwany i zachowywany przed migracją; zasady
+opisuje [docs/CARE_SCHEDULES.md](docs/CARE_SCHEDULES.md).
 Główny zapis danych chronią teraz transakcje `garden-manager-state` w IndexedDB.
 Błąd kopii lub migracji blokuje zapis zamiast zastępować dane przykładowymi
 rekordami. Eksport JSON obejmuje dane i metadane zdjęć. Pełne pliki zdjęć
@@ -701,3 +703,11 @@ Widok „Tryb terenowy” łączy istniejącą wizytę, stoper, czynności, apar
 notatki, checklisty i materiały. Korzysta z formatu v10 i atomowego IndexedDB;
 otwarcie nie uruchamia pomiaru. Instrukcja, audyt wykorzystanych komponentów,
 zasady bezpieczeństwa i ograniczenia: [docs/FIELD_MODE.md](docs/FIELD_MODE.md).
+
+### GM-008 — Przegląd przed wydaniem
+
+Aktualny stan funkcji, potwierdzone poprawki edytorów, wyniki regresji oraz
+warunki przygotowania pełnych wersji Android i Windows opisuje
+[docs/PRE_RELEASE_AUDIT.md](docs/PRE_RELEASE_AUDIT.md). Samodzielny import JSON
+nie jest udostępniony w GUI; do przenoszenia i odtwarzania danych ze zdjęciami
+służy pełny ZIP. Tryb terenowy jest dodatkiem do wszystkich modułów aplikacji.
