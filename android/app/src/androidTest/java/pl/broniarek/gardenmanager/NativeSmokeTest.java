@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import static org.junit.Assert.*;
 import static androidx.test.espresso.Espresso.onView;
+import androidx.test.espresso.NoMatchingViewException;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.action.ViewActions.click;
 import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
@@ -13,6 +14,18 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 /** Real WebView/bridge test. Run with airplane mode/network disabled by the device script. */
 @RunWith(AndroidJUnit4.class)
 public class NativeSmokeTest {
+    private void clickDialogButton(int id) throws Exception {
+        long until=System.currentTimeMillis()+10000;
+        // The JS/native bridge delivers Back asynchronously; Espresso's UI queue
+        // being idle does not mean the WebView has opened its JS confirm yet.
+        while(true) {
+            try {onView(withId(id)).perform(click());return;}
+            catch(NoMatchingViewException error) {
+                if(System.currentTimeMillis()>=until) throw error;
+                Thread.sleep(100);
+            }
+        }
+    }
     @Test public void packagedOfflineAppAndNativeBridge() throws Exception {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
@@ -32,10 +45,10 @@ public class NativeSmokeTest {
             assertFalse((Boolean)evaluate(scenario,"!!document.querySelector('.report-builder [role=alert]')"));
             // Android Back goes through App plugin, closes the addressed report only.
             scenario.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
-            onView(withId(android.R.id.button2)).perform(click());
+            clickDialogButton(android.R.id.button2);
             waitFor(scenario,"!!document.querySelector('.report-paper')");
             scenario.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
-            onView(withId(android.R.id.button1)).perform(click());
+            clickDialogButton(android.R.id.button1);
             waitFor(scenario,"!document.querySelector('.report-paper')");
             scenario.recreate();ready(scenario);
             assertEquals("https://localhost",evaluate(scenario,"location.origin"));
