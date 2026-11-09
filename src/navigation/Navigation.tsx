@@ -40,6 +40,7 @@ function readEntry(value: unknown): Entry | null {
     : null;
 }
 interface Navigation {
+  canGoBack: boolean;
   route: Route;
   invalid: boolean;
   open(card: Card): void;
@@ -298,6 +299,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   const value: Navigation = {
+    canGoBack: entry.index > 0 || entry.route.cards.length > 0 || !!entry.route.dialog,
     route: entry.route,
     invalid,
     memory: memory.current,

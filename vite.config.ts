@@ -3,8 +3,11 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), VitePWA({
+export default defineConfig(({ mode }) => ({
+  // Generated native HTML and test traces must never reload an open form.
+  server: { watch: { ignored: ['**/android/**', '**/test-results*/**', '**/playwright-report/**', '**/artifacts/**'] } },
+  // Native assets are installed atomically with the APK; no second SW cache.
+  plugins: [react(), tailwindcss(), ...(mode === 'android' ? [] : [VitePWA({
     registerType: 'autoUpdate',
     includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
     manifest: {
@@ -13,10 +16,10 @@ export default defineConfig({
       icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
     },
     workbox: { globPatterns: ['**/*.{js,css,html,png,svg,woff2,ttf}'], navigateFallback: '/index.html' },
-  })],
+  })])],
   build: { rollupOptions: { output: {
     // Keep the growing application bundle small; PWA also precaches this chunk.
     manualChunks: id => /\/node_modules\/(react(?:-dom)?|scheduler)\//.test(id) ? 'react-vendor' : id.includes('/node_modules/@pdf-lib/fontkit/') ? 'pdf-fontkit' : id.includes('/node_modules/pdf-lib/') ? 'pdf-engine' : undefined,
   } } },
   test: { include: ['src/**/*.test.ts'], environment: 'node' },
-})
+}))

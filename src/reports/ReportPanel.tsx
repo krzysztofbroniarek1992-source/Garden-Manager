@@ -1,3 +1,4 @@
+import { deliverFile, isAndroid, type FileAction } from '../platform/files';
 import DocumentationLinks from "../documentation/DocumentationLinks";
 import { useNavigation } from "../navigation/Navigation";
 import { pendingWrite } from "../data/pending";
@@ -19,19 +20,8 @@ import { ReportService, type PreparedReport } from './service';
 import './reports.css';
 const filename = (record: VisitReport) =>
   `${record.number.replaceAll('/', '-')}-v${record.version}.pdf`;
-function download(bytes: Uint8Array, name: string) {
-  const blob = new Blob([bytes.slice().buffer as ArrayBuffer], {
-      type: 'application/pdf',
-    }),
-    url = URL.createObjectURL(blob),
-    a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+const pdfBlob = (bytes: Uint8Array) => new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'application/pdf' });
+async function download(bytes: Uint8Array, name: string) { return deliverFile(pdfBlob(bytes), name); }
 export function PublicReportPreview({ report }: { report: VisitReport }) {
   const { data } = useGarden(),
     s = report.snapshot,
@@ -198,7 +188,7 @@ export default function ReportPanel({
     setError('');
     setNotice('');
     try {
-      await fn();
+      await pendingWrite(fn);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -367,7 +357,7 @@ export default function ReportPanel({
                 className="button secondary"
                 disabled={!bytes || (!saved && !historical)}
                 title={!saved && !historical ? 'Najpierw zapisz raport, aby zatwierdzić numer dokumentu.' : undefined}
-                onClick={() => setShowPdf((v) => !v)}
+                onClick={() => { if (isAndroid() && bytes) void run(async () => { await deliverFile(pdfBlob(bytes), filename(record!), 'open'); }); else setShowPdf((v) => !v); }}
               >
                 {showPdf ? 'Ukryj plik PDF' : 'Pokaż plik PDF'}
               </button>
@@ -379,10 +369,8 @@ export default function ReportPanel({
                     if (!bytes) return;
                     if (!historical && prepared)
                       await pendingWrite(()=>service.save(jobId, prepared!));
-                    download(bytes, filename(record));
-                    setNotice(
-                      'Raport zapisany w historii i przygotowany do pobrania.',
-                    );
+                    const exported = await download(bytes, filename(record));
+                    setNotice(exported ? 'Raport zapisany w historii i przygotowany do pobrania.' : 'Raport jest zapisany w historii. Anulowano zapis pliku; można pobrać tę samą wersję ponownie.');
                   })
                 }
               >
@@ -390,8 +378,12 @@ export default function ReportPanel({
                   ? 'Pobierz tę wersję PDF'
                   : 'Zapisz raport i pobierz PDF'}
               </button>
+              {isAndroid() && (saved || historical) && bytes && (['open', 'share'] as FileAction[]).map(action => <button key={action} className="button secondary" disabled={busy} onClick={() => void run(async () => {
+                await deliverFile(pdfBlob(bytes), filename(record), action);
+                setNotice(action === 'open' ? 'Przekazano zapisaną wersję do czytnika PDF.' : 'Otwarto systemowy panel udostępniania zapisanej wersji.');
+              })}>{action === 'open' ? 'Otwórz PDF w Androidzie' : 'Udostępnij PDF'}</button>)}
             </div>
-            {showPdf && url && (
+            {!isAndroid() && showPdf && url && (
               <iframe
                 title="Podgląd pliku PDF"
                 className="report-pdf-frame"
@@ -435,9 +427,9 @@ export default function ReportPanel({
                     aria-label={`Pobierz ponownie wersję ${r.version}`}
                     onClick={() =>
                       void run(async () => {
-                        download(await service.regenerate(r), filename(r));
+                        const exported = await download(await service.regenerate(r), filename(r));
                         setNotice(
-                          'Pobrano zapisaną wersję. Dane wizyty i historia pozostają zachowane.',
+                          exported ? 'Pobrano zapisaną wersję. Dane wizyty i historia pozostają zachowane.' : 'Anulowano zapis pliku. Wersja pozostaje w historii.',
                         );
                       })
                     }

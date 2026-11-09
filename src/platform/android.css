@@ -1,0 +1,36 @@
+/* System bar/IME insets are applied once by MainActivity, outside the WebView. */
+.native-android {
+  overscroll-behavior-y: contain;
+}
+.native-android input,
+.native-android select,
+.native-android textarea {
+  scroll-margin-block: 90px;
+}
+.native-notice {
+  position: fixed;
+  z-index: 400;
+  bottom: 80px;
+  left: 12px;
+  right: 12px;
+  max-width: 600px;
+  margin: auto;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #a8bfb1;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #153e3533;
+  font-size: 14px;
+}
+@media (max-width: 360px) {
+  .native-android .gm-modal {
+    padding: 16px;
+  }
+  .native-android .gm-modal-fullscreen {
+    padding: 16px 12px;
+  }
+  .native-android .gm-modal-actions,
+  .native-android .report-actions {
+    flex-wrap: wrap;
+  }
+}

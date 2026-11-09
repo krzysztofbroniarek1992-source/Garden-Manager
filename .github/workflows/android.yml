@@ -1,0 +1,100 @@
+name: Android APK
+on:
+  pull_request:
+    paths:
+      [
+        "src/**",
+        "public/**",
+        "android/**",
+        "scripts/**",
+        "package*.json",
+        "*config*",
+        "index.html",
+        ".github/workflows/android.yml",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Android SDK 36
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - run: npm run android:sync
+      - name: Optional stable debug signer (never committed)
+        env:
+          ANDROID_TEST_KEYSTORE_BASE64: ${{ secrets.ANDROID_TEST_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_TEST_KEYSTORE_BASE64" ]; then
+            mkdir -p "$HOME/.android"
+            printf '%s' "$ANDROID_TEST_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+            chmod 600 "$HOME/.android/debug.keystore"
+          fi
+      - name: Build A and native tests
+        working-directory: android
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest -PgmVersionCode=1 -PgmVersionName=0.4.0-test.1 --no-daemon
+      - name: Preserve A and test runner
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-A.apk
+          cp android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk artifacts/GardenManager-test.apk
+      - name: Build update B with the same signing key
+        working-directory: android
+        run: ./gradlew :app:assembleDebug -PgmVersionCode=2 -PgmVersionName=0.4.0-test.2 --no-daemon
+      - name: Verify standalone package
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-Android-debug.apk
+          python3 scripts/check-android-package.py artifacts/GardenManager-Android-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs artifacts/GardenManager-Android-debug.apk
+          sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GardenManager-Android-debug
+          path: artifacts/
+          retention-days: 30
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android offline and update A to B
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: scripts/android-device-check.sh artifacts/GardenManager-A.apk artifacts/GardenManager-Android-debug.apk artifacts/GardenManager-test.apk
+      - name: Collect device log
+        if: always()
+        run: |
+          mkdir -p artifacts
+          if [ ! -s artifacts/android-logcat.txt ]; then timeout 15s adb logcat -d > artifacts/android-logcat.txt || true; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-test-reports
+          path: |
+            android/app/build/reports/tests/
+            artifacts/android-*

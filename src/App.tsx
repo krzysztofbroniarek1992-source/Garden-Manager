@@ -1,3 +1,6 @@
+import { pendingWrite } from './data/pending'
+import AndroidLifecycle from './platform/AndroidLifecycle'
+import { deliverFile } from './platform/files'
 import FieldMode from './field/FieldMode'
 import PendingStatus from './components/PendingStatus'
 import { useUnsavedChanges } from './navigation/unsaved'
@@ -41,7 +44,7 @@ const navigation = [
 ] as const
 function ClipboardIcon({ size = 20 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/></svg> }
 
-export default function App() { return <NavigationProvider><AppContent/></NavigationProvider> }
+export default function App() { return <NavigationProvider><AndroidLifecycle/><AppContent/></NavigationProvider> }
 function AppContent() {
   const navigationState = useNavigation()
   const page = navigationState.route.page
@@ -147,7 +150,7 @@ function Settings({onClose}:{onClose:()=>void}) {
   const [error,setError] = useState('')
   useEffect(() => { changeRate(String(data.settings.hourlyRate)); setMessage(''); setError('') }, [data.photoRestoreId])
   const save=async (e:FormEvent)=>{e.preventDefault();try{await guard.save(async()=>{await setRate(Number(rate))});setError('');setMessage('Zapisano domyślną stawkę dla nowych zleceń.')}catch(e){setMessage('');setError((e as Error).message)}}
-  const backup=async()=>{try{const data=await snapshot();const blob=new Blob([JSON.stringify({version:STORAGE_VERSION,data},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`garden-manager-${localDate()}.json`;link.click();URL.revokeObjectURL(url)}catch(e){setError((e as Error).message)}}
+  const backup=async()=>{try{const data=await snapshot();const blob=new Blob([JSON.stringify({version:STORAGE_VERSION,data},null,2)],{type:'application/json'});const saved=await pendingWrite(()=>deliverFile(blob,`garden-manager-${localDate()}.json`));setMessage(saved?'Dane JSON przygotowane. Pliki zdjęć wymagają kopii ZIP.':'Anulowano zapis JSON.')}catch(e){setError((e as Error).message)}}
   return <Modal title="Ustawienia" onClose={onClose}><div className="settings-intro"><span className="badge badge-green">Tryb demonstracyjny</span><p className="muted">Jedna firma, jedno miejsce na Twoją pracę. Dane pozostają na tym urządzeniu. Zapis firmy jest chroniony transakcjami IndexedDB; localStorage jest kopią zgodności. Po aktualizacji zamknij karty ze starszą wersją aplikacji.</p></div><form ref={guard.ref} onSubmit={save}>{error && <p role="alert" className="gm-form-error">{error}</p>}<label className="field">Domyślna stawka godzinowa (zł/h)<input type="number" min="0" max="100000" step="0.01" required value={rate} onChange={e=>changeRate(e.target.value)}/></label><p className="muted settings-help">Zmiana dotyczy nowych zleceń. Stawki w istniejących zleceniach pozostają zachowane.</p><button className="button primary" type="submit"><Check size={17}/>Zapisz ustawienia</button>{message && <p role="status" className="settings-message">{message}</p>}</form><div className="settings-backup"><h3>Kopia danych lokalnych</h3><p className="muted">Eksport JSON obejmuje wszystkie dane, notatki, przypomnienia, sprawy i metadane zdjęć, ale nie zawiera plików zdjęć. Do pełnego zabezpieczenia i odtworzenia użyj kopii ZIP poniżej.</p><button className="button secondary" onClick={backup}><ArrowDownToLine size={17}/>Eksportuj dane</button></div><FullBackupPanel/><div className="settings-backup"><h3>Synchronizacja Supabase</h3><p className="muted">Struktura bazy i zasady dostępu są przygotowane w repozytorium. Logowanie i synchronizacja to kolejny etap; obecna wersja działa bez konta.</p></div></Modal>
 }
 

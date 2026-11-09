@@ -74,8 +74,11 @@ test('manifest, ikony PNG i aplikacja offline zachowują klienta, strefy, katalo
   await expect(page.getByTestId('timer-display')).toHaveText(/00:00:1[2-9]/);
   await page.clock.fastForward(18_000);
   await page.getByRole('button', { name: 'PAUZA — Przerwa bez naliczania', exact: true }).click();
+  // PAUSE commits asynchronously; read its frozen display only after the commit.
+  await settled(page);
+  await expect(page.getByRole('button', { name: 'WZNÓW — Kontynuuj wizytę', exact: true })).toBeVisible();
   const pausedDisplay = await page.getByTestId('timer-display').textContent();
-  await settled(page); const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
+  const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!).data);
   expect(paused.timer).toMatchObject({ jobId: 'job-1', paused: true });
   await page.clock.fastForward(120_000);
   await settled(page); await page.reload({ waitUntil: 'domcontentloaded' });
