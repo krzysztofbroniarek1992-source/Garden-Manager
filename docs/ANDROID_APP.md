@@ -70,13 +70,11 @@ adb install -r GardenManager-Android-debug.apk
 adb shell am start -n pl.broniarek.gardenmanager/.MainActivity
 ```
 
-Pierwsza wersja lokalna ma `versionName=0.4.0-test.1`, `versionCode=1`.
-Workflow buduje A z kodem 1 oraz B z kodem 2 i nazwą `0.4.0-test.2`.
-Przy kolejnych wydaniach zwiększ kod, zachowując applicationId i podpis:
-
-```bash
-./gradlew :app:assembleDebug -PgmVersionCode=3 -PgmVersionName=0.4.0-test.3
-```
+GM-009A: `versionName=0.4.1-test.1`, `versionCode=3` (poprzedni APK miał kod 2).
+Workflow buduje **rzeczywiste źródła GM-009** (commit `567e633`) jako A/kod 2,
+następnie nowy kod jako B/3, z tym samym kluczem w jednym jobie. To test zachowania
+danych podczas aktualizacji, a nie dowód zgodności podpisu z telefonem.
+Przy kolejnych wydaniach zwiększ kod, zachowując applicationId i podpis.
 
 Numer Androida nie jest formatem danych **v10**. Wersja interfejsu web zachowuje
 istniejący numer; wersję pakietu widać w informacjach Androida o aplikacji.
@@ -143,24 +141,57 @@ Urządzenie musi mieć wolną pamięć operacyjną i dyskową na przygotowanie k
 Systemowy wybór miejsca może pokazać zewnętrznych dostawców plików; zapis do
 nich wymaga ich dostępności. Lokalny folder telefonu działa offline.
 
-## Aparat i dokumentacja
+## Aparat i dokumentacja — poprawka GM-009A
 
-„Zrób zdjęcie” używa Camera, wybór z galerii używa systemowego pickera. Wynik URI
-jest odczytywany jako File i trafia do **tego samego** procesora oraz magazynu
-fotografii: limity, korekta orientacji, JPEG/PNG/WebP, zmniejszenie do 1920 px,
-miniatury 320 px, sumy kontrolne, powiązania i atomowe operacje metadanych.
-Anulowanie nie tworzy rekordu. Odmowa uprawnienia/błąd jest widoczna.
+Przyczyna potwierdzona w kodzie: poprzedni listener `appRestoredResult` odrzucał
+wynik, nie sprawdzał pluginu/metody/statusu i zawsze wyświetlał komunikat o śmierci
+procesu. Plik i jego cel istniały wyłącznie w pamięci React. Zdarzenie Capacitor
+opisuje odtworzenie wywołania mostka, **nie dowodzi zmiany PID**. Dodatkowo stary
+wielokrotny picker Camera używał dynamicznego callbacka niezapewniającego odtworzenia.
 
-Wybranie zdjęcia nie zapisuje go automatycznie — nadal potwierdza się formularz.
-Aparat nie zapisuje dodatkowej kopii do publicznej galerii (`saveToGallery=false`).
-Po odczycie usuwamy tylko własne pliki tymczasowe Camera, nigdy oryginały z cudzej
-galerii. Nieodczytane resztki we własnym cache/Pictures są sprzątane po 48 h przy
-kolejnym uruchomieniu. Pliki w IndexedDB pozostają pod kontrolą istniejącego
-serwisu, bez nowego systemu przechowywania. Nie ma pełnych zdjęć w localStorage.
+Mały adapter `GardenCamera` korzysta z `ACTION_IMAGE_CAPTURE` i
+`ACTION_OPEN_DOCUMENT` (JPEG/PNG/WebP, wiele plików) oraz trwałego `@ActivityCallback`.
+Przed otwarciem zapisuje synchronicznie UUID, rodzaj, czas, kategorię i identyfikatory
+klienta/ogrodu/strefy/zlecenia w izolowanych preferencjach `pending-photo-operation`.
+To kontekst **jednego niezakończonego wyboru**, nie druga baza biznesowa.
+Surowe pliki tymczasowe znajdują się w prywatnym `files/pending-media/<UUID>`.
+Nie ma base64 zdjęć w localStorage ani dodatkowych kopii w publicznej galerii.
 
-Jeśli Android ubije proces podczas zewnętrznego wyboru, pokazujemy informację
-o odtworzonym wyniku. Trzeba ponownie wybrać właściwą wizytę/plik; nie zgadujemy
-powiązania i nie powtarzamy zapisu. Niezapisane szkice nie są trwałą bazą.
+Wynik trafia do tego samego formularza, zarówno przez obietnicę, jak i odtworzone
+zdarzenie. Po nowym procesie lub ponownym uruchomieniu odczytujemy trwały wynik;
+ponowione zdarzenia są rozpoznawane po UUID. Statusy sukces/anulowanie/błąd są
+rozdzielone, obce pluginy/metody ignorowane. Błąd odczytu można ponowić lub świadomie
+odrzucić. Przerwany wybór można anulować, bez blokowania aparatu do końca okresu ważności.
+
+Zapis **zawsze wymaga zatwierdzenia**. Gdy zapisany cel nie istnieje lub zmienił
+powiązania, formularz nie zgaduje nowego: użytkownik wskazuje klienta/ogród/zlecenie.
+Przed zapisem istniejący serwis ponownie sprawdza aktualny IndexedDB. Stałe ID pozycji
+wyboru chronią przed podwójnym zapisem po przerwaniu potwierdzenia natywnego. Polecenie
+może otrzymać taki ID; format metadanych i model **v10 nie zmieniają się**.
+
+Limity pozostają: 25 MB/plik, 20 plików/wybór, 50 mln pikseli, wynik do 1920 px,
+miniatura 320 px, sumy kontrolne i dotychczasowy magazyn IndexedDB. Aparat otrzymuje
+czasowy grant wyłącznie do pliku wyjściowego; galeria udostępnia tylko wskazane pliki.
+Własne pliki i kontekst są usuwane po zapisie/anulowaniu albo wygasają po 24 godzinach
+(sprzątanie przy kolejnym dostępie). Nieusunięte pliki po awarii są również sprzątane.
+Nie kasujemy oryginałów z cudzej galerii. Nieutrwalone szkice opisu nie są trwałą bazą.
+
+## Szybkie tworzenie danych podczas edycji zlecenia
+
+`+ Nowy klient`, `+ Nowy ogród`, `+ Nowy materiał w katalogu` otwierają istniejące
+formularze i zapisują przez dotychczasowe komendy atomowe. Callback po udanym zapisie
+wybiera klienta/ogród albo dodaje materiał ze snapshotem nazwy, jednostki i ceny
+zakupu, ilością 1 i edytowalną ceną dla klienta. Nie ma automatycznej marży.
+Zatwierdzona należność nadal wymaga osobnej jawnej zmiany. Późniejsza edycja katalogu
+nie zmienia materiałów historycznych.
+
+Szkic zlecenia pozostaje zamontowany, także po anulowaniu lub błędzie zapisu dziecka.
+Podwójne zatwierdzenie jest blokowane. Wierzchnie okno ma fokus i obsługę Back/Escape;
+niższe okna są nieaktywne, a ich niezapisane dane nadal chronione przy opuszczaniu
+widoku. Zapis dziecka nie wysyła formularza zlecenia. Bez klienta tworzenie ogrodu
+jest zablokowane. Zlecenie można rozpocząć również przy pustej bazie i utworzyć cały
+łańcuch bez wychodzenia z jego formularza. Funkcje działają w web i Androidzie;
+tryb terenowy jest dodatkowym interfejsem, nie zamiennikiem pełnej aplikacji.
 
 ## Pliki PDF/JSON/ZIP
 
@@ -176,8 +207,8 @@ base64 i nie utrwala go w localStorage. Osobne eksporty mają osobne tokeny/plik
 - **Import:** `ACTION_OPEN_DOCUMENT`; strumień ograniczony do 200 MB przed
   dotychczasową walidacją ZIP. MIME/nazwa nie są uznawane za dowód poprawności.
 
-Provider eksportów udostępnia wyłącznie `cache/garden-exports`, nie profil WebView.
-Provider aparatu obejmuje własny cache/Pictures. Nie ma szerokiego dostępu do dysku.
+Provider GardenFiles udostępnia wyłącznie `cache/garden-exports` i własne
+`files/pending-media`, nie profil WebView. Stary provider Camera pozostaje dla zgodności biblioteki. Nie ma szerokiego dostępu do dysku.
 Cache wyeksportowany do czytnika/udostępniania umożliwia odbiorcy odczyt po zamknięciu panelu. Resztki starsze niż 48 h są
 usuwane przy kolejnym starcie; Android może zwolnić cache wcześniej. Zapis do
 wybranej zewnętrznej lokalizacji jest trwałą kopią niezależną od cache. Własny cache ma limit 600 MB; zapisane do wybranej lokalizacji
@@ -355,3 +386,60 @@ Fixture testowego APK można odtworzyć poleceniem
 Rekomendacja: gotowe do przeglądu i scalenia jako wersja **testowa** Androida. Nie jest deklaracją gotowości
 produkcyjnej przed przejściem wymaganych prób na fizycznym telefonie i ustaleniem
 stałego podpisywania kolejnych wydań.
+
+## Stały podpis kolejnych wersji testowych — GM-009A
+
+Repozytorium nadal używa **jednego** sekretu `ANDROID_TEST_KEYSTORE_BASE64`.
+Administrator zachowuje własny standardowy debug.keystore poza repozytorium, wykonuje
+jego bezpieczną kopię i umieszcza zawartość zakodowaną base64 w tym sekrecie GitHub
+(Settings → Secrets and variables → Actions). Nie wkleja pliku ani haseł do czatu,
+PR, dokumentacji lub logów. Każde kolejne wydanie musi używać tego samego pliku.
+Jeżeli zachowano klucz już zainstalowanej aplikacji, należy użyć właśnie jego.
+Ręczne uruchomienie workflow domyślnie wymaga sekretu (`require_stable_signing=true`).
+PR bez sekretu może nadal przeprowadzić testy i stworzyć **jednorazowy** debug APK,
+wyraźnie oznaczony `ephemeral-debug` w `APK-METADATA.json`. Nie jest to obietnica aktualizacji.
+
+Publiczny certyfikat poprzedniego artefaktu 0.4.0-test.2, run `42595627510`:
+`0a0004911306792c5700e43440b2be8f483b497330d50203e8e1abb6feb3bfcd` (SHA-256).
+SHA samego APK z tego przebiegu:
+`0ab534a01ff4dc52611c03e5c7ed8c385888b8d858a2037a03d4cf0eaa4c792e`.
+Nowy artefakt zawiera publiczne `APK-METADATA.json` z wersją, kodem, SHA APK,
+SHA certyfikatu, trybem podpisywania i wynikiem porównania z tym przebiegiem.
+Jeżeli telefon otrzymał inny artefakt, porównaj certyfikat jego APK poleceniem
+`apksigner verify --print-certs <poprzedni.apk>`. Sam numer 0.4.0-test.2 nie identyfikuje klucza.
+
+Klucza prywatnego z jednorazowego runnera nie można odzyskać z APK/certyfikatu.
+Przy niezgodności podpisu aktualizacja jest niemożliwa bez zachowanego starego klucza.
+**Nie odinstalowuj od razu.** Najpierw zapisz pełny ZIP w zewnętrznej lokalizacji,
+skopiuj go poza aplikację/telefon i sprawdź jego odtworzenie w osobnym profilu testowym:
+klienci, ogrody, płatności, raporty, zdjęcia i miniatury muszą być czytelne. JSON sam
+nie wystarczy. Dopiero po tej kontroli użytkownik może świadomie zdecydować o
+reinstalacji i odtworzeniu ZIP. Aplikacja i workflow nie odinstalowują ani nie czyszczą
+danych istniejącego telefonu oraz nie obchodzą podpisu. Od tej chwili zachowuj stały klucz.
+
+## Testy GM-009A i kontrola telefonu
+
+`scripts/android-camera-check.mjs` działa na prawdziwym WebView emulatora API 35,
+przez ADB/CDP. Osobna aplikacja `camera-fixture` (wyłącznie testowa, poza docelowym APK)
+realizuje zewnętrzny Intent i zapisuje prawdziwy JPEG do przyznanego URI. Scenariusze:
+zwykły wynik, odtworzenie aktywności (`always_finish_activities`), zabicie procesu
+Garden Managera w tle przez `am kill` podczas pracy aparatu i po galerii, anulowanie,
+jawny zapis, poprawny cel, brak duplikatów i odświeżenie. Test śmierci procesu wymaga
+zniknięcia starego PID i nowego PID po powrocie. Test A/B instaluje wcześniejsze źródła
+z tym samym testowym kluczem i sprawdza zachowanie pełnego v10, plików zdjęć i stopera.
+To test natywnego transportu/cyklu życia, **nie test fizycznego sensora ani aparatu OEM**.
+Symulacje mostka w Chromium są opisane oddzielnie w testach.
+
+Przed użyciem z danymi firmowymi na fizycznym telefonie sprawdź:
+
+- W zwykłym zleceniu i GM-007: zdjęcie → zatwierdzenie w aparacie → wybrany plik
+  i właściwy klient/ogród/zlecenie → opis/kategoria → jawny zapis → galeria po restarcie.
+- Aparat OEM, obrót zdjęcia, anulowanie, odmowa dostępu, brak miejsca; galeria i kilka zdjęć.
+- Powrót z aparatu z włączonym „Nie zachowuj aktywności”, poprawne przywrócenie i brak
+  fałszywego komunikatu o śmierci procesu; ponowione wyniki nie dodają zdjęć drugi raz.
+- Nowy klient → ogród → materiał w szkicu, anulowanie każdego okna, Back, klawiatura,
+  zachowany fokus i wartości, również w 320/360/390/430 px.
+- Pełny ZIP ze zdjęciami poza aplikacją i odtworzenie w profilu testowym.
+- Podpis zainstalowanej wersji zgodny z metadanymi nowego APK przed próbą aktualizacji.
+
+Końcowe liczby regresji i link do konkretnego artefaktu zawiera PR GM-009A.
