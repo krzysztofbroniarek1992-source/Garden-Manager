@@ -139,6 +139,7 @@ export class CameraCoordinator {
       if (op.status !== "ready")
         throw new Error("Nieprawidłowy status wyboru zdjęcia.");
       const selection = await this.hydrate(op);
+      this.error = "";
       if (this.delivered.has(op.id)) return;
       this.delivered.add(op.id);
       const pending = this.waiting.get(op.id);
@@ -215,6 +216,7 @@ export class CameraCoordinator {
       return;
     // Even a failed bridge delivery can have a durable ready result. Trust only that record.
     const { operation } = await this.port.readPending();
+    if (event?.data && typeof event.data === "object" && "id" in event.data && event.data.id !== operation?.id) return;
     if (operation) await this.accept(operation);
   }
   returnToRecovery(selection: MediaSelection) {

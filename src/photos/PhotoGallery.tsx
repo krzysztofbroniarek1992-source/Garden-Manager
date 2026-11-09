@@ -49,7 +49,10 @@ export default function PhotoGallery({ scope, title = 'Dokumentacja fotograficzn
   const selectionLock = useRef(false);
   const nativeSelection = useRef<MediaSelection | null>(initialSelection ?? null);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { mounted.current = true; return () => {
+    mounted.current = false;
+    if (!uploadOnly && nativeSelection.current) cameraCoordinator.returnToRecovery(nativeSelection.current);
+  }; }, [uploadOnly]);
   const releaseSelection = async () => { if (nativeSelection.current) { await cameraCoordinator.finish(nativeSelection.current.operation.id); nativeSelection.current = null; } };
   const abandon = () => { void releaseSelection().then(() => { setUploading(false); setFiles([]); onFinish?.(); }).catch(error => setLocalError((error as Error).message)); };
   const [selecting, setSelecting] = useState(false);

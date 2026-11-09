@@ -129,6 +129,19 @@ describe("camera coordinator (mock bridge, not native hardware)", () => {
     await f.coordinator.accept(op);
     expect(f.read).not.toHaveBeenCalled();
   });
+  it("does not let an old restored event claim the current pending result", async () => {
+    const f = setup(); void f.coordinator.select("camera", scope, "other"); f.ready();
+    await f.coordinator.restore({ pluginId: "GardenCamera", methodName: "acquire", success: true, data: {id: crypto.randomUUID()} });
+    expect(f.read).not.toHaveBeenCalled();
+  });
+  it("keeps a failed file read available for an explicit retry", async () => {
+    const f = setup(); void f.coordinator.select("camera", scope, "other"); f.ready();
+    const restored = new CameraCoordinator(f.port, f.read);
+    f.read.mockRejectedValueOnce(new Error("Odczyt przerwany"));
+    await restored.restore(); expect(restored.error).toContain("przerwany"); expect(f.get()?.status).toBe("ready");
+    await restored.restore(); expect(restored.recovery?.files).toHaveLength(1);
+    expect(restored.interrupted).toBeNull();
+  });
   it("cancellation resolves with no files and clears the operation", async () => {
     const f = setup(),
       selected = f.coordinator.select("camera", scope, "other");
