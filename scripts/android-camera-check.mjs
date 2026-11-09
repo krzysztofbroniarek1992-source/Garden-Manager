@@ -161,10 +161,14 @@ try {
     }, "external camera/picker in foreground");
     if (mode === "process" || gallery) {
       await connection.browser.close();
-      adb("shell", "am", "kill", pkg);
+      // An active camera/provider binding can keep the app too important for
+      // `am kill`. SIGKILL the verified debug-app PID without marking its
+      // package stopped (force-stop would discard the pending activity result).
+      assert(/^\d+$/.test(originalPid));
+      adb("shell", "run-as", pkg, "kill", "-9", originalPid);
       await until(() => {
         try {
-          return !adb("shell", "pidof", pkg);
+          return !adb("shell", "pidof", pkg).split(" ").includes(originalPid);
         } catch {
           return true;
         }

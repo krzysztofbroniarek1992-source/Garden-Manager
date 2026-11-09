@@ -430,9 +430,11 @@ writable-system**. Ma ona osobny UID i korzysta z rzeczywistych grantów URI. Do
 APK nie zawiera fixture, nie ustawia jej komponentu i **nie wymaga roota**. Skrypty
 odmawiają wykonania na fizycznym telefonie. Scenariusze:
 zwykły wynik, odtworzenie aktywności (`always_finish_activities`), zabicie procesu
-Garden Managera w tle przez `am kill` podczas pracy aparatu i po galerii, anulowanie,
+Garden Managera w tle przez `SIGKILL` (`run-as`, wyłącznie debug na emulatorze)
+podczas pracy aparatu i po galerii, bez `force-stop`, anulowanie,
 jawny zapis, poprawny cel, brak duplikatów i odświeżenie. Test śmierci procesu wymaga
-zniknięcia starego PID i nowego PID po powrocie. Test A/B instaluje wcześniejsze źródła
+zniknięcia starego PID i nowego PID po powrocie. Sam `am kill` może odmówić zabicia
+procesu z aktywnym powiązaniem aparatu/providerem; test tego nie uznaje za śmierć procesu. Test A/B instaluje wcześniejsze źródła
 z tym samym testowym kluczem i sprawdza zachowanie pełnego v10, plików zdjęć i stopera.
 To test natywnego transportu/cyklu życia, **nie test fizycznego sensora ani aparatu OEM**.
 Symulacje mostka w Chromium są opisane oddzielnie w testach.
