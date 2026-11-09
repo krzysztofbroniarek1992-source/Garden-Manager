@@ -83,6 +83,19 @@ const state = (page) =>
         };
       }),
   );
+// Deterministic external handlers on a disposable emulator only. Never disable
+// applications on the user's phone or change the production intent component.
+assert.equal(adb('shell','getprop','ro.kernel.qemu'), '1', 'This script requires a disposable emulator');
+for (const options of [['-a','android.media.action.IMAGE_CAPTURE'], ['-a','android.intent.action.OPEN_DOCUMENT','-c','android.intent.category.OPENABLE','-t','image/*']]) {
+  const components = adb('shell','cmd','package','query-activities','--brief',...options).split('\n');
+  for (const component of components) {
+    const match = component.trim().match(/^([a-zA-Z0-9_.]+)\/[a-zA-Z0-9_.$]+$/);
+    if (match && match[1] !== pkg+'.fixture' && match[1] !== 'android') {
+      console.log('EMULATOR ONLY: disable alternate intent handler '+match[1]);
+      adb('shell','pm','disable-user','--user','0',match[1]);
+    }
+  }
+}
 const results = [];
 try {
   for (const mode of [
@@ -130,6 +143,7 @@ try {
         return true;
       adb("shell", "uiautomator", "dump", "/sdcard/gm-camera-window.xml");
       const xml = adb("shell", "cat", "/sdcard/gm-camera-window.xml");
+      if (xml.includes('package="'+pkg+'.fixture"')) return true;
       if (xml.includes('text="GM Camera fixture"'))
         await tapText("GM Camera fixture");
       if (xml.includes('text="Just once"')) await tapText("Just once");
@@ -223,7 +237,7 @@ try {
 } catch (error) {
   writeFileSync('artifacts/android-camera-logcat.txt', adb('logcat', '-d', '-t', '2000'));
   writeFileSync('artifacts/android-camera-failure.png', execFileSync('adb', ['exec-out', 'screencap', '-p'], {timeout:20000}));
-  try { adb('shell','uiautomator','dump','/sdcard/gm-camera-window.xml');writeFileSync('artifacts/android-camera-window.xml',adb('shell','cat','/sdcard/gm-camera-window.xml')); } catch {}
+  try { adb('shell','uiautomator','dump','/sdcard/gm-camera-window.xml');const xml=adb('shell','cat','/sdcard/gm-camera-window.xml');writeFileSync('artifacts/android-camera-window.xml',xml);console.log('NATIVE FAILURE UI: '+xml); } catch {}
   throw error;
 } finally {
   adb("shell", "settings", "put", "global", "always_finish_activities", "0");
