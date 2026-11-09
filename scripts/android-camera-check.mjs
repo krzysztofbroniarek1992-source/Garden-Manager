@@ -86,6 +86,13 @@ const state = (page) =>
 // Deterministic external handlers on a disposable emulator only. Never disable
 // applications on the user's phone or change the production intent component.
 assert.equal(adb('shell','getprop','ro.kernel.qemu'), '1', 'This script requires a disposable emulator');
+console.log('FIXTURE PACKAGE: '+adb('shell','dumpsys','package',pkg+'.fixture').split('\n').filter(l=>/User 0:/.test(l)).join(' '));
+// Newly installed packages are stopped and excluded from implicit intents until
+// first use. Start only the external test fixture explicitly, then return.
+adb('shell','am','start','-n',pkg+'.fixture/.CaptureActivity');
+adb('shell','input','keyevent','4');
+assert(adb('shell','cmd','package','query-activities','--brief','-a','android.media.action.IMAGE_CAPTURE').includes(pkg+'.fixture'), 'Camera fixture must resolve before the production intent is launched');
+
 for (const options of [['-a','android.media.action.IMAGE_CAPTURE'], ['-a','android.intent.action.OPEN_DOCUMENT','-c','android.intent.category.OPENABLE','-t','image/*']]) {
   const components = adb('shell','cmd','package','query-activities','--brief',...options).split('\n');
   for (const component of components) {
@@ -131,7 +138,10 @@ try {
     } else
       await page
         .getByRole("button", { name: "Zrób zdjęcie", exact: true })
-        .click();
+        .click({noWaitAfter:true}).catch(error => {
+          if (mode !== 'activity' || !/target.*closed|context.*destroyed/i.test(error.message)) throw error;
+          console.log('Expected WebView detach during activity recreation; validating the external result next.');
+        });
     // A chooser may be present; inspect the actual foreground window rather than
     // assuming the intent was resolved synchronously by Android.
     await until(async () => {
@@ -230,7 +240,8 @@ try {
         .count(),
       0,
     );
-    results.push({ mode, passed: true });
+    if (mode === 'activity') assert.equal(connection.pid, originalPid, 'Activity-only recreation must keep the same PID');
+    results.push({ mode, passed: true, originalPid, returnedPid: connection.pid });
     console.log(`NATIVE CAMERA PASS: ${mode}`);
     await connection.browser.close();
   }
