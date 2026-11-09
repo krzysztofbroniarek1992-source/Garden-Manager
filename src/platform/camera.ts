@@ -178,7 +178,7 @@ export class CameraCoordinator {
     const operation: MediaOperation = {
       id: crypto.randomUUID(),
       source,
-      scope: { ...scope },
+      scope: { clientId: scope.clientId, gardenId: scope.gardenId, zoneId: scope.zoneId, jobId: scope.jobId },
       category,
       startedAt: this.clock(),
     };

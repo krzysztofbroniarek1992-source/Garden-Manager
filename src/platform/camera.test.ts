@@ -72,6 +72,13 @@ describe("camera coordinator (mock bridge, not native hardware)", () => {
     await f.coordinator.finish(result!.operation.id);
     expect(f.get()).toBeNull();
   });
+  it("stores only identifiers, so long display names cannot invalidate a camera result", async () => {
+    const f = setup();
+    const resolved = { ...scope, clientName: "A".repeat(150), gardenName: "B".repeat(150), jobTitle: "C".repeat(150) };
+    const selected = f.coordinator.select("camera", resolved, "other");
+    expect(f.get()?.scope).toEqual(scope);
+    f.ready(); f.deliver(); expect((await selected)?.files).toHaveLength(1);
+  });
   it("deduplicates restored event vs normal promise in either order", async () => {
     for (const eventFirst of [true, false]) {
       const f = setup(),

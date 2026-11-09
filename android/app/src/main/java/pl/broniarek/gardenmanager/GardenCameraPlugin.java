@@ -19,6 +19,14 @@ public class GardenCameraPlugin extends Plugin {
     static final long TTL = 24L * 60 * 60 * 1000;
     static final long MAX_FILE = 25L * 1024 * 1024;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    @Override protected void handleOnDestroy() { io.shutdown(); super.handleOnDestroy(); }
+    private String message(Exception error) {
+        if(error instanceof SecurityException) return "Brak uprawnienia do aparatu lub wybranych zdjęć. Sprawdź ustawienia Androida.";
+        if(error instanceof ActivityNotFoundException) return "Brak aplikacji aparatu lub wyboru zdjęć na tym urządzeniu.";
+        String raw=error.getMessage()==null?"":error.getMessage();
+        if(raw.matches("(?is).*(ENOSPC|EDQUOT|no space|disk full|quota).*$")) return "Brak miejsca na zdjęcie. Zwolnij pamięć urządzenia i spróbuj ponownie.";
+        return raw.isEmpty()?"Nie udało się odczytać zdjęcia.":raw;
+    }
     private SharedPreferences prefs() { return getContext().getSharedPreferences("pending-photo-operation", Context.MODE_PRIVATE); }
     private File root() { return new File(getContext().getFilesDir(), "pending-media"); }
     private File directory(String id) throws IOException {
@@ -73,7 +81,7 @@ public class GardenCameraPlugin extends Plugin {
                 } else intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
                     .putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 startActivityForResult(call,intent,"selected");
-            } catch(Exception e) { finishFailure(call,id,e.getMessage()); }
+            } catch(Exception e) { finishFailure(call,id,message(e)); }
         });
     }); }
     private void finishFailure(PluginCall call,String id,String message) {
@@ -118,7 +126,7 @@ public class GardenCameraPlugin extends Plugin {
                     }
                     op.put("files",files);op.put("status","ready");
                 }
-            } catch(Exception e) {op.put("status","error");op.put("message",e.getMessage()==null?"Nie udało się odczytać zdjęcia.":e.getMessage());}
+            } catch(Exception e) {op.put("status","error");op.put("message",message(e));}
             // Persist BEFORE delivering to either a live promise or a restored bridge.
             persist(op);call.resolve(op);
         });
