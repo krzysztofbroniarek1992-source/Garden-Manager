@@ -16,7 +16,8 @@ public class MainActivity extends BridgeActivity {
         // outside the WebView so existing fixed toolbars/modal layouts stay usable.
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+        // API 24/25 has white navigation icons only; give them a dark backdrop.
+        getWindow().setNavigationBarColor(android.os.Build.VERSION.SDK_INT < 26 ? 0xff153e35 : android.graphics.Color.TRANSPARENT);
         View content=findViewById(android.R.id.content);
         content.setBackgroundColor(0xfff6f7f5);
         WindowCompat.getInsetsController(getWindow(),content).setAppearanceLightStatusBars(true);
