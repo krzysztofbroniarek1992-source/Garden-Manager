@@ -390,7 +390,9 @@ stałego podpisywania kolejnych wydań.
 ## Stały podpis kolejnych wersji testowych — GM-009A
 
 Repozytorium nadal używa **jednego** sekretu `ANDROID_TEST_KEYSTORE_BASE64`.
-Administrator zachowuje własny standardowy debug.keystore poza repozytorium, wykonuje
+Lokalne uruchomienie `./gradlew :app:assembleDebug` tworzy standardowy plik
+`~/.android/debug.keystore`, jeśli jeszcze go nie ma. Administrator zachowuje ten
+plik poza repozytorium, wykonuje
 jego bezpieczną kopię i umieszcza zawartość zakodowaną base64 w tym sekrecie GitHub
 (Settings → Secrets and variables → Actions). Nie wkleja pliku ani haseł do czatu,
 PR, dokumentacji lub logów. Każde kolejne wydanie musi używać tego samego pliku.

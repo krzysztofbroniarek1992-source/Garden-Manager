@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mockAndroid } from "./android-bridge-fixture";
+import { mockAndroid, androidBack } from "./android-bridge-fixture";
 import { fieldURL } from "./field-fixture";
 import { snapshot } from "./atomic-report-helpers";
 import { settled } from "./atomic-fixture";
@@ -144,7 +144,7 @@ test('unmounting a gallery keeps an unconfirmed native selection available witho
   await page.getByRole('button',{name:'Zrób zdjęcie',exact:true}).click();await settled(page);
   await expect(page.getByText(/Wybrano 1 zdjęć/)).toBeVisible();
   page.once('dialog',d=>d.accept());
-  await page.getByRole('navigation',{name:'Nawigacja główna',exact:true}).getByRole('button',{name:'Pulpit',exact:true}).click();
+  await androidBack(page);
   const recovered=page.getByRole('dialog',{name:'Wybrane zdjęcia',exact:true});await expect(recovered).toBeVisible();
   expect((await snapshot(page)).photos).toHaveLength(0);await expect(recovered.getByLabel(/^Zlecenie zdjęcia/)).toHaveValue('field-today');
   await recovered.getByRole('button',{name:'Zapisz zdjęcia',exact:true}).click();await expect(recovered).toBeHidden();await settled(page);

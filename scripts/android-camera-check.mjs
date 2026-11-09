@@ -34,7 +34,7 @@ async function attach() {
       .find((s) => s === `webview_devtools_remote_${pid}`);
     if (!socket) return;
     adb("forward", "tcp:9222", `localabstract:${socket}`);
-    const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
+    const browser = await chromium.connectOverCDP("http://127.0.0.1:9222", { noDefaults: true });
     const page = browser.contexts()[0]?.pages()[0];
     if (!page) {
       await browser.close();
@@ -220,6 +220,11 @@ try {
     console.log(`NATIVE CAMERA PASS: ${mode}`);
     await connection.browser.close();
   }
+} catch (error) {
+  writeFileSync('artifacts/android-camera-logcat.txt', adb('logcat', '-d', '-t', '2000'));
+  writeFileSync('artifacts/android-camera-failure.png', execFileSync('adb', ['exec-out', 'screencap', '-p'], {timeout:20000}));
+  try { adb('shell','uiautomator','dump','/sdcard/gm-camera-window.xml');writeFileSync('artifacts/android-camera-window.xml',adb('shell','cat','/sdcard/gm-camera-window.xml')); } catch {}
+  throw error;
 } finally {
   adb("shell", "settings", "put", "global", "always_finish_activities", "0");
   writeFileSync(
