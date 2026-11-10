@@ -6,6 +6,15 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class GMDialogFocus {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+}
+'@
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
 $dialog = $null
 while ([DateTime]::UtcNow -lt $deadline) {
@@ -32,40 +41,22 @@ if (!$dialog) {
   throw "A real Windows common file dialog did not open for PID $OwnerProcessId. Desktop: $description"
 }
 Write-Host "REAL Windows dialog: $($dialog.Current.Name)"
+$handle = [IntPtr]::new($dialog.Current.NativeWindowHandle)
+[void][GMDialogFocus]::SetForegroundWindow($handle)
+$focusDeadline = [DateTime]::UtcNow.AddSeconds(5)
+while ([GMDialogFocus]::GetForegroundWindow() -ne $handle -and [DateTime]::UtcNow -lt $focusDeadline) {
+  Start-Sleep -Milliseconds 100
+}
+if ([GMDialogFocus]::GetForegroundWindow() -ne $handle) { throw 'The actual native dialog did not receive keyboard focus.' }
 if ($Action -eq 'choose') {
   if (!$FilePath) { throw 'Missing controlled test file path.' }
-  $field = $null
-  $readyDeadline = [DateTime]::UtcNow.AddSeconds(15)
-  while ([DateTime]::UtcNow -lt $readyDeadline) {
-    # IFileDialog creates its owned window before populating the shell controls.
-    $edits = $dialog.FindAll(
-      [System.Windows.Automation.TreeScope]::Descendants,
-      [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Edit))
-    foreach ($edit in $edits) {
-      if ($edit.Current.AutomationId -eq '1001' -or $edit.Current.Name -eq 'File name:') {
-        $field = $edit
-        break
-      }
-    }
-    if ($field) { break }
-    Start-Sleep -Milliseconds 100
-  }
-  if (!$field) {
-    $description = @($edits | ForEach-Object {
-      "id=$($_.Current.AutomationId); name=$($_.Current.Name); class=$($_.Current.ClassName)"
-    }) -join "`n"
-    throw "Native file-name edit control was not found in $($dialog.Current.Name). Edits: $description"
-  }
-  $value = $field.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-  $value.SetValue($FilePath)
+  # Windows runner uses en-US shell mnemonics. Paste Unicode without depending on
+  # a particular IFileDialog control provider/automation ID or keyboard layout.
+  [System.Windows.Forms.Clipboard]::SetText($FilePath)
+  [System.Windows.Forms.SendKeys]::SendWait('%n')
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  [System.Windows.Forms.SendKeys]::SendWait('^v')
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+} else {
+  [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
 }
-$buttonId = if ($Action -eq 'cancel') { '2' } else { '1' }
-$button = $dialog.FindFirst(
-  [System.Windows.Automation.TreeScope]::Descendants,
-  [System.Windows.Automation.PropertyCondition]::new(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $buttonId))
-if (!$button) { throw 'Native Open/Save/Cancel button was not found.' }
-$invoke = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-$invoke.Invoke()

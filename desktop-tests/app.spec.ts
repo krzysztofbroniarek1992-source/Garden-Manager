@@ -26,8 +26,9 @@ test("actual Windows Open/Save dialogs choose Unicode paths and cancel without r
   const folder = await mkdtemp(path.join(tmpdir(), "Łódź-native-GM010-"));
   const choose = async (action: "choose" | "cancel", file = "") => {
     const { stdout } = await promisify(execFile)(
-      "pwsh",
+      "powershell.exe",
       [
+        "-STA",
         "-NoProfile",
         "-File",
         path.resolve("scripts/windows-file-dialog.ps1"),
