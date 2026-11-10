@@ -67,6 +67,25 @@ npm run windows:installer
 
 `desktop:dev` uruchamia rzeczywisty Electron ze zbudowanych plików, bez Vite. `build:windows` używa oddzielnego `dist-windows`; zwykłe `build`, web/PWA na localhost:5173 i Android pozostają dostępne. Workflow Windows uruchamia testy rzeczywistego Electron oraz rzeczywistej aktualizacji NSIS, weryfikuje ASAR, EXE i sumę SHA256. Artefakt ma nazwę `GardenManager-Windows-test`. Zmienna testowa `GM_DESKTOP_TEST_PROFILE` jest używana wyłącznie z `GM_DESKTOP_TEST=1` w automatyzacji do izolacji danych.
 
+## Wyniki weryfikacji GM-010 (10 listopada 2026)
+
+| Kontrola | Wykonany wynik |
+| --- | --- |
+| Pełne testy jednostkowe wspólnej aplikacji | 662/662 |
+| Pełna regresja Chromium E2E po poprawce integracji Windows | 351/351, bez pomijania testów |
+| PWA offline na produkcyjnym buildzie | 18/18 |
+| Pakiet Android bez serwera/sieci, PDF i odświeżenie | 1/1 (symulacja Chromium, oddzielna od emulatora) |
+| Polityka protokołu, IPC, ścieżek i konfiguracji instalatora | 6/6 |
+| TypeScript, kompilacja Electron, build web/PWA i Windows | zaliczone |
+
+Rzeczywisty Electron na runnerze Windows, a nie symulacja przeglądarkowa, zaliczył 10 scenariuszy aplikacji: start/offline, zabezpieczenia renderera i IPC, formularze zagnieżdżone, CSV, PDF, JSON/ZIP ze zdjęciem i odtworzeniem, anulowanie, błędny ZIP, zapis 200 MB, zamknięcie/ponowne uruchomienie ze stoperem, skale 100/125/150/200% i pojedynczą instancję. Oddzielny test otwiera niepodmienione systemowe okna „Otwórz”/„Zapisz jako”, wybiera ścieżki Unicode i anuluje dialog. Sterowanie oknem w tym teście jest przeznaczone dla angielskiej powłoki runnera CI; aplikacja nie zależy od języka Windows.
+
+Workflow Windows buduje oba rzeczywiste instalatory, sprawdza ASAR, weryfikuje skrót menu Start i uruchamia zainstalowany EXE A → B. Podczas testu PATH procesu zainstalowanej aplikacji jest ograniczony do katalogów systemowych Windows, aby nie korzystał z developerskiego Node.js. Porównywane są cały rekord IndexedDB v11, bajty zdjęć, wydatek, adres widoku i aktywny stoper. STOP wymaga istniejącego potwierdzenia; test go nie pomija. Regresja Androida osobno obejmuje JVM, emulator offline, rzeczywistą aktualizację v10 → v11 oraz powroty z aparatu i galerii.
+
+Końcowy wynik całego zestawu Windows (wraz z dodatkowym testem dialogów i instalacją), regresji emulatora Android oraz link do konkretnego instalatora i jego SHA256 są przypięte do [PR #26](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/pull/26). Należy korzystać z przebiegu wskazanego w tym raporcie, nie z wcześniejszych nieudanych przebiegów diagnostycznych. Plik `WINDOWS-METADATA.json` w artefakcie wskazuje commit źródłowy. Artefakty testowe są przechowywane przez 30 dni.
+
+Te wyniki nie oznaczają przeprowadzenia fizycznego odbioru na Windows 10/11. Runner używa Windows Server 2022. Nie wykonano na nim rzeczywistej blokady/restartu systemu, testu odłączania monitora ani zapisu na fizyczny dysk USB; poniższa lista pozostaje do ręcznego odbioru. Nie dodano podpisu Authenticode ani synchronizacji.
+
 ## Ręczny odbiór Windows 10/11
 
 - Instalacja EXE na komputerze bez Node.js; skróty Start/pulpit, ikona, zwykły użytkownik i deinstalacja bez usuwania profilu.
