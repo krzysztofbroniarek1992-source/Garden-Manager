@@ -94,10 +94,22 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
     await page.reload();
     await expect(page.locator(".app-shell")).toBeVisible();
     expect(await snapshot(page)).toEqual(before);
+    const navigation = page.getByRole("navigation", {
+      name: "Nawigacja główna",
+      exact: true,
+    });
+    await navigation
+      .getByRole("button", { name: "Wydatki firmowe", exact: true })
+      .click();
+    await navigation
+      .getByRole("button", { name: "Kalendarz", exact: true })
+      .click();
+    await expect(page).toHaveURL(/#calendar\?date=/);
+    const calendarAddress = page.url();
     await page.keyboard.press("Alt+ArrowLeft");
     await expect(page).toHaveURL(/#expenses$/);
     await page.keyboard.press("Alt+ArrowRight");
-    await expect(page).toHaveURL(/#calendar$/);
+    await expect(page).toHaveURL(calendarAddress);
     expect(
       await page.evaluate(async () => {
         try {

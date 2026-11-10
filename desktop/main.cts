@@ -453,6 +453,28 @@ if (!app.requestSingleInstanceLock()) {
           devTools: !app.isPackaged,
         },
       });
+      const travel = (direction: "back" | "forward") => {
+        const history = win?.webContents.navigationHistory;
+        if (direction === "back" && history?.canGoBack()) history.goBack();
+        if (direction === "forward" && history?.canGoForward())
+          history.goForward();
+      };
+      win.webContents.on("before-input-event", (event, input) => {
+        if (
+          input.type === "keyDown" &&
+          input.alt &&
+          !input.control &&
+          !input.meta &&
+          ["ArrowLeft", "ArrowRight", "Left", "Right"].includes(input.key)
+        ) {
+          event.preventDefault();
+          travel(
+            input.key === "ArrowLeft" || input.key === "Left"
+              ? "back"
+              : "forward",
+          );
+        }
+      });
       win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
       win.webContents.on("will-navigate", (event, url) => {
         if (!entryUrl(url)) event.preventDefault();
@@ -537,16 +559,14 @@ if (!app.requestSingleInstanceLock()) {
                 label: "Wstecz",
                 accelerator: "Alt+Left",
                 click: () => {
-                  if (win?.webContents.navigationHistory.canGoBack())
-                    win.webContents.navigationHistory.goBack();
+                  travel("back");
                 },
               },
               {
                 label: "Dalej",
                 accelerator: "Alt+Right",
                 click: () => {
-                  if (win?.webContents.navigationHistory.canGoForward())
-                    win.webContents.navigationHistory.goForward();
+                  travel("forward");
                 },
               },
               { type: "separator" },
