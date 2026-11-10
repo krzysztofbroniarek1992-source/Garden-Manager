@@ -21,7 +21,12 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
   const { instance, page, profile } = await launch();
   try {
     expect(new URL(page.url()).protocol).toBe("app:");
-    expect(await instance.evaluate(({app})=>[app.getPath('userData'),app.getPath('sessionData')])).toEqual([profile,profile]);
+    expect(
+      await instance.evaluate(({ app }) => [
+        app.getPath("userData"),
+        app.getPath("sessionData"),
+      ]),
+    ).toEqual([profile, profile]);
     expect(
       await page.evaluate(async () => ({
         origin: location.origin,
@@ -47,6 +52,22 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       isolated: true,
     });
     const before = await snapshot(page);
+    await instance.context().setOffline(true);
+    const labels: Record<string, string> = {
+      dashboard: "Panel główny",
+      field: "Tryb terenowy",
+      clients: "Klienci",
+      gardens: "Obiekty i ogrody",
+      jobs: "Zlecenia",
+      calendar: "Kalendarz",
+      history: "Historia prac",
+      materials: "Materiały",
+      calculators: "Kalkulatory",
+      notes: "Notatki",
+      todos: "Do zrobienia",
+      templates: "Szablony prac",
+      expenses: "Wydatki firmowe",
+    };
     for (const id of [
       "dashboard",
       "field",
@@ -65,7 +86,7 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       await route(page, "#" + id);
       await expect(
         page.locator(".sidebar .nav-item[aria-current=page]"),
-      ).toHaveCount(1);
+      ).toContainText(labels[id]);
       await expect(page.locator("main")).toBeVisible();
       await expect(page.locator("main h1")).toHaveCount(1);
     }
@@ -73,6 +94,10 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
     await page.reload();
     await expect(page.locator(".app-shell")).toBeVisible();
     expect(await snapshot(page)).toEqual(before);
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect(page).toHaveURL(/#expenses$/);
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(page).toHaveURL(/#calendar$/);
     expect(
       await page.evaluate(async () => {
         try {
@@ -287,7 +312,15 @@ test("native file bridge: CSV decisions, actual PDF, JSON, ZIP with photo and re
     const zip = path.join(folder, "pełna kopia.zip");
     await saveDialog(instance, zip);
     await exportButton(page, "Pobierz pełną kopię ZIP");
-    await expect.poll(async()=>{try{return (await stat(zip)).size;}catch{return 0;}}).toBeGreaterThan(1000);
+    await expect
+      .poll(async () => {
+        try {
+          return (await stat(zip)).size;
+        } catch {
+          return 0;
+        }
+      })
+      .toBeGreaterThan(1000);
     const saved = await snapshot(page),
       hashes = await metadata(page);
     await openDialog(instance, zip);

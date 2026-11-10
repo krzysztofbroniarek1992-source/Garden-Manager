@@ -55,10 +55,11 @@ const testProfile =
     : undefined;
 if (testProfile && !path.isAbsolute(testProfile))
   throw new Error("Profil testowy wymaga ścieżki absolutnej.");
-const profileDirectory = testProfile ?? path.join(app.getPath("appData"), "GardenManager");
-fs.mkdirSync(profileDirectory,{recursive:true});
-app.setPath("userData",profileDirectory);
-app.setPath("sessionData",profileDirectory);
+const profileDirectory =
+  testProfile ?? path.join(app.getPath("appData"), "GardenManager");
+fs.mkdirSync(profileDirectory, { recursive: true });
+app.setPath("userData", profileDirectory);
+app.setPath("sessionData", profileDirectory);
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -532,6 +533,23 @@ if (!app.requestSingleInstanceLock()) {
           {
             label: "Widok",
             submenu: [
+              {
+                label: "Wstecz",
+                accelerator: "Alt+Left",
+                click: () => {
+                  if (win?.webContents.navigationHistory.canGoBack())
+                    win.webContents.navigationHistory.goBack();
+                },
+              },
+              {
+                label: "Dalej",
+                accelerator: "Alt+Right",
+                click: () => {
+                  if (win?.webContents.navigationHistory.canGoForward())
+                    win.webContents.navigationHistory.goForward();
+                },
+              },
+              { type: "separator" },
               { role: "resetZoom", label: "Skala 100%" },
               { role: "zoomIn", label: "Powiększ" },
               { role: "zoomOut", label: "Pomniejsz" },
