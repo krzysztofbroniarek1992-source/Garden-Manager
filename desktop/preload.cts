@@ -15,6 +15,16 @@ const bridge: DesktopBridge = {
   release: (o) => ipcRenderer.invoke("gm:release", o),
   readNavigation: () => ipcRenderer.invoke("gm:navigation-read"),
   saveNavigation: (o) => ipcRenderer.invoke("gm:navigation-save", o),
+  onHistoryRequested: (callback) => {
+    const listener = (
+      _e: Electron.IpcRendererEvent,
+      direction: "back" | "forward",
+    ) => {
+      if (direction === "back" || direction === "forward") callback(direction);
+    };
+    ipcRenderer.on("gm:history-request", listener);
+    return () => ipcRenderer.removeListener("gm:history-request", listener);
+  },
   onCloseRequested: (callback) => {
     const listener = (
       _e: Electron.IpcRendererEvent,

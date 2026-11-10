@@ -19,9 +19,7 @@ export interface DesktopBridge {
   }): Promise<void>;
   finish(options: { token: string; open: boolean }): Promise<void>;
   abort(options: { token: string }): Promise<void>;
-  pick(options: {
-    kind: DesktopKind;
-  }): Promise<{
+  pick(options: { kind: DesktopKind }): Promise<{
     cancelled?: boolean;
     token?: string;
     name?: string;
@@ -35,6 +33,9 @@ export interface DesktopBridge {
   release(options: { token: string }): Promise<void>;
   readNavigation(): Promise<{ address?: string }>;
   saveNavigation(options: { address: string }): Promise<void>;
+  onHistoryRequested(
+    callback: (direction: "back" | "forward") => void,
+  ): () => void;
   onCloseRequested(
     callback: (request: { id: string; action: "close" | "reload" }) => void,
   ): () => void;

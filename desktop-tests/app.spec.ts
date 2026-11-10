@@ -106,9 +106,33 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       .click();
     await expect(page).toHaveURL(/#calendar\?date=/);
     const calendarAddress = page.url();
-    await page.keyboard.press("Alt+ArrowLeft");
+    await instance.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      contents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "Left",
+        modifiers: ["alt"],
+      });
+      contents.sendInputEvent({
+        type: "keyUp",
+        keyCode: "Left",
+        modifiers: ["alt"],
+      });
+    });
     await expect(page).toHaveURL(/#expenses$/);
-    await page.keyboard.press("Alt+ArrowRight");
+    await instance.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      contents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "Right",
+        modifiers: ["alt"],
+      });
+      contents.sendInputEvent({
+        type: "keyUp",
+        keyCode: "Right",
+        modifiers: ["alt"],
+      });
+    });
     await expect(page).toHaveURL(calendarAddress);
     expect(
       await page.evaluate(async () => {

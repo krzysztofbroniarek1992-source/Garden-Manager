@@ -1,9 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigation } from "../navigation/Navigation";
 import { confirmLeave } from "../navigation/unsaved";
 import { hasPendingWrites } from "../data/pending";
 import { isDesktop } from "./desktop";
 export default function DesktopLifecycle() {
+  const navigation = useNavigation(),
+    latest = useRef(navigation);
+  latest.current = navigation;
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!isDesktop()) return;
+    return window.gardenDesktop!.onHistoryRequested((direction) => {
+      if (direction === "back") latest.current.back();
+      else window.history.forward();
+    });
+  }, []);
   useEffect(() => {
     if (!isDesktop()) return;
     return window.gardenDesktop!.onCloseRequested(async (request) => {

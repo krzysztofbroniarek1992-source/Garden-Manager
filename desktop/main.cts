@@ -454,10 +454,8 @@ if (!app.requestSingleInstanceLock()) {
         },
       });
       const travel = (direction: "back" | "forward") => {
-        const history = win?.webContents.navigationHistory;
-        if (direction === "back" && history?.canGoBack()) history.goBack();
-        if (direction === "forward" && history?.canGoForward())
-          history.goForward();
+        // The shared controller owns the history index and unsaved-form guards.
+        win?.webContents.send("gm:history-request", direction);
       };
       win.webContents.on("before-input-event", (event, input) => {
         if (
@@ -556,15 +554,13 @@ if (!app.requestSingleInstanceLock()) {
             label: "Widok",
             submenu: [
               {
-                label: "Wstecz",
-                accelerator: "Alt+Left",
+                label: "Wstecz (Alt+←)",
                 click: () => {
                   travel("back");
                 },
               },
               {
-                label: "Dalej",
-                accelerator: "Alt+Right",
+                label: "Dalej (Alt+→)",
                 click: () => {
                   travel("forward");
                 },
