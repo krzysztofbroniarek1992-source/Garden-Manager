@@ -74,7 +74,7 @@ public class ExpensesTest {
                 evaluate(scenario,"document.querySelector('.expense-import').requestSubmit()");
                 waitFor(scenario,"document.querySelector('.expense-counts')?.textContent.includes('Nowe: 2')");
                 evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Zatwierdź nowe obciążenia bez ostrzeżeń').click()");
-                evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Zapisz import (')).click()");
+                evaluate(scenario,"setTimeout(()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Zapisz import (')).click(),0)");
                 UiObject2 accept=device.wait(Until.findObject(By.res("android","button1")),20000);assertNotNull("Import confirmation",accept);accept.click();
                 waitFor(scenario,"!document.querySelector('[role=dialog]') && document.querySelectorAll('.expense-ledger .tool-card').length===3");
             } finally {resolver.delete(csv,null,null);}
