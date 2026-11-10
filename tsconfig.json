@@ -32,6 +32,8 @@
     "pwa-tests",
     "capacitor.config.ts",
     "playwright.android.config.ts",
-    "android-web-tests"
+    "android-web-tests",
+    "playwright.desktop.config.ts",
+    "desktop-tests/**/*.ts"
   ]
 }

@@ -14,3 +14,10 @@ test-results-pwa/
 *.jks
 artifacts/
 test-results-android/
+
+# Installed desktop assets and test profiles
+dist-windows/
+desktop/build/
+release-windows/
+release-windows-a/
+test-results-desktop/

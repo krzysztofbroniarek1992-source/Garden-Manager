@@ -4,7 +4,13 @@ Polska aplikacja PWA do obsługi jednoosobowej firmy ogrodniczej. React, TypeScr
 Vite i Tailwind CSS. Wersja demonstracyjna działa bez konta, zewnętrznej bazy danych i płatnych
 usług. Przykładowe rekordy są oznaczone jako dane testowe.
 
-## Uruchomienie na Windows
+## Samodzielna aplikacja Windows (GM-010)
+
+Instalator testowy EXE znajdziesz w artefakcie **GardenManager-Windows-test** wskazanego w PR przebiegu GitHub Actions. Program działa offline, bez Node.js, terminala i Vite. Ma osobny profil danych; bazę z PWA/Androida przenosi się pełną kopią ZIP, która zastępuje bieżący zestaw. Instalator testowy jest niepodpisany i może powodować ostrzeżenia SmartScreen.
+
+[Instalacja, aktualizacje, lokalizacja danych i lista odbioru Windows](docs/WINDOWS_APP.md).
+
+## Wersja przeglądarkowa na Windows (dla programisty)
 
 1. Zainstaluj Node.js 22.12 lub nowszy z linii LTS.
 2. Otwórz terminal w katalogu `Garden-Manager`.
