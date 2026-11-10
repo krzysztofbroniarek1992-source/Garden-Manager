@@ -1,3 +1,4 @@
+import DesktopLifecycle from './platform/DesktopLifecycle'
 import Expenses from './expenses/Expenses'
 import { pendingWrite } from './data/pending'
 import AndroidLifecycle from './platform/AndroidLifecycle'
@@ -46,7 +47,7 @@ const navigation = [
 ] as const
 function ClipboardIcon({ size = 20 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/></svg> }
 
-export default function App() { return <NavigationProvider><AndroidLifecycle/><AppContent/></NavigationProvider> }
+export default function App() { return <NavigationProvider><DesktopLifecycle/><AndroidLifecycle/><AppContent/></NavigationProvider> }
 function AppContent() {
   const navigationState = useNavigation()
   const page = navigationState.route.page

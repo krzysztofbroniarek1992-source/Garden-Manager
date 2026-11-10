@@ -1,3 +1,4 @@
+import {desktopFile,desktopPick,isDesktop} from './desktop';
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 export const isAndroid = () => Capacitor.getPlatform() === "android";
@@ -72,6 +73,7 @@ export async function deliverFile(
   name: string,
   action: FileAction = "save",
 ) {
+  if(isDesktop())return desktopFile(blob,name,action);
   if (isAndroid()) return nativeFile(blob, name, action);
   const url = URL.createObjectURL(blob),
     link = document.createElement("a");
@@ -87,6 +89,7 @@ export async function pickBackup(
   port: NativeFiles = gardenFiles,
   kind?: "csv",
 ): Promise<File | null> {
+  if(isDesktop())return desktopPick(kind??"zip");
   const result = await port.pickBackup(kind ? { kind } : undefined);
   if (result.cancelled) return null;
   try {
