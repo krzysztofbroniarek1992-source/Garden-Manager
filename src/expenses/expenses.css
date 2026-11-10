@@ -1,0 +1,173 @@
+.expense-actions,
+.expense-tabs,
+.expense-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.expense-row {
+  justify-content: space-between;
+}
+.expense-tabs {
+  margin: 20px 0;
+}
+.expense-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.expense-ledger,
+.expense-metrics,
+.expense-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.expense-metrics .card,
+.expense-settings > .card {
+  padding: 20px;
+}
+.expense-metrics strong {
+  font-size: 1.4rem;
+}
+.expense-settings-list {
+  list-style: none;
+  padding: 12px 20px;
+  margin: 12px 0;
+}
+.expense-settings-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #e1e6e1);
+  overflow-wrap: anywhere;
+}
+.expense-settings-list button {
+  flex-shrink: 0;
+}
+.expense-audit {
+  padding: 16px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.expense-audit summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+.expense-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.expense-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.expense-scroll th,
+.expense-scroll td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px;
+  border-bottom: 1px solid #e1e6e1;
+  min-width: 100px;
+  max-width: 400px;
+  overflow-wrap: anywhere;
+}
+.expense-import,
+.expenses-page {
+  min-width: 0;
+}
+.expense-import .field,
+.expense-preview-row {
+  min-width: 0;
+}
+.expense-import input:not([type="checkbox"]),
+.expense-import select,
+.expense-import textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+.expense-import .field.full-width {
+  grid-column: 1/-1;
+}
+.expense-preview {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.expense-preview-row {
+  border: 1px solid #dce5dc;
+  border-radius: 10px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.expense-preview-row input[type="checkbox"],
+.expense-import input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: 6px;
+  accent-color: #285b3d;
+}
+.expense-preview-row > label {
+  display: block;
+  padding: 12px 0;
+}
+.expense-counts {
+  padding: 12px;
+  background: #edf4ed;
+  border-radius: 8px;
+}
+.expenses-page .page-heading {
+  flex-wrap: wrap;
+}
+.expenses-page .tool-card {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .expense-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .expense-tabs button {
+    font-size: 0.85rem;
+    padding: 10px 7px;
+    min-height: 44px;
+  }
+  .expense-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .expense-filters > .field:first-child {
+    grid-column: 1/-1;
+  }
+  .expense-actions {
+    width: 100%;
+  }
+  .expense-actions button {
+    flex: 1;
+    min-height: 44px;
+  }
+  .expense-preview-row {
+    padding: 12px;
+  }
+  .expense-settings > .card {
+    padding: 12px;
+  }
+  .expense-settings-list {
+    padding: 4px;
+  }
+  .expense-import .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .expense-import .gm-modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px 0;
+    z-index: 1;
+  }
+}
