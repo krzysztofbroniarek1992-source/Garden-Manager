@@ -57,8 +57,8 @@ public class UpgradeDataTest {
                 if(state.data.expenses.length || state.data.expenseImports.length || !state.data.expenseCategories.length || !state.data.expenseRules.length)throw Error('Expense migration defaults');
                 const d=structuredClone(state.data);
                 for(const key of ['expenses','expenseCategories','expenseRules','expenseProfiles','expenseImports'])delete d[key];
-                const db=await new Promise(ok=>{const r=indexedDB.open('garden-manager-state',1);r.onsuccess=()=>ok(r.result)});
-                const backup=await new Promise(ok=>{const r=db.transaction('state').objectStore('state').get('format-v10-source');r.onsuccess=()=>ok(r.result)});db.close();
+                const sourceDB=await new Promise(ok=>{const r=indexedDB.open('garden-manager-state',1);r.onsuccess=()=>ok(r.result)});
+                const backup=await new Promise(ok=>{const r=sourceDB.transaction('state').objectStore('state').get('format-v10-source');r.onsuccess=()=>ok(r.result)});sourceDB.close();
                 if(backup?.formatVersion!==10 || JSON.stringify(backup.data)!==JSON.stringify(d))throw Error('Exact pre-migration v10 backup missing');
                 return JSON.stringify(d);
                 """);

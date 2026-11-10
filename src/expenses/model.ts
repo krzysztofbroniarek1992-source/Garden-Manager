@@ -453,6 +453,10 @@ export function validateExpenseData(data: ExpenseData) {
     )
   )
     fail();
+  const expenseIds = new Set(data.expenses.map((e) => e.id));
+  const importProfiles = new Map(
+    data.expenseImports.map((i) => [i.id, i.profileId]),
+  );
   const profiles = new Set(data.expenseProfiles.map((p) => p.id)),
     imports = new Set(data.expenseImports.map((i) => i.id)),
     identities = new Set<string>();
@@ -545,8 +549,7 @@ export function validateExpenseData(data: ExpenseData) {
         (original.signedCents > 0 ? "incoming" : "outgoing") !== e.direction ||
         rowMatch(original) !== o.match ||
         rowIdentity(o.profileId, o.statementKey, original) !== o.identity ||
-        data.expenseImports.find((i) => i.id === o.importId)?.profileId !==
-          o.profileId
+        importProfiles.get(o.importId) !== o.profileId
       )
         fail();
     }
@@ -602,10 +605,6 @@ export function validateExpenseData(data: ExpenseData) {
     )
       fail();
     for (const r of i.rows)
-      if (
-        r.expenseId !== null &&
-        !data.expenses.some((e) => e.id === r.expenseId)
-      )
-        fail();
+      if (r.expenseId !== null && !expenseIds.has(r.expenseId)) fail();
   }
 }
