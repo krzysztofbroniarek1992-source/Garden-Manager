@@ -438,10 +438,11 @@ test("a category form cannot resurrect a record removed by a backup restore in a
   const other = await context.newPage();
   await other.goto("/#expenses");
   await other.evaluate(async (baseline) => {
-    const { AtomicRepository } = await import("/src/data/atomic.ts");
+    const modulePath = "/src/data/atomic.ts";
+    const { AtomicRepository } = await import(modulePath);
     const repo = new AtomicRepository(localStorage);
     const current = await repo.initialize();
-    await repo.command((s) =>
+    await repo.command((s: any) =>
       s.restoreSnapshot(baseline, JSON.stringify(current.data)),
     );
     await repo.close();
