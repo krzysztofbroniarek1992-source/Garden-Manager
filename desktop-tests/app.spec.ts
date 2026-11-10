@@ -18,9 +18,10 @@ import {
 } from "./helpers";
 
 test("real Electron: private secure origin, isolated renderer, offline modules, external content and file traversal denied", async () => {
-  const { instance, page } = await launch();
+  const { instance, page, profile } = await launch();
   try {
     expect(new URL(page.url()).protocol).toBe("app:");
+    expect(await instance.evaluate(({app})=>[app.getPath('userData'),app.getPath('sessionData')])).toEqual([profile,profile]);
     expect(
       await page.evaluate(async () => ({
         origin: location.origin,

@@ -55,10 +55,10 @@ const testProfile =
     : undefined;
 if (testProfile && !path.isAbsolute(testProfile))
   throw new Error("Profil testowy wymaga ścieżki absolutnej.");
-app.setPath(
-  "userData",
-  testProfile ?? path.join(app.getPath("appData"), "GardenManager"),
-);
+const profileDirectory = testProfile ?? path.join(app.getPath("appData"), "GardenManager");
+fs.mkdirSync(profileDirectory,{recursive:true});
+app.setPath("userData",profileDirectory);
+app.setPath("sessionData",profileDirectory);
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
