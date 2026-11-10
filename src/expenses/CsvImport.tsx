@@ -1,3 +1,4 @@
+import {isDesktop} from '../platform/desktop';
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import Modal from "../components/Modal";
 import { useGarden } from "../state";
@@ -289,7 +290,7 @@ export default function CsvImport({ onClose }: { onClose: () => void }) {
               </label>
               <div className="field full-width">
                 Plik CSV
-                {isAndroid() ? (
+                {(isAndroid()||isDesktop()) ? (
                   <button
                     type="button"
                     className="button secondary"

@@ -1,3 +1,4 @@
+import {isDesktop} from '../platform/desktop';
 import { useRef, useState } from "react";
 import {
   Camera,
@@ -235,7 +236,7 @@ export default function FieldVisit({
             }
           >
             <Camera size={22} />
-            Zrób zdjęcie
+            {isDesktop()?"Wybierz zdjęcie":"Zrób zdjęcie"}
           </button>
           <button className="button secondary" onClick={() => select("notes")}>
             <StickyNote size={22} />
