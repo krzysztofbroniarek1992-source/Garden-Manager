@@ -30,13 +30,11 @@ async function upload(page: Page, text = csv, existing = false) {
     await m
       .getByLabel("Nazwa profilu rachunku", { exact: true })
       .fill("Konto firmowe PLN");
-  await m
-    .getByLabel("Plik CSV", { exact: true })
-    .setInputFiles({
-      name: "listopad.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(text),
-    });
+  await m.getByLabel("Plik CSV", { exact: true }).setInputFiles({
+    name: "listopad.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(text),
+  });
   if (!existing) {
     for (const [label, index] of [
       ["Data", 0],
@@ -281,13 +279,11 @@ test("v11 JSON and full ZIP restore expense audit and a real photo without touch
   expect(json.version).toBe(11);
   expect(json.data.expenses).toEqual(before.expenses);
   const zip = await get("Pobierz pełną kopię ZIP");
-  await s
-    .getByLabel("Wczytaj pełną kopię ZIP", { exact: true })
-    .setInputFiles({
-      name: "firma.zip",
-      mimeType: "application/zip",
-      buffer: zip,
-    });
+  await s.getByLabel("Wczytaj pełną kopię ZIP", { exact: true }).setInputFiles({
+    name: "firma.zip",
+    mimeType: "application/zip",
+    buffer: zip,
+  });
   await s
     .getByRole("checkbox", {
       name: "Rozumiem, że bieżący zestaw zostanie zastąpiony.",
@@ -358,7 +354,11 @@ test("pending expense transaction blocks navigation and commits before the form 
   page,
 }) => {
   await seed(page);
-  await page.goto("/#expenses");
+  await page.goto("/#dashboard");
+  await page
+    .getByRole("navigation", { name: "Nawigacja główna", exact: true })
+    .getByRole("button", { name: "Wydatki firmowe", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Dodaj wydatek", exact: true })
     .click();
@@ -389,13 +389,13 @@ test("pending expense transaction blocks navigation and commits before the form 
     .getByRole("button", { name: "Zapisz wydatek", exact: true })
     .click();
   await expect(page.locator("html")).toHaveAttribute("aria-busy", "true");
-  await page
-    .getByRole("navigation", { name: "Nawigacja główna", exact: true })
-    .getByRole("button", { name: "Panel główny", exact: true })
-    .click();
-  await expect(form).toBeVisible();
-  expect(new URL(page.url()).hash).toBe("#expenses");
-  await page.evaluate(() => (window as any).releaseExpense());
+  try {
+    await page.goBack();
+    await expect(form).toBeVisible();
+    expect(new URL(page.url()).hash).toBe("#expenses");
+  } finally {
+    await page.evaluate(() => (window as any).releaseExpense());
+  }
   await expect(form).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".expense-ledger")).toContainText(
