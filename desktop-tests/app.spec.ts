@@ -21,6 +21,8 @@ import {
 
 test("actual Windows Open/Save dialogs choose Unicode paths and cancel without replacing their implementation", async () => {
   const { instance, page } = await launch();
+  // On Windows the Playwright launcher can have a different PID than Electron's main process.
+  const ownerProcessId = await instance.evaluate(() => process.pid);
   const folder = await mkdtemp(path.join(tmpdir(), "Łódź-native-GM010-"));
   const choose = async (action: "choose" | "cancel", file = "") => {
     const { stdout } = await promisify(execFile)(
@@ -30,7 +32,7 @@ test("actual Windows Open/Save dialogs choose Unicode paths and cancel without r
         "-File",
         path.resolve("scripts/windows-file-dialog.ps1"),
         "-OwnerProcessId",
-        String(instance.process().pid),
+        String(ownerProcessId),
         "-Action",
         action,
         ...(file ? ["-FilePath", file] : []),
