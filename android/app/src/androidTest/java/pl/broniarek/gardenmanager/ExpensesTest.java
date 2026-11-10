@@ -64,13 +64,11 @@ public class ExpensesTest {
                     document=device.wait(Until.findObject(By.text("gm009b-bank.csv")),15000);
                 }
                 assertNotNull("CSV document visible in system picker",document);document.click();
-                waitFor(scenario,"document.querySelector('.expense-import')?.textContent.includes('Przypisz kolumny')");
-                evaluate(scenario,"""
-                    for(const [name,value] of [['Data','0'],['Kwota ze znakiem','1'],['Opis','2']]) {
-                        const label=Array.from(document.querySelectorAll('.expense-import label')).find(e=>e.childNodes[0]?.textContent.trim()===name);
-                        const select=label.querySelector('select');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));
-                    }
-                    """);
+                waitFor(scenario,"document.querySelector('.expense-import')?.textContent.includes('Przypisz kolumny') || !!document.querySelector('.expense-import [role=alert]')");
+                assertEquals("",evaluate(scenario,"document.querySelector('.expense-import [role=alert]')?.textContent || ''"));
+                for(String[] field:new String[][]{{"Data","0"},{"Kwota ze znakiem","1"},{"Opis","2"}}) {
+                    evaluate(scenario,"(()=>{const label=Array.from(document.querySelectorAll('.expense-import label')).find(e=>e.childNodes[0]?.textContent.trim()==="+org.json.JSONObject.quote(field[0])+");const select=label.querySelector('select');select.value="+org.json.JSONObject.quote(field[1])+";select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+                }
                 evaluate(scenario,"document.querySelector('.expense-import').requestSubmit()");
                 waitFor(scenario,"document.querySelector('.expense-counts')?.textContent.includes('Nowe: 2')");
                 evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Zatwierdź nowe obciążenia bez ostrzeżeń').click()");

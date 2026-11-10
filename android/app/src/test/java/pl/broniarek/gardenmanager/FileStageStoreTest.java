@@ -10,6 +10,17 @@ public class FileStageStoreTest {
     @Rule public TemporaryFolder temporary = new TemporaryFolder();
     private FileStageStore store;
     @Before public void setup() throws Exception {store=new FileStageStore(temporary.newFolder());}
+    @Test public void supportsBoundedCsvAndDeletesItsStage() throws Exception {
+        byte[] csv="Data;Kwota;Opis\n10.11.2026;-12,30;Łódź".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String token=store.begin("wyciąg.csv","text/csv",csv.length);
+        store.append(token,0,csv);
+        FileStageStore.Stage stage=store.complete(token);
+        assertEquals("text/csv",stage.mime);assertArrayEquals(csv,Files.readAllBytes(stage.file.toPath()));
+        store.discard(token);assertFalse(stage.file.exists());
+    }
+    @Test public void csvCannotBypassItsOwnSizeLimit() {
+        assertThrows(IOException.class,()->store.begin("large.csv","text/csv",5L*1024*1024+1));
+    }
     @Test public void orderedBinaryRoundtrip() throws Exception {
         String token=store.begin("zażółć.pdf","application/pdf",5);
         store.append(token,0,new byte[]{0,1,2});store.append(token,3,new byte[]{-1,0});

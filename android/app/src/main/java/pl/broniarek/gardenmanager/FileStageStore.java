@@ -24,8 +24,9 @@ final class FileStageStore {
     }
     synchronized String begin(String name, String mime, long size) throws IOException {
         if (size < 0 || size > LIMIT) throw new IOException("Limit pliku wynosi 200 MB.");
-        if (!Arrays.asList("application/pdf","application/zip","application/json").contains(mime))
+        if (!Arrays.asList("application/pdf","application/zip","application/json","text/csv").contains(mime))
             throw new IOException("Nieobsługiwany typ pliku.");
+        if("text/csv".equals(mime) && size>5L*1024*1024) throw new IOException("CSV przekracza limit 5 MB.");
         long used=0;
         File[] dirs=root.listFiles();
         if(dirs!=null) for(File dir:dirs) { File[] files=dir.listFiles(); if(files!=null) for(File f:files) used+=f.length(); }
