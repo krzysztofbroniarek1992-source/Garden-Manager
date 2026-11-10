@@ -517,6 +517,18 @@ test("close guard rejects dirty drafts and pending writes; reopening preserves t
       .click();
     const f = a.page.getByRole("dialog", { name: "Nowy wydatek", exact: true });
     await f.getByLabel("Kontrahent", { exact: true }).fill("Szkic Windows");
+    const draftAddress = a.page.url();
+    a.page.once("dialog", (d) => d.dismiss());
+    await a.instance.evaluate(({ Menu }) => {
+      const view = Menu.getApplicationMenu()!.items.find(
+        (item) => item.label === "Widok",
+      )!;
+      view
+        .submenu!.items.find((item) => item.label.startsWith("Wstecz"))!
+        .click();
+    });
+    await expect(f).toBeVisible();
+    await expect(a.page).toHaveURL(draftAddress);
     a.page.once("dialog", (d) => d.dismiss());
     await a.instance.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].close(),

@@ -10,16 +10,27 @@ $deadline = [DateTime]::UtcNow.AddSeconds(30)
 $dialog = $null
 while ([DateTime]::UtcNow -lt $deadline) {
   $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-    [System.Windows.Automation.TreeScope]::Children,
-    [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $OwnerProcessId))
+    [System.Windows.Automation.TreeScope]::Descendants,
+    [System.Windows.Automation.AndCondition]::new(
+      [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $OwnerProcessId),
+      [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770')))
   foreach ($window in $windows) {
     if ($window.Current.ClassName -eq '#32770') { $dialog = $window; break }
   }
   if ($dialog) { break }
   Start-Sleep -Milliseconds 100
 }
-if (!$dialog) { throw 'A real Windows common file dialog did not open.' }
+if (!$dialog) {
+  $roots = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+    [System.Windows.Automation.TreeScope]::Children,
+    [System.Windows.Automation.Condition]::TrueCondition)
+  $description = @($roots | ForEach-Object {
+    "PID=$($_.Current.ProcessId); class=$($_.Current.ClassName); name=$($_.Current.Name)"
+  }) -join "`n"
+  throw "A real Windows common file dialog did not open for PID $OwnerProcessId. Desktop: $description"
+}
 Write-Host "REAL Windows dialog: $($dialog.Current.Name)"
 if ($Action -eq 'choose') {
   if (!$FilePath) { throw 'Missing controlled test file path.' }
