@@ -127,6 +127,11 @@ function SettingForm({
   const { data, saveExpenseCategory, saveExpenseRule } = useGarden();
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState("");
+  const [expected] = useState(() =>
+    kind === "category"
+      ? (data.expenseCategories.find((c) => c.id === initial.id) ?? null)
+      : (data.expenseRules.find((r) => r.id === initial.id) ?? null),
+  );
   const busy = useRef(false);
   const guard = useUnsavedChanges(
     JSON.stringify(initial) !== JSON.stringify(draft),
@@ -143,17 +148,9 @@ function SettingForm({
         if (kind === "category")
           await saveExpenseCategory(
             draft as ExpenseCategory,
-            data.expenseCategories.some((c) => c.id === initial.id)
-              ? (initial as ExpenseCategory)
-              : null,
+            expected as ExpenseCategory | null,
           );
-        else
-          await saveExpenseRule(
-            rule,
-            data.expenseRules.some((r) => r.id === initial.id)
-              ? (initial as ExpenseRule)
-              : null,
-          );
+        else await saveExpenseRule(rule, expected as ExpenseRule | null);
         onClose();
       });
     } catch (e) {

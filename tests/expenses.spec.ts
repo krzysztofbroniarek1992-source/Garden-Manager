@@ -403,3 +403,63 @@ test("pending expense transaction blocks navigation and commits before the form 
   );
   expect((await snapshot(page)).expenses[0].amountCents).toBe(1234);
 });
+test("a category form cannot resurrect a record removed by a backup restore in another tab", async ({
+  page,
+  context,
+}) => {
+  await seed(page);
+  await page.goto("/#expenses");
+  const baseline = await snapshot(page);
+  await page
+    .getByRole("button", { name: "Kategorie i reguły", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Dodaj kategorię", exact: true })
+    .click();
+  let form = page.getByRole("dialog", {
+    name: "Kategoria kosztów",
+    exact: true,
+  });
+  await form
+    .getByLabel("Nazwa", { exact: true })
+    .fill("Kategoria do cofnięcia");
+  await form
+    .getByRole("button", { name: "Zapisz ustawienie", exact: true })
+    .click();
+  await expect(form).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Edytuj kategorię Kategoria do cofnięcia",
+      exact: true,
+    })
+    .click();
+  form = page.getByRole("dialog", { name: "Kategoria kosztów", exact: true });
+  await form.getByLabel("Nazwa", { exact: true }).fill("Stary formularz");
+  const other = await context.newPage();
+  await other.goto("/#expenses");
+  await other.evaluate(async (baseline) => {
+    const { AtomicRepository } = await import("/src/data/atomic.ts");
+    const repo = new AtomicRepository(localStorage);
+    const current = await repo.initialize();
+    await repo.command((s) =>
+      s.restoreSnapshot(baseline, JSON.stringify(current.data)),
+    );
+    await repo.close();
+  }, baseline);
+  await expect(
+    page.getByRole("button", {
+      name: "Edytuj kategorię Kategoria do cofnięcia",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await form
+    .getByRole("button", { name: "Zapisz ustawienie", exact: true })
+    .click();
+  await expect(form.getByRole("alert")).toContainText("innej karcie");
+  expect((await snapshot(page)).expenseCategories).toEqual(
+    baseline.expenseCategories,
+  );
+  await expect(form.getByLabel("Nazwa", { exact: true })).toHaveValue(
+    "Stary formularz",
+  );
+});
