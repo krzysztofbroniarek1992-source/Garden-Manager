@@ -1,3 +1,5 @@
+import * as expenses from '../expenses/commands';
+import type { Expense, ExpenseCategory, ExpenseRule, ExpenseProfile, ImportRequest } from '../expenses/model';
 import { assertUnchanged } from './entity-edit';
 import { controlVisitTimer, finishFieldVisit, saveVisitActivities, type TimerAction } from '../field/commands';
 import { changeAvailability, checkJobAvailability } from '../availability/commands';
@@ -50,6 +52,12 @@ export class GardenStore {
     this.repository.save(next);
     this.data = next;
   }
+
+  saveExpense = (value: Expense, expected: Expense|null) => this.commit(data => expenses.saveExpense(data,value,expected,this.clock()));
+  saveExpenseCategory = (value: ExpenseCategory, expected: ExpenseCategory|null) => this.commit(data => expenses.saveSetting(data,'expenseCategories',value,expected,this.clock()));
+  saveExpenseRule = (value: ExpenseRule, expected: ExpenseRule|null) => this.commit(data => expenses.saveSetting(data,'expenseRules',value,expected,this.clock()));
+  saveExpenseProfile = (value: ExpenseProfile, expected: ExpenseProfile|null) => this.commit(data => expenses.saveSetting(data,'expenseProfiles',value,expected,this.clock()));
+  importExpenses = (request: ImportRequest) => this.commit(data => expenses.importExpenses(data,request,this.clock()));
 
   saveClient = (client: Client, expected?: Client | null) => this.commit(data => {
     assertUnchanged(data.clients.find(c=>c.id===client.id), expected, ['id','name','phone','email','notes'], 'klienta');
