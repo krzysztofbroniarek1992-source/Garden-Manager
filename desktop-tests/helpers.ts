@@ -13,10 +13,23 @@ export async function launch(
   args: string[] = [],
 ) {
   const dir = profile ?? (await mkdtemp(path.join(tmpdir(), "gm010-")));
+  const env = {
+    ...process.env,
+    GM_DESKTOP_TEST: "1",
+    GM_DESKTOP_TEST_PROFILE: dir,
+  };
+  if (executablePath) {
+    // Installed applications must boot without finding a developer Node.js on PATH.
+    for (const key of Object.keys(env)) {
+      if (key.toLowerCase() === "path") delete env[key as keyof typeof env];
+    }
+    const system = process.env.SystemRoot || "C:\\Windows";
+    Object.assign(env, { PATH: `${system}\\System32;${system}` });
+  }
   const instance = await _electron.launch({
     executablePath,
     args: executablePath ? args : [path.resolve("."), ...args],
-    env: { ...process.env, GM_DESKTOP_TEST: "1", GM_DESKTOP_TEST_PROFILE: dir },
+    env,
     timeout: 45000,
   });
   const page = await instance.firstWindow();
@@ -141,6 +154,14 @@ export async function exportButton(page: Page, name: string) {
   await expect(page.locator("html")).not.toHaveAttribute("aria-busy", "true");
 }
 export async function jsonFile(file: string) {
-  await expect.poll(async()=>{try{return (await stat(file)).isFile();}catch{return false;}}).toBe(true);
+  await expect
+    .poll(async () => {
+      try {
+        return (await stat(file)).isFile();
+      } catch {
+        return false;
+      }
+    })
+    .toBe(true);
   return JSON.parse(await readFile(file, "utf8"));
 }

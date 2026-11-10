@@ -34,14 +34,30 @@ if (!$dialog) {
 Write-Host "REAL Windows dialog: $($dialog.Current.Name)"
 if ($Action -eq 'choose') {
   if (!$FilePath) { throw 'Missing controlled test file path.' }
-  $fieldCondition = [System.Windows.Automation.AndCondition]::new(
-    [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::AutomationIdProperty, '1001'),
-    [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-      [System.Windows.Automation.ControlType]::Edit))
-  $field = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fieldCondition)
-  if (!$field) { throw 'Native file-name edit control was not found.' }
+  $field = $null
+  $readyDeadline = [DateTime]::UtcNow.AddSeconds(15)
+  while ([DateTime]::UtcNow -lt $readyDeadline) {
+    # IFileDialog creates its owned window before populating the shell controls.
+    $edits = $dialog.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Edit))
+    foreach ($edit in $edits) {
+      if ($edit.Current.AutomationId -eq '1001' -or $edit.Current.Name -eq 'File name:') {
+        $field = $edit
+        break
+      }
+    }
+    if ($field) { break }
+    Start-Sleep -Milliseconds 100
+  }
+  if (!$field) {
+    $description = @($edits | ForEach-Object {
+      "id=$($_.Current.AutomationId); name=$($_.Current.Name); class=$($_.Current.ClassName)"
+    }) -join "`n"
+    throw "Native file-name edit control was not found in $($dialog.Current.Name). Edits: $description"
+  }
   $value = $field.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
   $value.SetValue($FilePath)
 }
