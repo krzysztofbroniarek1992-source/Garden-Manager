@@ -377,7 +377,7 @@ test("quota during v9 migration keeps authority, photos and raw JSON intact and 
       if (
         this.name === "state" &&
         args[1] === "current" &&
-        (args[0] as any).formatVersion === 10
+        (args[0] as any).formatVersion === 11
       )
         throw new DOMException(
           "Brak miejsca podczas migracji",

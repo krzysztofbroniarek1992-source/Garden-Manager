@@ -1,3 +1,4 @@
+import { withExpenses } from "../expenses/model";
 import { pendingWrite } from "./pending";
 import type { Data } from "../domain";
 import {
@@ -78,6 +79,7 @@ export class AtomicRepository {
       const tx = db.transaction(STATE_STORE, mode, { durability: "strict" });
       const store = tx.objectStore(STATE_STORE);
       let result: { state: State; value: T }, failure: unknown;
+      const compatibilityBackups = new Map<string, string>();
       const get = store.get("current");
       get.onsuccess = () => {
         try {
@@ -95,7 +97,13 @@ export class AtomicRepository {
             state = {
               formatVersion: STORAGE_VERSION,
               revision: 0,
-              data: new LocalRepository(this.storage).load(),
+              // Migration must not mutate the mirror before IndexedDB commits.
+              data: new LocalRepository({
+                getItem: (key) => (key === STORAGE_KEY ? original : null),
+                setItem: (key, value) => {
+                  if (key !== STORAGE_KEY) compatibilityBackups.set(key, value);
+                },
+              }).load(),
             };
             // Preserve the exact pre-cutover bytes in the same transaction.
             store.put(original, "migration-source");
@@ -108,29 +116,47 @@ export class AtomicRepository {
           if (
             state.formatVersion !== undefined &&
             state.formatVersion !== STORAGE_VERSION &&
-            state.formatVersion !== 9
+            state.formatVersion !== 9 &&
+            state.formatVersion !== 10
           )
             throw new Error(
               "Nieobsługiwana wersja bezpiecznej pamięci. Zachowano oryginalny zapis.",
             );
-          validateData(state.data);
-          if (initialize && state.formatVersion !== STORAGE_VERSION) {
+          if (state.formatVersion !== STORAGE_VERSION) {
+            if (!initialize) throw unavailable();
             const original = state;
-            const backup = store.get("format-v9-source");
+            const key =
+              state.formatVersion === 10
+                ? "format-v10-source"
+                : "format-v9-source";
+            state = { ...state, data: withExpenses(state.data) };
+            validateData(state.data);
+            const backup = store.get(key);
             backup.onsuccess = () => {
-              if (backup.result === undefined)
-                store.put(original, "format-v9-source");
+              if (backup.result === undefined) store.put(original, key);
             };
             state = { ...state, formatVersion: STORAGE_VERSION };
             store.put(state, "current");
           }
+          validateData(state.data);
           result = action(state, store);
         } catch (e) {
           failure = e;
           tx.abort();
         }
       };
-      tx.oncomplete = () => resolve(result);
+      tx.oncomplete = () => {
+        // Best-effort legacy backup keys only after the authoritative commit.
+        // migration-source remains readable in IndexedDB even if this mirror is full.
+        for (const [key, value] of compatibilityBackups)
+          try {
+            if (this.storage.getItem(key) === null)
+              this.storage.setItem(key, value);
+          } catch {
+            /* source is already durably backed up */
+          }
+        resolve(result);
+      };
       tx.onabort = () => reject(failure ?? unavailable());
       tx.onerror = () => {
         /* onabort reports failure; no localStorage fallback */

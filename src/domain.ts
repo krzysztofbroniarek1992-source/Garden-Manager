@@ -1,3 +1,4 @@
+import type { ExpenseData } from './expenses/model';
 import type { AvailabilityDay } from './availability/model';
 import type { VisitDetails, VisitReport, VisitTimeEvent } from './reports/model';
 import type { WorkTemplate, Checklist, ChecklistTombstone } from './checklists/model';
@@ -108,7 +109,7 @@ export interface Payment {
   note: string;
 }
 
-export interface Data {
+export interface Data extends ExpenseData {
   availability?: AvailabilityDay[];
   reportSequence: number;
   workTemplates: WorkTemplate[];

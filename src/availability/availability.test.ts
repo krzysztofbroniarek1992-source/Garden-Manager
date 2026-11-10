@@ -88,9 +88,9 @@ describe("GM-006 availability boundaries", () => {
   ])("rejects invalid rule %o", (rule) => {
     expect(() => validateAvailabilityRule(rule)).toThrow();
   });
-  it("absent optional data means available without changing v10 or old data on read", () => {
+  it("absent optional data means available without changing current data on read", () => {
     const data = careData(),
-      raw = JSON.stringify({ version: 10, data }),
+      raw = JSON.stringify({ version: STORAGE_VERSION, data }),
       values = new Map([[STORAGE_KEY, raw]]),
       repo = new LocalRepository({
         getItem: (k) => values.get(k) ?? null,
@@ -102,7 +102,7 @@ describe("GM-006 availability boundaries", () => {
     expect(values.get(STORAGE_KEY)).toBe(raw);
     expect(repo.load()).not.toHaveProperty("availability");
     expect(availabilityConflict(data, day, "16:00")).toBeNull();
-    expect(STORAGE_VERSION).toBe(10);
+    expect(STORAGE_VERSION).toBe(11);
   });
   it("mass changes preserve every existing business field and delete only selected settings", () => {
     const original = careData(),

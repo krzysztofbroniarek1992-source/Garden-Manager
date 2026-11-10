@@ -380,6 +380,6 @@ describe('bezpieczne zarządzanie zleceniami z ogrodu', () => {
     jobDeletionReview(f.store.data, 'job-1');
     expect(f.storage.getItem(STORAGE_KEY)).toBe(before);
     expect(JSON.parse(before!).version).toBe(STORAGE_VERSION);
-    expect(STORAGE_VERSION).toBe(10);
+    expect(STORAGE_VERSION).toBe(11);
   });
 });

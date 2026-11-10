@@ -18,7 +18,7 @@ export interface NativeFiles {
     action: FileAction;
   }): Promise<{ cancelled?: boolean }>;
   discard(options: { token: string }): Promise<void>;
-  pickBackup(): Promise<{
+  pickBackup(options?: { kind?: "csv" }): Promise<{
     cancelled?: boolean;
     token?: string;
     uri?: string;
@@ -85,8 +85,9 @@ export async function deliverFile(
 }
 export async function pickBackup(
   port: NativeFiles = gardenFiles,
+  kind?: "csv",
 ): Promise<File | null> {
-  const result = await port.pickBackup();
+  const result = await port.pickBackup(kind ? { kind } : undefined);
   if (result.cancelled) return null;
   try {
     if (!result.uri || !result.token)
@@ -94,10 +95,10 @@ export async function pickBackup(
     const response = await fetch(Capacitor.convertFileSrc(result.uri));
     if (!response.ok) throw new Error("Nie udało się odczytać wybranej kopii.");
     const blob = await response.blob();
-    if (blob.size > MAX_NATIVE_FILE)
-      throw new Error("Kopia przekracza limit 200 MB.");
-    return new File([blob], result.name || "kopia.zip", {
-      type: "application/zip",
+    if (blob.size > (kind === "csv" ? 5 * 1024 * 1024 : MAX_NATIVE_FILE))
+      throw new Error(kind === "csv" ? "CSV przekracza limit 5 MB." : "Kopia przekracza limit 200 MB.");
+    return new File([blob], result.name || (kind === "csv" ? "wyciag.csv" : "kopia.zip"), {
+      type: kind === "csv" ? "text/csv" : "application/zip",
     });
   } finally {
     if (result.token)

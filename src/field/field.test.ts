@@ -163,7 +163,7 @@ describe("GM-007 shared visit projection and controls", () => {
         route,
         invalid: false,
       });
-      expect(STORAGE_VERSION).toBe(10);
+      expect(STORAGE_VERSION).toBe(11);
     },
   );
   it.each([

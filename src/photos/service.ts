@@ -1,3 +1,4 @@
+import { withExpenses } from '../expenses/model';
 import type { StorePort } from '../data/atomic';
 import { pauseActiveTimer, type Data } from '../domain';
 import { validateData, withDeskData, withChecklistData, withReportData } from '../data/repository';
@@ -94,7 +95,7 @@ export class PhotoService {
     catch { return 'Dane i zdjęcia zostały odtworzone. Ponów porządkowanie, aby dokończyć zapis punktu odzyskiwania.'; }
   }
   importFull(prepared: PreparedBackup, expected: string) { return locked(() => this.restore(prepared, expected, false)); }
-  async recovery() { const point = await this.assets.recovery(); if (!point) return undefined; const data = withReportData(withChecklistData(withDeskData(point.data))); validateData(data); return { ...point, data }; }
+  async recovery() { const point = await this.assets.recovery(); if (!point) return undefined; const data = withExpenses(withReportData(withChecklistData(withDeskData(point.data)))); validateData(data); return { ...point, data }; }
   exportRecovery() { return locked(async () => { const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.'); return makeFullBackup(point.data, this.assets, point.createdAt); }); }
   async prepareRecovery(): Promise<{ point: RecoveryPoint; expected: string }> {
     const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.');

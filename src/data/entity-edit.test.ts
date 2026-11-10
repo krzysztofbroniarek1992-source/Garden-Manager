@@ -185,12 +185,12 @@ describe("GM-008 independent fields and unchanged persistence contract", () => {
       await b.close();
     }
   });
-  it("preserves the v10 format and exact source snapshot on bootstrap without adding revisions to entities", async () => {
+  it("preserves the current format and exact business snapshot on bootstrap without adding revisions to entities", async () => {
     const { a, source, values } = setup();
     try {
       expect((await a.initialize()).data).toEqual(source);
-      expect(STORAGE_VERSION).toBe(10);
-      expect(JSON.parse(values.get(STORAGE_KEY)!).version).toBe(10);
+      expect(STORAGE_VERSION).toBe(11);
+      expect(JSON.parse(values.get(STORAGE_KEY)!).version).toBe(STORAGE_VERSION);
       const client = source.clients[0];
       await a.command((s) =>
         s.saveClient({ ...client, phone: "600000000" }, client),
