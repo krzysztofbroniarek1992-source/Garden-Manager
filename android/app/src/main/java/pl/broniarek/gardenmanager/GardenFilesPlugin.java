@@ -130,7 +130,7 @@ public class GardenFilesPlugin extends Plugin {
                 Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                     .setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 startActivityForResult(call,intent,"picked");
-            } catch(Exception e) {pickerActive.set(false);call.reject("Nie udało się otworzyć wyboru kopii ZIP.",e);}
+            } catch(Exception e) {pickerActive.set(false);call.reject("Nie udało się otworzyć wyboru pliku.",e);}
         });
     }
     @ActivityCallback private void picked(PluginCall call, ActivityResult result) {
@@ -141,22 +141,28 @@ public class GardenFilesPlugin extends Plugin {
             Uri uri=result.getData()==null?null:result.getData().getData();
             if(uri==null) throw new IOException("Nie wybrano pliku.");
             // The selected file may have unknown length. Copy with a hard limit before validation.
-            File temporary=File.createTempFile("gm-import-",".zip",getContext().getCacheDir());
+            boolean csv="csv".equals(call.getString("kind"));
+            long limit=csv?5L*1024*1024:FileStageStore.LIMIT;
+            String name=csv?"wyciag.csv":"kopia.zip";
+            try(android.database.Cursor cursor=getContext().getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null)) {
+                if(cursor!=null && cursor.moveToFirst()) {String display=cursor.getString(0);if(display!=null && !display.isBlank())name=new File(display).getName();}
+            }
+            File temporary=File.createTempFile("gm-import-",csv?".csv":".zip",getContext().getCacheDir());
             String token=null;
             try {
                 long total=0;
                 try(InputStream in=getContext().getContentResolver().openInputStream(uri);OutputStream out=new FileOutputStream(temporary)) {
                     if(in==null) throw new IOException("Nie udało się odczytać kopii.");
                     byte[] buffer=new byte[192*1024];int n;
-                    while((n=in.read(buffer))!=-1) {total+=n;if(total>FileStageStore.LIMIT) throw new IOException("Kopia przekracza limit 200 MB.");out.write(buffer,0,n);}
+                    while((n=in.read(buffer))!=-1) {total+=n;if(total>limit) throw new IOException(csv?"CSV przekracza limit 5 MB.":"Kopia przekracza limit 200 MB.");out.write(buffer,0,n);}
                 }
-                token=stages.begin("kopia.zip","application/zip",total);
+                token=stages.begin(name,csv?"text/csv":"application/zip",total);
                 try(InputStream in=new FileInputStream(temporary)) {
                     byte[] buffer=new byte[192*1024];int n;long offset=0;
                     while((n=in.read(buffer))!=-1) {stages.append(token,offset,java.util.Arrays.copyOf(buffer,n));offset+=n;}
                 }
                 FileStageStore.Stage stage=stages.complete(token);
-                JSObject out=new JSObject();out.put("token",token);out.put("uri",Uri.fromFile(stage.file).toString());out.put("name","kopia.zip");call.resolve(out);
+                JSObject out=new JSObject();out.put("token",token);out.put("uri",Uri.fromFile(stage.file).toString());out.put("name",name);call.resolve(out);
             } catch(Exception e) {if(token!=null) stages.discard(token);throw e;}
             finally {temporary.delete();}
         });

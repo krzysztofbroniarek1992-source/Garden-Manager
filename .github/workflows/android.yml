@@ -73,10 +73,10 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-Android-debug.apk
           cp android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk artifacts/GardenManager-test.apk
           cp android/camera-fixture/build/outputs/apk/debug/camera-fixture-debug.apk artifacts/Camera-fixture-test-only.apk
-      - name: Checkout the actual GM-009 baseline for upgrade A
+      - name: Checkout the actual GM-009A v10 baseline for upgrade A
         uses: actions/checkout@v4
         with:
-          ref: 567e633f95077c07b82188687bfbd09509d15ad0
+          ref: 881af5303fdea604525fbb523e24448785f2e590
           path: baseline
       - name: Build previous source A with the same signing key
         working-directory: baseline
@@ -84,7 +84,7 @@ jobs:
           npm ci
           npm run android:sync
           cd android
-          ./gradlew :app:assembleDebug -PgmVersionCode=2 -PgmVersionName=0.4.0-test.2 --no-daemon
+          ./gradlew :app:assembleDebug -PgmVersionCode=3 -PgmVersionName=0.4.1-test.1 --no-daemon
       - name: Preserve baseline A
         run: cp baseline/android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-A.apk
       - name: Verify standalone package
