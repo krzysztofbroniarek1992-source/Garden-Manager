@@ -4,7 +4,7 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 export async function launch(
@@ -141,5 +141,6 @@ export async function exportButton(page: Page, name: string) {
   await expect(page.locator("html")).not.toHaveAttribute("aria-busy", "true");
 }
 export async function jsonFile(file: string) {
+  await expect.poll(async()=>{try{return (await stat(file)).isFile();}catch{return false;}}).toBe(true);
   return JSON.parse(await readFile(file, "utf8"));
 }

@@ -126,7 +126,7 @@ test("nested client, garden and material forms preserve the job draft in Electro
       exact: true,
     });
     await job
-      .getByLabel("Nazwa pracy *", { exact: true })
+      .getByLabel("Nazwa pracy", { exact: true })
       .fill("Wizyta Windows Łódź");
     for (const kind of ["client", "garden", "material"]) {
       await job
@@ -178,7 +178,7 @@ test("nested client, garden and material forms preserve the job draft in Electro
         .click();
       await expect(child).toHaveCount(0);
     }
-    await expect(job.getByLabel("Nazwa pracy *", { exact: true })).toHaveValue(
+    await expect(job.getByLabel("Nazwa pracy", { exact: true })).toHaveValue(
       "Wizyta Windows Łódź",
     );
     await job
@@ -287,7 +287,7 @@ test("native file bridge: CSV decisions, actual PDF, JSON, ZIP with photo and re
     const zip = path.join(folder, "pełna kopia.zip");
     await saveDialog(instance, zip);
     await exportButton(page, "Pobierz pełną kopię ZIP");
-    expect((await stat(zip)).size).toBeGreaterThan(1000);
+    await expect.poll(async()=>{try{return (await stat(zip)).size;}catch{return 0;}}).toBeGreaterThan(1000);
     const saved = await snapshot(page),
       hashes = await metadata(page);
     await openDialog(instance, zip);
