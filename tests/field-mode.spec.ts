@@ -725,7 +725,7 @@ test("field JSON and full ZIP restore work, notes, checklist, GM-005, availabili
     return readFile((await (await waiting).path())!);
   };
   const json = JSON.parse((await download("Eksportuj dane")).toString());
-  expect(json.version).toBe(10);
+  expect(json.version).toBe(11);
   expect(json.data).toEqual(before);
   const zip = await download("Pobierz pełną kopię ZIP");
   await settings

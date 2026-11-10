@@ -556,7 +556,7 @@ for (const width of [320, 360, 390, 430, 1280])
     expect((await snapshot(page)).availability).toHaveLength(2);
   });
 
-test("native v10 without availability stays byte-equivalent on bootstrap and persists the optional extension in IndexedDB", async ({
+test("native v10 without availability preserves business data on v11 bootstrap and persists the optional extension in IndexedDB", async ({
   page,
 }) => {
   await page.route("**/__availability_probe", (r) =>
@@ -604,8 +604,8 @@ test("native v10 without availability stays byte-equivalent on bootstrap and per
         };
       }),
   );
-  expect(meta.current).toEqual({ formatVersion: 10, revision: 47, data });
-  expect(meta.keys).toEqual(["current"]);
+  expect(meta.current).toEqual({ formatVersion: 11, revision: 47, data });
+  expect(meta.keys).toEqual(["current", "format-v10-source"]);
   await daily(page)
     .getByRole("button", { name: "Ustaw dostępność", exact: true })
     .click();
@@ -618,7 +618,7 @@ test("native v10 without availability stays byte-equivalent on bootstrap and per
     await page.evaluate(
       () => JSON.parse(localStorage.getItem("garden-manager:v1")!).version,
     ),
-  ).toBe(10);
+  ).toBe(STORAGE_VERSION);
 });
 test("full ZIP and JSON preserve availability, care history and a real photo; restoring an older v10 backup uses default availability", async ({
   page,
@@ -726,6 +726,8 @@ test("full ZIP and JSON preserve availability, care history and a real photo; re
   ).toHaveCount(0);
   const files = unzipSync(zip),
     envelope = JSON.parse(strFromU8(files["data.json"]));
+  envelope.version = 10;
+  for (const key of ["expenses","expenseCategories","expenseRules","expenseProfiles","expenseImports"]) delete envelope.data[key];
   delete envelope.data.availability;
   files["data.json"] = strToU8(JSON.stringify(envelope));
   const manifest = JSON.parse(strFromU8(files["manifest.json"]));
