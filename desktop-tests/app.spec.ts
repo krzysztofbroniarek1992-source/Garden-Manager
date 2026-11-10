@@ -4,6 +4,8 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { PDFDocument } from "pdf-lib";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
   launch,
   route,
@@ -16,6 +18,88 @@ import {
   exportButton,
   jsonFile,
 } from "./helpers";
+
+test("actual Windows Open/Save dialogs choose Unicode paths and cancel without replacing their implementation", async () => {
+  const { instance, page } = await launch();
+  const folder = await mkdtemp(path.join(tmpdir(), "Łódź-native-GM010-"));
+  const choose = async (action: "choose" | "cancel", file = "") => {
+    const { stdout } = await promisify(execFile)(
+      "pwsh",
+      [
+        "-NoProfile",
+        "-File",
+        path.resolve("scripts/windows-file-dialog.ps1"),
+        "-OwnerProcessId",
+        String(instance.process().pid),
+        "-Action",
+        action,
+        ...(file ? ["-FilePath", file] : []),
+      ],
+      { timeout: 40000 },
+    );
+    expect(stdout).toContain("REAL Windows dialog:");
+  };
+  try {
+    const json = path.join(folder, "dane Łódź.json");
+    await Promise.all([
+      page.evaluate(async () => {
+        const p = window.gardenDesktop!;
+        const { token } = await p.beginSave({
+          name: "dane.json",
+          mime: "application/json",
+          size: 2,
+        });
+        if (!token) throw Error("Native save was cancelled");
+        try {
+          await p.write({
+            token,
+            offset: 0,
+            bytes: new Uint8Array([123, 125]),
+          });
+          await p.finish({ token, open: false });
+        } finally {
+          await p.abort({ token });
+        }
+      }),
+      choose("choose", json),
+    ]);
+    expect(await readFile(json, "utf8")).toBe("{}");
+    const csv = path.join(folder, "wyciąg Łódź.csv");
+    await writeFile(csv, "data;kwota\n2026-11-10;-12,30", "utf8");
+    const [picked] = await Promise.all([
+      page.evaluate(async () => {
+        const p = window.gardenDesktop!;
+        const result = await p.pick({ kind: "csv" });
+        if (!result.token || !result.size)
+          throw Error("Native open was cancelled");
+        try {
+          return new TextDecoder().decode(
+            await p.read({ token: result.token, offset: 0, size: result.size }),
+          );
+        } finally {
+          await p.release({ token: result.token });
+        }
+      }),
+      choose("choose", csv),
+    ]);
+    expect(picked).toBe(await readFile(csv, "utf8"));
+    const [cancelled] = await Promise.all([
+      page.evaluate(() =>
+        window.gardenDesktop!.beginSave({
+          name: "cancel.json",
+          mime: "application/json",
+          size: 2,
+        }),
+      ),
+      choose("cancel"),
+    ]);
+    expect(cancelled).toEqual({ cancelled: true });
+  } finally {
+    // A failed OS automation assertion must not leave a modal blocking later tests.
+    await instance.evaluate(({ app }) => app.exit(0)).catch(() => {});
+    await instance.close();
+  }
+});
 
 test("real Electron: private secure origin, isolated renderer, offline modules, external content and file traversal denied", async () => {
   const { instance, page, profile } = await launch();

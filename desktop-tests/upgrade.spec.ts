@@ -67,6 +67,10 @@ test(`actual NSIS installation ${phase}: one persistent v11 profile, photo, expe
       await expect
         .poll(async () => (await snapshot(page)).timer?.paused)
         .toBe(false);
+      page.once("dialog", async (dialog) => {
+        expect(dialog.message()).toContain("zakończyć pomiar czasu pracy");
+        await dialog.accept();
+      });
       await page.getByRole("button", { name: /STOP/ }).click();
       await expect.poll(async () => (await snapshot(page)).timer).toBeNull();
     }
