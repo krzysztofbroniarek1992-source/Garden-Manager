@@ -11,6 +11,7 @@ const labels: Record<Page, string> = {
   calculators: "Wróć do kalkulatorów",
   notes: "Wróć do notatek",
   todos: "Wróć do listy spraw",
+  shopping: "Wróć do listy zakupów",
   expenses: "Wróć do wydatków firmowych",
   templates: "Wróć do listy checklist",
 };

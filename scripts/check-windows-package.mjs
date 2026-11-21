@@ -18,7 +18,7 @@ if (files.some((f) => /\/sw\.js$|\/registerSW\.js$|\/workbox-/.test(f)))
 const pkg = JSON.parse(extractFile(archive, "package.json").toString());
 if (
   pkg.main !== "desktop/build/main.cjs" ||
-  pkg.version !== (process.env.GM_WINDOWS_VERSION || "0.5.0-test.2")
+  pkg.version !== (process.env.GM_WINDOWS_VERSION || "0.5.1-test.1")
 )
   throw Error("Wrong application metadata");
 const installer = (await readdir(output)).find((f) => f.endsWith(".exe"));
@@ -33,7 +33,7 @@ const metadata = {
   applicationId: "pl.broniarek.gardenmanager.windows",
   origin: "app://garden-manager/",
   architecture: "x64",
-  dataVersion: 11,
+  dataVersion: 12,
   electron: pkg.devDependencies?.electron || "45.2.3",
   installer,
   bytes: (await stat(file)).size,

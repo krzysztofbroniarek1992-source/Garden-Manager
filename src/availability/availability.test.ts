@@ -102,7 +102,7 @@ describe("GM-006 availability boundaries", () => {
     expect(values.get(STORAGE_KEY)).toBe(raw);
     expect(repo.load()).not.toHaveProperty("availability");
     expect(availabilityConflict(data, day, "16:00")).toBeNull();
-    expect(STORAGE_VERSION).toBe(11);
+    expect(STORAGE_VERSION).toBe(12);
   });
   it("mass changes preserve every existing business field and delete only selected settings", () => {
     const original = careData(),

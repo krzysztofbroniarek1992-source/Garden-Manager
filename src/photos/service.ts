@@ -1,3 +1,5 @@
+import { readJsonBackup } from './json-backup';
+import { withShopping } from '../shopping/model';
 import { withExpenses } from '../expenses/model';
 import type { StorePort } from '../data/atomic';
 import { pauseActiveTimer, type Data } from '../domain';
@@ -66,6 +68,10 @@ export class PhotoService {
       if (error instanceof SyntaxError || error instanceof Error && /invalid zip|unexpected eof|invalid distance|invalid length/i.test(error.message)) throw new Error('Nie można odczytać pełnej kopii ZIP. Plik jest uszkodzony lub nie jest kopią Garden Manager.');
       throw error;
     }
+    return this.inspectPrepared(prepared);
+  }
+  prepareJSON(blob: Blob) { return locked(async () => this.inspectPrepared(await readJsonBackup(blob, this.assets, this.clock()))); }
+  private async inspectPrepared(prepared: PreparedBackup) {
     const current = await this.store.snapshot();
     if (current.timer) throw new Error('Przed odtwarzaniem zakończ pomiar wizyty przyciskiem STOP.');
     if (await this.assets.recovery()) throw new Error('Najpierw pobierz lub przywróć zachowany punkt odzyskiwania, a następnie usuń go przed kolejnym importem.');
@@ -95,7 +101,7 @@ export class PhotoService {
     catch { return 'Dane i zdjęcia zostały odtworzone. Ponów porządkowanie, aby dokończyć zapis punktu odzyskiwania.'; }
   }
   importFull(prepared: PreparedBackup, expected: string) { return locked(() => this.restore(prepared, expected, false)); }
-  async recovery() { const point = await this.assets.recovery(); if (!point) return undefined; const data = withExpenses(withReportData(withChecklistData(withDeskData(point.data)))); validateData(data); return { ...point, data }; }
+  async recovery() { const point = await this.assets.recovery(); if (!point) return undefined; const data = withShopping(withExpenses(withReportData(withChecklistData(withDeskData(point.data))))); validateData(data); return { ...point, data }; }
   exportRecovery() { return locked(async () => { const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.'); return makeFullBackup(point.data, this.assets, point.createdAt); }); }
   async prepareRecovery(): Promise<{ point: RecoveryPoint; expected: string }> {
     const point = await this.recovery(); if (!point) throw new Error('Brak punktu odzyskiwania.');

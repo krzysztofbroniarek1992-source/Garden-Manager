@@ -30,6 +30,7 @@ export function createDemoData(now = new Date()): Data {
   });
   return {
     ...initialExpenseData(),
+    shoppingItems: [],
     reportSequence: 0,
     workTemplates: starterTemplates(now.getTime()),
     checklists: [],

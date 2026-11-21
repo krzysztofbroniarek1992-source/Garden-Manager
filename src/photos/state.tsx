@@ -14,6 +14,7 @@ interface PhotoContextValue {
   remove(photo: PhotoMetadata): Promise<void>;
   retry(): Promise<void>;
   exportFull(): Promise<Blob>;
+  prepareJSON(blob: Blob): Promise<{ prepared: PreparedBackup; expected: string }>;
   prepare(blob: Blob): Promise<{ prepared: PreparedBackup; expected: string }>;
   importFull(prepared: PreparedBackup, expected: string): Promise<string>;
   exportRecovery(): Promise<Blob>;
@@ -60,7 +61,7 @@ export function PhotoProvider({ store, metadata, onChange, children }: { store: 
     edit: (photo, details) => run(s => s.edit(photo.id, details, photo.revision)),
     remove: photo => run(s => s.remove(photo)),
     retry: () => run(async s => { await s.reconcile(); setReady(true); }),
-    exportFull: () => run(s => s.exportFull()), prepare: blob => run(s => s.prepare(blob)), importFull: (prepared, expected) => run(s => s.importFull(prepared, expected)),
+    exportFull: () => run(s => s.exportFull()), prepare: blob => run(s => s.prepare(blob)), prepareJSON: blob => run(s => s.prepareJSON(blob)), importFull: (prepared, expected) => run(s => s.importFull(prepared, expected)),
     exportRecovery: () => run(s => s.exportRecovery()), prepareRecovery: () => run(s => s.prepareRecovery()),
     restoreRecovery: (id, expected) => run(s => s.restoreRecovery(id, expected)), clearRecovery: id => run(s => s.clearRecovery(id)),
   }}>{children}</PhotoContext.Provider>;

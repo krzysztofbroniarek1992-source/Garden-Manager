@@ -276,7 +276,7 @@ test("v11 JSON and full ZIP restore expense audit and a real photo without touch
     return readFile((await (await w).path())!);
   };
   const json = JSON.parse((await get("Eksportuj dane")).toString());
-  expect(json.version).toBe(11);
+  expect(json.version).toBe(12);
   expect(json.data.expenses).toEqual(before.expenses);
   const zip = await get("Pobierz pełną kopię ZIP");
   await s.getByLabel("Wczytaj pełną kopię ZIP", { exact: true }).setInputFiles({

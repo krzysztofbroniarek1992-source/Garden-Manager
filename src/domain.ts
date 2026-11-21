@@ -1,3 +1,4 @@
+import type { ShoppingData } from './shopping/model';
 import type { ExpenseData } from './expenses/model';
 import type { AvailabilityDay } from './availability/model';
 import type { VisitDetails, VisitReport, VisitTimeEvent } from './reports/model';
@@ -109,7 +110,7 @@ export interface Payment {
   note: string;
 }
 
-export interface Data extends ExpenseData {
+export interface Data extends ExpenseData, ShoppingData {
   availability?: AvailabilityDay[];
   reportSequence: number;
   workTemplates: WorkTemplate[];

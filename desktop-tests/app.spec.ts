@@ -154,6 +154,7 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       todos: "Do zrobienia",
       templates: "Szablony prac",
       expenses: "Wydatki firmowe",
+      shopping: "Lista zakupów",
     };
     for (const id of [
       "dashboard",
@@ -169,6 +170,7 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       "todos",
       "templates",
       "expenses",
+      "shopping",
     ]) {
       await route(page, "#" + id);
       await expect(
@@ -431,7 +433,7 @@ test("native file bridge: CSV decisions, actual PDF, JSON, ZIP with photo and re
     const json = path.join(folder, "dane.json");
     await saveDialog(instance, json);
     await exportButton(page, "Eksportuj dane");
-    expect((await jsonFile(json)).version).toBe(11);
+    expect((await jsonFile(json)).version).toBe(12);
     const zip = path.join(folder, "pełna kopia.zip");
     await saveDialog(instance, zip);
     await exportButton(page, "Pobierz pełną kopię ZIP");

@@ -16,6 +16,7 @@ public class ExpensesTest {
     @Test public void offlineExpensesImportBackAndReopen() throws Exception {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
+            int expenseCount=Integer.parseInt(async(scenario,READ_STATE+"return String(state.data.expenses.length)"));
             String before=async(scenario,READ_STATE+"return JSON.stringify([state.data.jobs,state.data.payments,state.data.timer])");
             evaluate(scenario,"location.hash='#expenses'");
             waitFor(scenario,"!!document.querySelector('.expenses-page')");
@@ -74,11 +75,11 @@ public class ExpensesTest {
                 evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Zatwierdź nowe obciążenia bez ostrzeżeń').click()");
                 evaluate(scenario,"setTimeout(()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Zapisz import (')).click(),0)");
                 UiObject2 accept=device.wait(Until.findObject(By.res("android","button1")),20000);assertNotNull("Import confirmation",accept);accept.click();
-                waitFor(scenario,"!document.querySelector('[role=dialog]') && document.querySelectorAll('.expense-ledger .tool-card').length===3");
+                waitFor(scenario,"!document.querySelector('[role=dialog]') && document.querySelectorAll('.expense-ledger .tool-card').length==="+(expenseCount+3)+"");
             } finally {resolver.delete(csv,null,null);}
             assertEquals(before,async(scenario,READ_STATE+"return JSON.stringify([state.data.jobs,state.data.payments,state.data.timer])"));
             scenario.recreate();ready(scenario);
-            assertEquals("ok",async(scenario,READ_STATE+"if(state.formatVersion!==11 || !state.data.expenses.some(e=>e.counterparty==='GM009B urządzenie'&&e.amountCents===1234) || state.data.expenseImports.length!==1 || state.data.expenses.filter(e=>e.direction==='incoming').some(e=>e.status!=='excluded'))throw Error('Expense reopen');return 'ok'"));
+            assertEquals("ok",async(scenario,READ_STATE+"if(state.formatVersion!==12 || !state.data.expenses.some(e=>e.counterparty==='GM009B urządzenie'&&e.amountCents===1234) || state.data.expenseImports.length!==1 || state.data.expenses.filter(e=>e.direction==='incoming').some(e=>e.status!=='excluded'))throw Error('Expense reopen');return 'ok'"));
         }
     }
 }

@@ -98,3 +98,9 @@ Te wyniki nie oznaczają przeprowadzenia fizycznego odbioru na Windows 10/11. Ru
 - Ochrona brudnego formularza i zamknięcie podczas zapisu; po wymuszonym zakończeniu procesu sprawdzenie ostatnio zatwierdzonego stanu, bez zakładania zachowania szkicu.
 
 Automatyczne testy na Windows nie zastępują odbioru na fizycznych komputerach, różnych monitorach i dostawcach nośników. Ostateczne wyniki automatyzacji, link do EXE, SHA256 i status podpisu są w PR GM-010.
+
+## GM-010A — aktualizacja testowa
+
+Nowa wersja 0.5.1-test.1 dodaje wspólną Listę zakupów i migrację v11 → v12. Android ma versionCode 5. Zasady instalacji, zachowania profilu, cen, powiązań z kosztami i kopii opisuje [SHOPPING_LIST.md](SHOPPING_LIST.md). Test aktualizacji używa rzeczywistego main v11 jako wersji A. Starsze wyniki powyżej opisują GM-010 i nie są wynikiem regresji GM-010A; bieżące wyniki i artefakty są w PR #27.
+
+Pełny ZIP przenosi dane i zdjęcia, zastępując zestaw zamiast scalać bazy. Dane Androida, Windows i przeglądarki nie synchronizują się automatycznie. Windows to testowy instalator bez gwarancji podpisu Authenticode. APK może mieć inny certyfikat od poprzedniej instalacji: przed ewentualnym odinstalowaniem wykonaj pełny ZIP. Nie zakładaj zgodności podpisu na podstawie powodzenia aktualizacji w emulatorze CI.

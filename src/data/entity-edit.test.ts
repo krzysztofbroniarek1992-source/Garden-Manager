@@ -189,7 +189,7 @@ describe("GM-008 independent fields and unchanged persistence contract", () => {
     const { a, source, values } = setup();
     try {
       expect((await a.initialize()).data).toEqual(source);
-      expect(STORAGE_VERSION).toBe(11);
+      expect(STORAGE_VERSION).toBe(12);
       expect(JSON.parse(values.get(STORAGE_KEY)!).version).toBe(STORAGE_VERSION);
       const client = source.clients[0];
       await a.command((s) =>
