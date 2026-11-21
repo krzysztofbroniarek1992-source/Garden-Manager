@@ -135,7 +135,7 @@ function BulkShopping({ onClose }: { onClose: () => void }) {
   return <Modal title="Dodaj wiele produktów" onClose={onClose}><form ref={guard.ref} onSubmit={submit}>
     <p>Po jednej nazwie w wierszu, do 100 pozycji. Każdy wiersz to osobny produkt: domyślnie 1 szt., Do kupienia, bez ceny.</p>
     {error && <p role="alert" className="gm-form-error">{error}</p>}
-    <label className="field">Nazwy produktów<textarea aria-label="Nazwy produktów" required maxLength={20100} rows={8} value={names} onChange={e => setNames(e.target.value)}/></label>
+    <label className="field">Nazwy produktów<textarea required maxLength={20100} rows={8} value={names} onChange={e => setNames(e.target.value)}/></label>
     <div className="gm-modal-actions"><button type="button" className="button secondary" onClick={() => guard.confirm(onClose)}>Anuluj</button><button className="button primary">Dodaj produkty</button></div>
   </form></Modal>;
 }

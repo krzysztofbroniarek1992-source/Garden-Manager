@@ -452,3 +452,9 @@ Przed użyciem z danymi firmowymi na fizycznym telefonie sprawdź:
 - Podpis zainstalowanej wersji zgodny z metadanymi nowego APK przed próbą aktualizacji.
 
 Końcowe liczby regresji i link do konkretnego artefaktu zawiera PR GM-009A.
+
+## GM-010A — aktualizacja testowa
+
+Nowa wersja 0.5.1-test.1 dodaje wspólną Listę zakupów i migrację v11 → v12. Android ma versionCode 5. Zasady instalacji, zachowania profilu, cen, powiązań z kosztami i kopii opisuje [SHOPPING_LIST.md](SHOPPING_LIST.md). Test aktualizacji używa rzeczywistego main v11 jako wersji A. Starsze wyniki powyżej opisują GM-010 i nie są wynikiem regresji GM-010A; bieżące wyniki i artefakty są w PR #27.
+
+Pełny ZIP przenosi dane i zdjęcia, zastępując zestaw zamiast scalać bazy. Dane Androida, Windows i przeglądarki nie synchronizują się automatycznie. Windows to testowy instalator bez gwarancji podpisu Authenticode. APK może mieć inny certyfikat od poprzedniej instalacji: przed ewentualnym odinstalowaniem wykonaj pełny ZIP. Nie zakładaj zgodności podpisu na podstawie powodzenia aktualizacji w emulatorze CI.

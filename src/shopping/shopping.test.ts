@@ -197,6 +197,10 @@ describe("v11 to v12 migration and full backup compatibility", () => {
     };
     d = { ...d, photos: [photo] };
     await assets.putMany([{ id: photo.assetId, image, thumbnail: image, createdAt: at }]);
+    const restoredJson = await readJsonBackup(new Blob([JSON.stringify({ version: 12, data: d })]), assets, at);
+    expect(restoredJson.data).toEqual(d);
+    expect(await sha256(restoredJson.assets[0].image)).toBe(hash);
+    await expect(readJsonBackup(new Blob([JSON.stringify({ version: 12, data: d })]), new IndexedDbPhotoRepository(new IDBFactory()), at)).rejects.toThrow("nie zawiera plików");
     const zip = await makeFullBackup(d, assets, at), prepared = await readFullBackup(zip);
     expect(prepared.data).toEqual(d); expect(await sha256(prepared.assets[0].image)).toBe(hash);
     const contents = unzipSync(new Uint8Array(await zip.arrayBuffer()));

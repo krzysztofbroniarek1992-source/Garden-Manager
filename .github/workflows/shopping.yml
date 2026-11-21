@@ -17,6 +17,8 @@ jobs:
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -25,7 +27,7 @@ jobs:
       - run: npx tsc -b
       - run: npm test
       - run: npm run test:desktop:unit
-      - run: git diff --check
+      - run: git diff --check origin/main...HEAD
   browser:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04

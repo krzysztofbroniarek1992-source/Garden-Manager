@@ -124,7 +124,22 @@ test("Android More and shared system Back protect an unsaved purchase and preser
   await editor(page).getByLabel("Notatki", { exact: true }).fill("Nie zgub szkicu");
   page.once("dialog", d => d.dismiss()); await androidBack(page);
   await expect(editor(page).getByLabel("Notatki", { exact: true })).toHaveValue("Nie zgub szkicu");
+  await page.evaluate(() => {
+    const r = indexedDB.open("garden-manager-state", 1);
+    r.onsuccess = () => {
+      const db = r.result, t = db.transaction("state", "readwrite"), store = t.objectStore("state");
+      let done = false; (window as any).releaseShoppingWrite = () => done = true;
+      const pump = () => { store.get("current").onsuccess = () => { if (!done) pump(); }; };
+      pump(); t.oncomplete = () => db.close();
+    };
+  });
+  await page.waitForFunction(() => !!(window as any).releaseShoppingWrite);
   await editor(page).getByRole("button", { name: "Zapisz zakup", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("aria-busy", "true");
+  await androidBack(page);
+  await expect(editor(page)).toBeVisible();
+  await page.evaluate(() => (window as any).releaseShoppingWrite());
+  await expect(editor(page)).toHaveCount(0);
   await page.reload(); expect((await snapshot(page)).shoppingItems[0].notes).toBe("Nie zgub szkicu");
 });
 

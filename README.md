@@ -717,3 +717,7 @@ warunki przygotowania pełnych wersji Android i Windows opisuje
 [docs/PRE_RELEASE_AUDIT.md](docs/PRE_RELEASE_AUDIT.md). Samodzielny import JSON
 nie jest udostępniony w GUI; do przenoszenia i odtwarzania danych ze zdjęciami
 służy pełny ZIP. Tryb terenowy jest dodatkiem do wszystkich modułów aplikacji.
+
+## GM-010A — Lista zakupów firmowych
+
+Wspólny moduł Windows, Android i PWA; dane v12, bez automatycznego tworzenia kosztów. [Instrukcja zakupów, migracji, kopii i odbioru](docs/SHOPPING_LIST.md). Wersje testowe i wyniki regresji: PR #27.
