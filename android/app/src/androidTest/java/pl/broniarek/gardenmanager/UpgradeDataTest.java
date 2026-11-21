@@ -26,7 +26,8 @@ public class UpgradeDataTest {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
             String expected=async(scenario,"return navigator.locks.request('garden-manager-photos',async()=>{"+READ_STATE+"const d=JSON.parse("+JSONObject.quote(fixture)+");"+"""
-                for(const key of ['expenses','expenseCategories','expenseRules','expenseProfiles','expenseImports'])delete d[key];
+                for(const key of ['expenses','expenseCategories','expenseRules','expenseProfiles','expenseImports'])d[key]=structuredClone(state.data[key]);
+                d.expenses.push({id:'gm010a-old-expense',revision:1,createdAt:1,updatedAt:1,date:'2026-11-10',amountCents:1234,direction:'outgoing',counterparty:'Przed aktualizacją',description:'Istniejący koszt v11',categoryId:d.expenseCategories[0].id,source:'manual',origin:null,status:'approved',note:'Zachowaj',history:[]});
                 d.clients[0].name='GM009 upgrade preserved';
                 const running=d.jobs.find(j=>j.id==='field-today');
                 running.status='in-progress';d.timer={jobId:running.id,startedAt:Date.now()-12600000,paused:false};
@@ -53,13 +54,13 @@ public class UpgradeDataTest {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
             String actual=async(scenario,READ_STATE+"""
-                if(state.formatVersion!==11)throw Error('Expected migrated v11');
-                if(state.data.expenses.length || state.data.expenseImports.length || !state.data.expenseCategories.length || !state.data.expenseRules.length)throw Error('Expense migration defaults');
+                if(state.formatVersion!==12)throw Error('Expected migrated v12');
+                if(state.data.expenses.length!==1 || state.data.expenses[0].id!=='gm010a-old-expense' || state.data.shoppingItems.length)throw Error('Shopping migration must preserve existing expenses');
                 const d=structuredClone(state.data);
-                for(const key of ['expenses','expenseCategories','expenseRules','expenseProfiles','expenseImports'])delete d[key];
+                delete d.shoppingItems;
                 const sourceDB=await new Promise(ok=>{const r=indexedDB.open('garden-manager-state',1);r.onsuccess=()=>ok(r.result)});
-                const backup=await new Promise(ok=>{const r=sourceDB.transaction('state').objectStore('state').get('format-v10-source');r.onsuccess=()=>ok(r.result)});sourceDB.close();
-                if(backup?.formatVersion!==10 || JSON.stringify(backup.data)!==JSON.stringify(d))throw Error('Exact pre-migration v10 backup missing');
+                const backup=await new Promise(ok=>{const r=sourceDB.transaction('state').objectStore('state').get('format-v11-source');r.onsuccess=()=>ok(r.result)});sourceDB.close();
+                if(backup?.formatVersion!==11 || JSON.stringify(backup.data)!==JSON.stringify(d))throw Error('Exact pre-migration v11 backup missing');
                 return JSON.stringify(d);
                 """);
             assertEquals(new JSONObject(expected).toString(),new JSONObject(actual).toString());

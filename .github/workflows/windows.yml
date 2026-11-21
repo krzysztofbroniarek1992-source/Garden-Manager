@@ -28,13 +28,19 @@ jobs:
         run: npm run build:windows
       - name: Real Electron windows, native IPC, files and offline
         run: npm run test:desktop
-      - name: Build installer A
+      - name: Checkout actual v11 application A
+        uses: actions/checkout@v4
+        with:
+          ref: 4fcb792be7881b50a35f1ba3105403764ce738a1
+          path: baseline
+      - name: Build original installer A with original v11 data
         shell: pwsh
+        working-directory: baseline
         run: |
-          $env:GM_WINDOWS_VERSION = '0.5.0-test.1'
-          $env:GM_WINDOWS_BUILD_VERSION = '0.5.0.1'
-          $env:GM_WINDOWS_OUTPUT = 'release-windows-a'
-          npx electron-builder --win nsis --x64 --config desktop/electron-builder.cjs --publish never
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:GM_WINDOWS_OUTPUT = '../release-windows-a'
+          npm run windows:installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build installer B and verify actual package
         shell: pwsh
@@ -55,6 +61,10 @@ jobs:
             release-windows/WINDOWS-METADATA.json
             release-windows/SHA256SUMS.txt
           retention-days: 30
+      - name: Failure context
+        if: failure()
+        shell: pwsh
+        run: Get-ChildItem test-results-desktop -Filter error-context.md -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName }
       - name: Desktop diagnostics
         if: always()
         uses: actions/upload-artifact@v4

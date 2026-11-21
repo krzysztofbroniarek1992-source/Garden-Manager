@@ -154,6 +154,7 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       todos: "Do zrobienia",
       templates: "Szablony prac",
       expenses: "Wydatki firmowe",
+      shopping: "Lista zakupów",
     };
     for (const id of [
       "dashboard",
@@ -169,6 +170,7 @@ test("real Electron: private secure origin, isolated renderer, offline modules, 
       "todos",
       "templates",
       "expenses",
+      "shopping",
     ]) {
       await route(page, "#" + id);
       await expect(
