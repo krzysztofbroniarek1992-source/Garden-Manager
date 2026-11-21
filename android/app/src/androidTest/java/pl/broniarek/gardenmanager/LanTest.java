@@ -36,10 +36,12 @@ public class LanTest {
         set(s,"Zaproszenie z Windows",peer.getString("invitation"));
         click(s,"Połącz i porównaj kody");until(s,v->v.has("pending"));
         JSONObject pending=view(s).getJSONObject("pending");assertEquals(peer.getJSONObject("device").getString("fingerprint"),pending.getString("fingerprint"));
+        waitFor(s,"!!document.querySelector('.lan-check input')");
+        assertEquals("painted",async(s,"await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));return 'painted'"));
         evaluate(s,"document.querySelector('.lan-check input').click()");
         click(s,"Potwierdź parowanie");
         UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        UiObject2 trust=device.wait(Until.findObject(By.text("Zaufaj")),20000);assertNotNull("Native identity confirmation",trust);trust.click();
+        UiObject2 trust=device.wait(Until.findObject(By.res("android","button1")),20000);assertNotNull("Native identity confirmation",trust);assertEquals("zaufaj",trust.getText().toLowerCase(Locale.ROOT));trust.click();
         until(s,v->!v.has("pending")&&v.optJSONArray("peers").toString().contains(peer.optJSONObject("device").optString("id")));
     }
     private void connect(ActivityScenario<MainActivity> s,JSONObject p)throws Exception{connect(s,p,true);}

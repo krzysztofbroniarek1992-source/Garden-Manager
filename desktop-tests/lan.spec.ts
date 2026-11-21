@@ -43,6 +43,14 @@ test("real Electron DPAPI, narrow IPC, mutual TLS, synthetic duplex, ZIP isolati
   expect((await view()).result?.ok).toBe(true);expect(await snapshot(a.page)).toEqual(before);
   client.channel.close();await a.page.getByRole("button",{name:"Zakończ sesję",exact:true}).click();
   await expect.poll(async()=>(await view()).active).toBe(false);
+  await a.instance.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setMinimumSize(300,500));
+  for(const width of [360,390,430]){
+    await a.instance.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setContentSize(width,844),width);
+    await expect.poll(()=>a.page.evaluate(()=>innerWidth)).toBe(width);
+    expect(await a.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect((await a.page.getByRole("button",{name:"Rozpocznij sesję",exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  await a.instance.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1280,900));
   const vault=path.join(a.profile,"lan","identity.dpapi"),encrypted=await readFile(vault);
   expect(encrypted.includes(Buffer.from("PRIVATE KEY"))).toBe(false);
   // Real business backup includes photos and stays independent of native credentials.

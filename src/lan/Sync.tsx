@@ -60,7 +60,7 @@ export default function Sync(){
         <p role="status">{view.connected?"Połączono i uwierzytelniono: "+view.connected.name:view.active?"Sesja aktywna — brak uwierzytelnionego połączenia":"Sesja wyłączona"}</p>
         <p>{view.diagnostic}</p>
         {!view.active&&<>
-          {view.platform==="windows"&&<label className="field">Interfejs LAN<select value={address} onChange={e=>setAddress(e.target.value)}>{!view.interfaces.length&&<option value="">Brak prywatnego IPv4</option>}{view.interfaces.map(i=><option key={i.address} value={i.address}>{i.name} · {i.address}</option>)}</select></label>}
+          {view.platform==="windows"&&<label className="field">Interfejs LAN<select aria-label="Interfejs LAN" value={address} onChange={e=>setAddress(e.target.value)}>{!view.interfaces.length&&<option value="">Brak prywatnego IPv4</option>}{view.interfaces.map(i=><option key={i.address} value={i.address}>{i.name} · {i.address}</option>)}</select></label>}
           <button className="button primary" disabled={busy||(view.platform==="windows"&&!address)} onClick={()=>{void run({action:"start",address});}}>Rozpocznij sesję</button>
         </>}
         {view.active&&<button className="button secondary" onClick={()=>{if(port){void port.command({action:"stop"}).then(apply).catch(e=>setError(e.message));}}}>Zakończ sesję</button>}
@@ -97,14 +97,14 @@ export default function Sync(){
       </article>
       </div>
       {view.platform==="android"&&<article className="card"><h2>Ręczne połączenie</h2><p>Wybierz wcześniej sparowany komputer. Przy zmianie sieci podaj jego aktualny adres i port z ekranu Windows; tożsamość i zaufanie pozostają te same.</p>
-        <div className="form-grid"><label className="field">Sparowany komputer<select value={peer} onChange={e=>setPeer(e.target.value)}><option value="">Wybierz urządzenie</option>{view.peers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <div className="form-grid"><label className="field">Sparowany komputer<select aria-label="Sparowany komputer" value={peer} onChange={e=>setPeer(e.target.value)}><option value="">Wybierz urządzenie</option>{view.peers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
         <label className="field">Adres IPv4<input value={host} onChange={e=>setHost(e.target.value)} inputMode="decimal" placeholder="192.168.1.10"/></label>
         <label className="field">Port TLS<input value={tcpPort} onChange={e=>setTcpPort(e.target.value)} inputMode="numeric"/></label></div>
         <button className="button primary" disabled={!view.active||busy||!peer||!host||!tcpPort||!!view.connected} onClick={()=>{void run({action:"connect",id:peer,host,port:Number(tcpPort)});}}>Połącz ręcznie</button>
       </article>}
       <article className="card"><h2>Test połączenia</h2><p>Wyłącznie syntetyczny JSON lub dane binarne w obu kierunkach. Wynik nie oznacza synchronizacji klientów, zleceń ani zdjęć.</p>
-        <div className="form-grid"><label className="field">Rozmiar testu<select value={bytes} onChange={e=>setBytes(Number(e.target.value) as LanSize)}>{[[1024,"1 KB"],[102400,"100 KB"],[1048576,"1 MB"],[10485760,"10 MB"]].map(([n,label])=><option key={n} value={n}>{label}</option>)}</select></label>
-        <label className="field">Typ danych testowych<select value={kind} onChange={e=>setKind(e.target.value as LanKind)}><option value="json">JSON syntetyczny</option><option value="binary">Dane binarne syntetyczne</option></select></label></div>
+        <div className="form-grid"><label className="field">Rozmiar testu<select aria-label="Rozmiar testu" value={bytes} onChange={e=>setBytes(Number(e.target.value) as LanSize)}>{[[1024,"1 KB"],[102400,"100 KB"],[1048576,"1 MB"],[10485760,"10 MB"]].map(([n,label])=><option key={n} value={n}>{label}</option>)}</select></label>
+        <label className="field">Typ danych testowych<select aria-label="Typ danych testowych" value={kind} onChange={e=>setKind(e.target.value as LanKind)}><option value="json">JSON syntetyczny</option><option value="binary">Dane binarne syntetyczne</option></select></label></div>
         <button className="button primary" disabled={!view.connected||busy||view.busy} onClick={()=>{void run({action:"test",bytes,kind});}}>Testuj połączenie</button>
         {(busy||view.busy)&&<p role="status">Trwa operacja komunikacji… Możesz zakończyć sesję.</p>}
         {view.result&&<div className="lan-result" role="status"><strong>{view.result.ok?"Test komunikacji zakończony — sumy SHA256 zgodne":"Test przerwany lub odrzucony"}</strong><p>{view.result.bytes} bajtów w każdym kierunku · {view.result.kind} · {view.result.elapsedMs} ms</p><p>Wysłano: <code className="lan-hash">{view.result.sentSha256||"—"}</code></p><p>Odebrano: <code className="lan-hash">{view.result.receivedSha256||"—"}</code></p><p>{new Date(view.result.at).toLocaleString("pl-PL")}{view.result.error&&" · "+view.result.error}</p></div>}
