@@ -154,7 +154,7 @@ final class LanEngine {
             Runnable[] next=new Runnable[1];next[0]=()->{
                 if(!active||generation!=gen||!resolving.compareAndSet(false,true))return;
                 NsdServiceInfo item=queue.poll();if(item==null){resolving.set(false);return;}
-                manager.resolveService(item,new NsdManager.ResolveListener(){
+                try{manager.resolveService(item,new NsdManager.ResolveListener(){
                     public void onResolveFailed(NsdServiceInfo s,int error){resolving.set(false);next[0].run();}
                     public void onServiceResolved(NsdServiceInfo s){
                         try{
@@ -163,11 +163,11 @@ final class LanEngine {
                                 if(idBytes==null||version==null||idBytes.length>80)throw new Exception("PROTOCOL");
                                 String id=new String(idBytes,StandardCharsets.UTF_8),v=new String(version,StandardCharsets.US_ASCII),host=s.getHost().getHostAddress();
                                 LanWire.uuid(id);LanWire.port(s.getPort());
-                                if(v.equals("1")&&LanWire.privateAddress(host))discovered.put(id,new JSONObject().put("id",id).put("host",host).put("port",s.getPort()));
+                                if(v.equals("1")&&LanWire.privateAddress(host)&&(discovered.containsKey(id)||discovered.size()<50))discovered.put(id,new JSONObject().put("id",id).put("host",host).put("port",s.getPort()));
                             }
                         }catch(Exception ignored){}finally{resolving.set(false);next[0].run();}
                     }
-                });
+                });}catch(Exception e){resolving.set(false);diagnostic="Nie można odczytać wykrytego urządzenia. Użyj ręcznego IP i portu; sprawdź dostęp do LAN.";}
             };
             discovery=new NsdManager.DiscoveryListener(){
                 public void onDiscoveryStarted(String t){}

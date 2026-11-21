@@ -11,7 +11,7 @@ export default function Sync(){
   const [address,setAddress]=useState(""),[host,setHost]=useState(""),[tcpPort,setTcpPort]=useState(""),[peer,setPeer]=useState("");
   const [invitation,setInvitation]=useState(""),[bytes,setBytes]=useState<LanSize>(1024),[kind,setKind]=useState<LanKind>("json");
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false);
-  const mounted=useRef(true),nameDirty=useRef(false),operation=useRef(false);
+  const mounted=useRef(true),nameDirty=useRef(false),operation=useRef(false),epoch=useRef(0);
   nameDirty.current=name!==originalName;
   const guard=useUnsavedChanges(name!==originalName);
   function apply(v:LanView){
@@ -23,26 +23,31 @@ export default function Sync(){
   }
   useEffect(()=>{
     if(!port)return;let disposed=false,polling=false;mounted.current=true;
-    const poll=async()=>{if(disposed||polling)return;polling=true;try{const v=await port.command({action:"status"});if(!disposed)apply(v);}catch(e){if(!disposed)setError((e as Error).message);}finally{polling=false;}};
+    const poll=async()=>{if(disposed||polling)return;polling=true;const started=epoch.current;try{const v=await port.command({action:"status"});if(!disposed&&started===epoch.current)apply(v);}catch(e){if(!disposed)setError((e as Error).message);}finally{polling=false;}};
     void poll();const timer=setInterval(()=>{void poll();},1500);
     return()=>{disposed=true;mounted.current=false;clearInterval(timer);void port.command({action:"stop"}).catch(()=>{});};
   },[port]);
   useEffect(()=>setConfirmed(false),[view?.pending?.code,view?.pending?.fingerprint]);
   async function run(command:LanCommand){
     if(!port||operation.current)return;
-    operation.current=true;setBusy(true);setError("");setNotice("");
+    operation.current=true;const started=++epoch.current;setBusy(true);setError("");setNotice("");
     try{
-      const next=await port.command(command);apply(next);
+      const next=await port.command(command);if(started!==epoch.current)return;++epoch.current;apply(next);
       if(command.action==="rename"){setName(next.device!.name);setOriginalName(next.device!.name);}
       if(command.action==="pair")setInvitation("");
-    }catch(e){if(mounted.current)setError((e as Error).message);}
+    }catch(e){if(mounted.current&&started===epoch.current)setError((e as Error).message);}
     finally{operation.current=false;if(mounted.current)setBusy(false);}
   }
   async function rename(e:FormEvent){
-    e.preventDefault();if(!port||operation.current)return;operation.current=true;setBusy(true);setError("");
-    try{await guard.save(()=>pendingWrite(async()=>{const v=await port.command({action:"rename",name});apply(v);setName(v.device!.name);setOriginalName(v.device!.name);}));}
+    e.preventDefault();if(!port||operation.current)return;operation.current=true;const started=++epoch.current;setBusy(true);setError("");
+    try{await guard.save(()=>pendingWrite(async()=>{const v=await port.command({action:"rename",name});if(started===epoch.current){++epoch.current;apply(v);}setName(v.device!.name);setOriginalName(v.device!.name);}));}
     catch(e){if(mounted.current)setError((e as Error).message);}
     finally{operation.current=false;if(mounted.current)setBusy(false);}
+  }
+  async function stop(){
+    if(!port)return;const started=++epoch.current;setError("");
+    try{const next=await port.command({action:"stop"});if(started===epoch.current){++epoch.current;apply(next);}}
+    catch(e){if(mounted.current&&started===epoch.current)setError((e as Error).message);}
   }
   return <section className="entities-page lan-page">
     <div className="page-heading"><div><span className="eyebrow">GM-011A · TEST KOMUNIKACJI</span><h1>Synchronizacja</h1>
@@ -52,7 +57,7 @@ export default function Sync(){
       {!view?<p role="status">{error?"Tryb komunikacji jest niedostępny. Pozostałe moduły i dane firmowe pozostają lokalnie.":"Odczyt chronionej tożsamości urządzenia…"}</p>:<>
       <div className="lan-grid">
       <article className="card"><h2>Bieżące urządzenie</h2>
-        <form ref={guard.ref} onSubmit={rename}><label className="field">Nazwa urządzenia<input required maxLength={80} value={name} onChange={e=>{nameDirty.current=true;setName(e.target.value);}}/></label><button className="button secondary" disabled={busy||name===originalName}>Zapisz nazwę urządzenia</button></form>
+        <form ref={guard.ref} onSubmit={rename}><label className="field">Nazwa urządzenia<input required disabled={busy} maxLength={80} value={name} onChange={e=>{nameDirty.current=true;setName(e.target.value);}}/></label><button className="button secondary" disabled={busy||name===originalName}>Zapisz nazwę urządzenia</button></form>
         <p className="muted">Identyfikator instalacji: {view.device?.id}</p><details><summary>Odcisk klucza urządzenia</summary><code className="lan-hash">{view.device?.fingerprint}</code></details>
         <p>Klucze i zaufane urządzenia pozostają lokalnie, poza kopiami JSON/ZIP danych firmowych.</p>
       </article>
@@ -63,7 +68,7 @@ export default function Sync(){
           {view.platform==="windows"&&<label className="field">Interfejs LAN<select aria-label="Interfejs LAN" value={address} onChange={e=>setAddress(e.target.value)}>{!view.interfaces.length&&<option value="">Brak prywatnego IPv4</option>}{view.interfaces.map(i=><option key={i.address} value={i.address}>{i.name} · {i.address}</option>)}</select></label>}
           <button className="button primary" disabled={busy||(view.platform==="windows"&&!address)} onClick={()=>{void run({action:"start",address});}}>Rozpocznij sesję</button>
         </>}
-        {view.active&&<button className="button secondary" onClick={()=>{if(port){void port.command({action:"stop"}).then(apply).catch(e=>setError(e.message));}}}>Zakończ sesję</button>}
+        {view.active&&<button className="button secondary" onClick={()=>{void stop();}}>Zakończ sesję</button>}
         {view.endpoint&&<p>Adres tego komputera: <strong>{view.endpoint.host}:{view.endpoint.port}</strong></p>}
         <p className="muted">Sesja wygasa po 15 minutach. Wyjście z tego widoku kończy komunikację. Na telefonie przejście aplikacji w tło również zamyka połączenie. Internet nie jest wymagany.</p>
       </article>

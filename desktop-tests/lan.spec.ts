@@ -55,7 +55,7 @@ test("real Electron DPAPI, narrow IPC, mutual TLS, synthetic duplex, ZIP isolati
   expect(encrypted.includes(Buffer.from("PRIVATE KEY"))).toBe(false);
   // Real business backup includes photos and stays independent of native credentials.
   await addPhoto(a.page);const saved=await snapshot(a.page),photos=await metadata(a.page);
-  await a.page.getByRole("button",{name:"Ustawienia konta demonstracyjnego",exact:true}).click();
+  await route(a.page,"#dashboard?dialog=settings");
   const json=path.join(a.profile,"synthetic-export.json");await saveDialog(a.instance,json);await exportButton(a.page,"Eksportuj dane");
   const backup=await jsonFile(json);expect(backup.version).toBe(12);expect(JSON.stringify(backup)).not.toContain(initial.id);
   const zip=path.join(a.profile,"synthetic-full.zip");await saveDialog(a.instance,zip);await exportButton(a.page,"Pobierz pełną kopię ZIP");
