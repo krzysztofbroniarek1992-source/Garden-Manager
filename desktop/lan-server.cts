@@ -159,7 +159,10 @@ export class LanServer {
     if(this.candidate?.peer.id===id)await this.closePairing();
     if(this.channel?.remote.id===id)this.channel.close("CLOSED");
     await this.store.update(d=>({...d,peers:d.peers.filter(p=>p.id!==id)}));
-    await this.refreshTrust();return this.view();
+    await this.refreshTrust();
+    // A new connection may have arrived while the revocation write was pending.
+    if(this.channel?.remote.id===id)this.channel.close("CLOSED");
+    return this.view();
   }
   async test(bytes:LanSize,kind:LanKind){if(!this.channel)fail("DISCONNECTED");await this.channel.test(bytes,kind);return this.view();}
   private async closePairing(){

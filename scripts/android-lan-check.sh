@@ -14,7 +14,14 @@ mkdir -p artifacts/lan-runtime
 npm run desktop:compile
 node lan-tests/emulator-server.cjs artifacts/lan-runtime > artifacts/lan-runtime/peer.log 2>&1 &
 lan_peer_pid=$!
-trap 'kill "$lan_peer_pid" 2>/dev/null || true' EXIT
+lan_cleanup() {
+  if [ -f artifacts/lan-runtime/metrics.jsonl ]; then
+    cp artifacts/lan-runtime/metrics.jsonl artifacts/android-lan-metrics.jsonl
+    cat artifacts/android-lan-metrics.jsonl
+  fi
+  kill "$lan_peer_pid" 2>/dev/null || true
+}
+trap lan_cleanup EXIT
 for attempt in $(seq 1 100); do
   if [ -s artifacts/lan-runtime/fixture.json ]; then break; fi
   sleep 0.1

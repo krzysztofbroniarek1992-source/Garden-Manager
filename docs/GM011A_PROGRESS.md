@@ -54,3 +54,12 @@ Target Android pozostaje 36. Zgodnie z dokumentacją platformy nie dodajemy ACCE
 - Emulator: aktualizacja rzeczywistego A (main v12) → B, odczyt po restarcie, wydatki, zakupy i dotychczasowy aparat zaliczone. Nowy test LAN zatrzymał się przy pierwszym parowaniu; dodano bezpieczną diagnostykę publicznego błędu i osobny szybki przebieg natywny.
 - Nie uznajemy tych dwóch nowych testów za zaliczone. PR #28 pozostaje draft. Pakiety z niezaliczonego przebiegu nie są odbiorem GM-011A.
 - Pełna instrukcja architektury, protokołu, parowania, sieci i odbioru fizycznego: GM011A_LAN.md.
+
+## Potwierdzone poprawki integracyjne
+
+- Macierz rzeczywistego Electron: TLS 1.2 i TLS 1.3, początkowe i dodane zaufanie, wszystkie 4 warianty zaliczone; obcy certyfikat odrzucany. Wymagane jawne kotwice przypiętych certyfikatów oraz standardowy SecureContext przez SNI. Szczegóły w GM011A_LAN.md.
+- Rzeczywisty test Electron/DPAPI z transferem, ZIP ze zdjęciem, restartem i widokami 360/390/430 px zaliczony.
+- Test zainstalowanego EXE znalazł pomijanie peerDependencies biblioteki X509. asn1-schema i asn1js są teraz jawnymi zależnościami produkcyjnymi, a kontrola ASAR sprawdza ich obecność.
+- Android przeszedł pierwsze parowanie i oba potwierdzenia. Test mTLS został zatrzymany na uwierzytelnianiu klienta; weryfikujemy obsługę wyboru aliasu dla SSLEngine/Conscrypt. Dodano standardowy chooseEngineClientAlias i jawny SNI, bez wyłączania walidacji TLS.
+- Dodano test połączenia podczas zapisu odwołania zaufania oraz kontrolę świeżego zaufania przy zatwierdzaniu połączenia Androida.
+- Ostateczna pełna regresja i odbiór pakietów nadal wymagają zielonego przebiegu. Nie wykonano fizycznego testu dwóch urządzeń.

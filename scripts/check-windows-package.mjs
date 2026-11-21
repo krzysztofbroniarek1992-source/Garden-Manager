@@ -8,6 +8,9 @@ const files = listPackage(archive).map((s) => s.replaceAll("\\", "/"));
 for (const file of [
   "/desktop/build/main.cjs",
   "/desktop/build/preload.cjs",
+  "/desktop/build/lan-ipc.cjs",
+  "/node_modules/@peculiar/asn1-schema/package.json",
+  "/node_modules/asn1js/package.json",
   "/dist-windows/index.html",
   "/dist-windows/fonts/DejaVuSans.ttf",
   "/desktop/assets/icon.ico",

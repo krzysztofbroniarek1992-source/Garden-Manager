@@ -96,6 +96,7 @@ public class LanTest {
             evaluate(s,"location.hash='#dashboard'");waitFor(s,"!!document.querySelector('.dashboard-heading')");click(s,"Więcej");waitFor(s,"!!document.querySelector('.mobile-more-list')");click(s,"Synchronizacja");
             click(s,"Rozpocznij sesję");connect(s,servers.getJSONObject(0),false);
             assertEquals("true",async(s,"const r=await window.Capacitor.Plugins.GardenLan.command({action:'test',bytes:1024,kind:'json'});return String(r.result.ok && r.result.sentSha256===r.result.receivedSha256)"));
+            assertEquals("revoked",async(s,"const id="+JSONObject.quote(servers.getJSONObject(0).getJSONObject("device").getString("id"))+";const v=await window.Capacitor.Plugins.GardenLan.command({action:'forget',id});if(v.peers.length!==1||v.connected)throw Error('Revocation failed');try{await window.Capacitor.Plugins.GardenLan.command({action:'connect',id,host:'10.0.2.2',port:"+servers.getJSONObject(0).getInt("port")+"});return 'unexpected';}catch(e){return 'revoked';}"));
             s.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
             // Back returns through the shared history and unmount closes the native session.
             until(s,v->!v.optBoolean("active"));

@@ -14,13 +14,15 @@ final class LanTls {
         KeyStore trust=KeyStore.getInstance(KeyStore.getDefaultType());trust.load(null);trust.setCertificateEntry("pinned-device",cert);
         TrustManagerFactory tm=TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());tm.init(trust);
         KeyManager[] km=null;
+        final X509Certificate ownCertificate=identity.cert();final PrivateKey ownKey=identity.key();
         if(clientCertificate)km=new KeyManager[]{new X509ExtendedKeyManager(){
-            public String[] getClientAliases(String t,java.security.Principal[] i){return new String[]{"device"};}
-            public String chooseClientAlias(String[] t,java.security.Principal[] i,Socket s){return "device";}
+            public String[] getClientAliases(String t,java.security.Principal[] i){return "EC".equals(t)?new String[]{"device"}:null;}
+            public String chooseClientAlias(String[] t,java.security.Principal[] i,Socket s){for(String type:t)if("EC".equals(type))return "device";return null;}
+            public String chooseEngineClientAlias(String[] t,java.security.Principal[] i,SSLEngine e){return chooseClientAlias(t,i,null);}
             public String[] getServerAliases(String t,java.security.Principal[] i){return null;}
             public String chooseServerAlias(String t,java.security.Principal[] i,Socket s){return null;}
-            public X509Certificate[] getCertificateChain(String a){try{return new X509Certificate[]{identity.cert()};}catch(Exception e){return null;}}
-            public PrivateKey getPrivateKey(String a){try{return identity.key();}catch(Exception e){return null;}}
+            public X509Certificate[] getCertificateChain(String a){return "device".equals(a)?new X509Certificate[]{ownCertificate}:null;}
+            public PrivateKey getPrivateKey(String a){return "device".equals(a)?ownKey:null;}
         }};
         SSLContext context=SSLContext.getInstance("TLS");context.init(km,tm.getTrustManagers(),new SecureRandom());
         Socket raw=new Socket();opening.accept(raw);
@@ -33,7 +35,7 @@ final class LanTls {
             java.util.List<String> suites=new java.util.ArrayList<>();
             for(String s:socket.getSupportedCipherSuites())if(s.equals("TLS_AES_128_GCM_SHA256")||s.equals("TLS_AES_256_GCM_SHA384")||s.equals("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")||s.equals("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"))suites.add(s);
             socket.setEnabledCipherSuites(suites.toArray(new String[0]));
-            SSLParameters parameters=socket.getSSLParameters();parameters.setEndpointIdentificationAlgorithm("HTTPS");socket.setSSLParameters(parameters);
+            SSLParameters parameters=socket.getSSLParameters();parameters.setEndpointIdentificationAlgorithm("HTTPS");parameters.setServerNames(java.util.Collections.singletonList(new SNIHostName(LanIdentity.dns(id))));socket.setSSLParameters(parameters);
             socket.setSoTimeout(10000);socket.startHandshake();
             X509Certificate remote=(X509Certificate)socket.getSession().getPeerCertificates()[0];remote.checkValidity();
             if(!MessageDigest.isEqual(cert.getEncoded(),remote.getEncoded()))throw new Exception("CERTIFICATE");

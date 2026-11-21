@@ -11,7 +11,9 @@ const {Memory}=require("./helpers.cjs");
  for(const name of ["CI Windows dom","CI Windows praca"]){
   const identity=await createIdentity(name),store=new Memory(identity);
   const server=new LanServer(store,{interfaces:()=>[{name:"CI only",address:"0.0.0.0"}],advertisedAddress:"10.0.2.2",discovery:false});
-  await server.start("0.0.0.0");servers.push({server,store});
+  await server.start("0.0.0.0");
+  server.server.on("tlsClientError",error=>{const code=/^[A-Z0-9_]{1,80}$/.test(error.code||"")?error.code:"TLS";fs.appendFileSync(path.join(folder,"metrics.jsonl"),JSON.stringify({synthetic:true,event:"tls-rejected",code})+"\n");});
+  servers.push({server,store});
  }
  const fixtures=[];
  for(const {server}of servers){const v=await server.invite();fixtures.push({invitation:v.invitation.text,device:v.device,host:"10.0.2.2",port:v.endpoint.port});}

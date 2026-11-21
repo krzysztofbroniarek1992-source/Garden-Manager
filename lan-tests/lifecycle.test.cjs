@@ -47,3 +47,16 @@ test("a valid invitation cannot pair a device without its private signing key",{
   await closed;assert.equal((await server.view()).peers.length,0);
  }finally{s?.destroy();await server.stop();}
 });
+
+test("a connection arriving during the revocation write is closed before forget resolves",{timeout:20000},async()=>{
+ const {server,phone,store}=await setup();let client,release;
+ try{
+  await pair(server,phone);const update=store.update.bind(store);let entered=false;
+  const gate=new Promise(r=>release=r);
+  store.update=async change=>{entered=true;await gate;return update(change);};
+  const deleting=server.forget(phone.id);await until(()=>entered);
+  client=await connect(server,phone);assert.equal(client.channel.ready,true);
+  release();await deleting;await until(()=>client.s.destroyed);
+  assert.equal((await server.view()).connected,undefined);assert.equal((await server.view()).peers.length,0);
+ }finally{release?.();client?.channel.close();await server.stop();}
+});

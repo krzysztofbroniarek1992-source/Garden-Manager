@@ -59,6 +59,7 @@ final class LanEngine {
             SSLSocket socket=LanTls.connect(own,peer,host,port,true,s->watch(s,gen,owned));
             synchronized(this){
                 if(!active||generation!=gen)throw new Exception("CLOSED");
+                if(!own.peer(id).getString("fingerprint").equals(peer.getString("fingerprint")))throw new Exception("IDENTITY");
                 last=null;LanChannel[] holder=new LanChannel[1];
                 LanChannel next=new LanChannel(socket,own,peer,r->{if(active&&generation==gen)last=r;},c->{
                     release(owned);
@@ -136,7 +137,7 @@ final class LanEngine {
         localConfirmed=true;wire.send("pair-confirm",new JSONObject().put("code",p.getString("code")));
     }
     void rename(String name)throws Exception{identity().rename(name);}
-    void forget(String id)throws Exception{
+    synchronized void forget(String id)throws Exception{
         identity().forget(id);LanChannel c=channel;if(c!=null&&c.remote.getString("id").equals(id))c.close("CLOSED");
         if(pending!=null&&pending.getString("id").equals(id)){closeSocket();pending=null;pairingWire=null;}
     }
