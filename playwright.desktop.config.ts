@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./desktop-tests",
-  testMatch: process.env.GM_UPGRADE_PHASE ? "upgrade.spec.ts" : ["app.spec.ts", "shopping.spec.ts"],
+  testMatch: process.env.GM_UPGRADE_PHASE ? "upgrade.spec.ts" : ["app.spec.ts", "shopping.spec.ts", "lan.spec.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: 90000,

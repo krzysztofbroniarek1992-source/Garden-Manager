@@ -13,7 +13,7 @@ import javax.net.ssl.*;
 final class LanEngine {
     private final Context context;private LanIdentity identity;
     private volatile boolean active=false;private volatile long generation=0;
-    private volatile Socket opening;private volatile LanChannel channel;
+    private boolean connecting=false;private final Set<Socket> sockets=ConcurrentHashMap.newKeySet();private volatile LanChannel channel;
     private volatile LanWire pairingWire;private volatile JSONObject invitation,pending,last;
     private volatile boolean localConfirmed=false,remoteConfirmed=false;
     private volatile String diagnostic="Sesja komunikacji nie jest uruchomiona.";
@@ -28,7 +28,7 @@ final class LanEngine {
         LanIdentity d=identity();JSONArray peers=new JSONArray();for(JSONObject p:d.peers())peers.put(LanIdentity.publicPeer(p));
         JSONObject v=new JSONObject().put("supported",true).put("platform","android").put("device",LanIdentity.publicPeer(d.own()))
             .put("active",active).put("interfaces",new JSONArray()).put("peers",peers).put("discovered",new JSONArray(discovered.values()))
-            .put("busy",channel!=null&&channel.busy).put("diagnostic",diagnostic);
+            .put("busy",connecting||(channel!=null&&channel.busy)).put("diagnostic",diagnostic);
         if(channel!=null&&channel.ready)v.put("connected",LanIdentity.publicPeer(channel.remote));if(last!=null)v.put("result",last);
         if(pending!=null)v.put("pending",new JSONObject(pending.toString()).put("localConfirmed",localConfirmed).put("remoteConfirmed",remoteConfirmed));
         return v;
@@ -38,16 +38,38 @@ final class LanEngine {
         expiry=timer.schedule(this::stop,15,TimeUnit.MINUTES);diagnostic="Sesja aktywna. Wybierz zaufany komputer albo zeskanuj jego kod parowania.";
         discover(gen);
     }
+    private synchronized long reserve()throws Exception{
+        if(!active)throw new Exception("CLOSED");
+        if(connecting||channel!=null||pairingWire!=null)throw new Exception("BUSY");
+        connecting=true;return generation;
+    }
+    private synchronized void watch(Socket socket,long gen,List<Socket> owned){
+        owned.add(socket);
+        if(!active||generation!=gen){try{socket.close();}catch(Exception ignored){}return;}
+        sockets.add(socket);
+    }
+    private void release(List<Socket> owned){
+        // Close underlying sockets before buffered streams; a reader may be blocked.
+        for(Socket socket:owned){try{socket.close();}catch(Exception ignored){}sockets.remove(socket);}
+    }
     void connect(String id,String host,int port)throws Exception{
-        if(!active||channel!=null||pairingWire!=null)throw new Exception("CLOSED");
-        long gen=generation;JSONObject peer=identity().peer(id);
-        SSLSocket socket=LanTls.connect(identity(),peer,host,port,true,s->{opening=s;if(!active||generation!=gen)try{s.close();}catch(Exception ignored){}});
-        synchronized(this){
-            if(!active||generation!=gen){socket.close();throw new Exception("CLOSED");}
-            last=null;
-            channel=new LanChannel(socket,identity(),peer,r->last=r,c->{channel=null;diagnostic="Połączenie zakończone: "+c+". Możesz połączyć ponownie.";});
-            opening=null;diagnostic="Trwa uwierzytelnianie zaufanego komputera.";
-            LanChannel current=channel;readers.execute(current::run);
+        long gen=reserve();List<Socket> owned=new ArrayList<>();boolean handedOff=false;
+        try{
+            LanIdentity own=identity();JSONObject peer=own.peer(id);
+            SSLSocket socket=LanTls.connect(own,peer,host,port,true,s->watch(s,gen,owned));
+            synchronized(this){
+                if(!active||generation!=gen)throw new Exception("CLOSED");
+                last=null;LanChannel[] holder=new LanChannel[1];
+                LanChannel next=new LanChannel(socket,own,peer,r->{if(active&&generation==gen)last=r;},c->{
+                    release(owned);
+                    synchronized(LanEngine.this){if(channel==holder[0]){channel=null;diagnostic="Połączenie zakończone: "+c+". Możesz połączyć ponownie.";}}
+                });
+                holder[0]=next;channel=next;handedOff=true;diagnostic="Trwa uwierzytelnianie zaufanego komputera.";
+                readers.execute(next::run);
+            }
+        }finally{
+            if(!handedOff)release(owned);
+            synchronized(this){if(generation==gen)connecting=false;}
         }
     }
     private JSONObject parseInvitation(String text)throws Exception{
@@ -61,40 +83,54 @@ final class LanEngine {
         LanIdentity.validatePeer(i.getJSONObject("device"));return i;
     }
     void pair(String text)throws Exception{
-        if(!active||channel!=null||pairingWire!=null)throw new Exception("CLOSED");
-        JSONObject i=parseInvitation(text),peer=i.getJSONObject("device");long gen=generation;
-        for(JSONObject old:identity().peers())if(old.getString("id").equals(peer.getString("id"))&&!old.getString("fingerprint").equals(peer.getString("fingerprint")))throw new Exception("IDENTITY");
-        SSLSocket socket=LanTls.connect(identity(),peer,i.getString("host"),i.getInt("pairPort"),false,s->{opening=s;if(!active||generation!=gen)try{s.close();}catch(Exception ignored){}});
-        socket.setSoTimeout(120000);LanWire wire=new LanWire(socket.getInputStream(),socket.getOutputStream(),i.getString("pairId"));
-        if(!active||generation!=gen){socket.close();throw new Exception("CLOSED");}
-        opening=null;pairingWire=wire;invitation=i;localConfirmed=false;remoteConfirmed=false;
-        String ticket=i.getString("ticket");
-        wire.send("pair",new JSONObject().put("ticket",ticket).put("device",identity().own()).put("signature",identity().proof(ticket,peer.getString("id"))));
-        LanWire.Frame p=wire.receive();LanWire.fields(p.payload,"code");
-        String expected=identity().code(ticket,peer.getString("id"));
-        if(!p.type.equals("pair-pending")||!p.payload.getString("code").equals(expected))throw new Exception("IDENTITY");
-        pending=LanIdentity.publicPeer(peer).put("code",expected);diagnostic="Porównaj kod i tożsamość na obu ekranach. Potwierdź tylko zgodne urządzenia.";
-        readers.execute(()->pairLoop(wire,i,gen,expected));
+        long gen=reserve();List<Socket> owned=new ArrayList<>();LanWire wire=null;boolean handedOff=false;
+        try{
+            JSONObject i=parseInvitation(text),peer=i.getJSONObject("device");LanIdentity own=identity();
+            for(JSONObject old:own.peers())if(old.getString("id").equals(peer.getString("id"))&&!old.getString("fingerprint").equals(peer.getString("fingerprint")))throw new Exception("IDENTITY");
+            SSLSocket socket=LanTls.connect(own,peer,i.getString("host"),i.getInt("pairPort"),false,s->watch(s,gen,owned));
+            socket.setSoTimeout(120000);wire=new LanWire(socket.getInputStream(),socket.getOutputStream(),i.getString("pairId"));
+            synchronized(this){
+                if(!active||generation!=gen)throw new Exception("CLOSED");
+                pairingWire=wire;invitation=i;localConfirmed=false;remoteConfirmed=false;
+            }
+            String ticket=i.getString("ticket");
+            wire.send("pair",new JSONObject().put("ticket",ticket).put("device",own.own()).put("signature",own.proof(ticket,peer.getString("id"))));
+            LanWire.Frame p=wire.receive();LanWire.fields(p.payload,"code");String expected=own.code(ticket,peer.getString("id"));
+            if(!p.type.equals("pair-pending")||!p.payload.getString("code").equals(expected))throw new Exception("IDENTITY");
+            synchronized(this){
+                if(!active||generation!=gen||pairingWire!=wire)throw new Exception("CLOSED");
+                pending=LanIdentity.publicPeer(peer).put("code",expected);diagnostic="Porównaj kod i tożsamość na obu ekranach. Potwierdź tylko zgodne urządzenia.";
+                LanWire current=wire;readers.execute(()->pairLoop(current,i,gen,expected,owned));handedOff=true;
+            }
+        }finally{
+            if(!handedOff){release(owned);synchronized(this){if(generation==gen&&pairingWire==wire){pairingWire=null;pending=null;invitation=null;}}}
+            synchronized(this){if(generation==gen)connecting=false;}
+        }
     }
-    private void pairLoop(LanWire wire,JSONObject i,long gen,String expected){
+    private void pairLoop(LanWire wire,JSONObject i,long gen,String expected,List<Socket> owned){
         try{
             while(active&&generation==gen&&pairingWire==wire){
                 LanWire.Frame m=wire.receive();
-                if(m.type.equals("pair-approved")){
-                    LanWire.fields(m.payload,"code");if(remoteConfirmed||!m.payload.getString("code").equals(expected))throw new Exception("REPLAY");remoteConfirmed=true;
-                }else if(m.type.equals("pair-done")){
-                    LanWire.fields(m.payload,"deviceId","code");
-                    if(!localConfirmed||!remoteConfirmed||!m.payload.getString("code").equals(expected)||!m.payload.getString("deviceId").equals(i.getJSONObject("device").getString("id")))throw new Exception("IDENTITY");
-                    if(!active||generation!=gen)throw new Exception("CLOSED");
-                    identity().trust(i.getJSONObject("device"));pairingWire=null;pending=null;invitation=null;
-                    try{wire.close();}catch(Exception ignored){}closeSocket();wire=null;
-                    diagnostic="Parowanie zapisane. Nawiąż połączenie z zaufanym komputerem.";return;
-                }else throw new Exception("PROTOCOL");
+                synchronized(this){
+                    if(!active||generation!=gen||pairingWire!=wire)throw new Exception("CLOSED");
+                    if(m.type.equals("pair-approved")){
+                        LanWire.fields(m.payload,"code");if(remoteConfirmed||!m.payload.getString("code").equals(expected))throw new Exception("REPLAY");remoteConfirmed=true;
+                    }else if(m.type.equals("pair-done")){
+                        LanWire.fields(m.payload,"deviceId","code");
+                        if(!localConfirmed||!remoteConfirmed||!m.payload.getString("code").equals(expected)||!m.payload.getString("deviceId").equals(i.getJSONObject("device").getString("id")))throw new Exception("IDENTITY");
+                        identity().trust(i.getJSONObject("device"));
+                        pairingWire=null;pending=null;invitation=null;
+                        diagnostic="Parowanie zapisane. Nawiąż połączenie z zaufanym komputerem.";return;
+                    }else throw new Exception("PROTOCOL");
+                }
             }
-        }catch(Exception e){diagnostic=message(e);try{closeSocket();}catch(Exception ignored){}}
-        finally{if(wire!=null&&pairingWire==wire){pairingWire=null;pending=null;invitation=null;}}
+        }catch(Exception e){synchronized(this){if(active&&generation==gen&&pairingWire==wire)diagnostic=message(e);}}
+        finally{
+            release(owned);try{wire.close();}catch(Exception ignored){}
+            synchronized(this){if(generation==gen&&pairingWire==wire){pairingWire=null;pending=null;invitation=null;}}
+        }
     }
-    void confirm()throws Exception{
+    synchronized void confirm()throws Exception{
         LanWire wire=pairingWire;JSONObject p=pending;
         if(wire==null||p==null||localConfirmed||!active)throw new Exception("PAIRING");
         localConfirmed=true;wire.send("pair-confirm",new JSONObject().put("code",p.getString("code")));
@@ -144,10 +180,12 @@ final class LanEngine {
             manager.discoverServices("_gardenmanager._tcp.",NsdManager.PROTOCOL_DNS_SD,discovery);
         }catch(Exception e){diagnostic="Wykrywanie jest niedostępne. Użyj ręcznego adresu; hotspot lub sieć może blokować mDNS.";}
     }
-    private void closeSocket(){Socket s=opening;opening=null;if(s!=null)try{s.close();}catch(Exception ignored){}
-        LanWire p=pairingWire;if(p!=null)try{p.close();}catch(Exception ignored){}}
+    private void closeSocket(){
+        for(Socket socket:sockets)try{socket.close();}catch(Exception ignored){}sockets.clear();
+        LanWire p=pairingWire;if(p!=null)try{p.close();}catch(Exception ignored){}
+    }
     synchronized void stop(){
-        active=false;++generation;if(expiry!=null)expiry.cancel(false);expiry=null;
+        active=false;++generation;connecting=false;if(expiry!=null)expiry.cancel(false);expiry=null;
         closeSocket();pairingWire=null;pending=null;invitation=null;localConfirmed=false;remoteConfirmed=false;
         LanChannel c=channel;channel=null;if(c!=null)c.close("CLOSED");
         if(discovery!=null)try{((NsdManager)context.getSystemService(Context.NSD_SERVICE)).stopServiceDiscovery(discovery);}catch(Exception ignored){}discovery=null;
