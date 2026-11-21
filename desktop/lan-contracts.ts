@@ -14,6 +14,7 @@ export interface LanView {
   peers: LanPeer[]; discovered: Array<{ id: string; host: string; port: number }>;
   invitation?: { qr: string; text: string; expiresAt: number };
   pending?: LanPeer & { code: string; localConfirmed: boolean; remoteConfirmed: boolean };
+  scannedInvitation?: string;
   result?: LanResult; busy: boolean; diagnostic: string;
 }
 export type LanCommand =
