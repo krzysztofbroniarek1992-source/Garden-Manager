@@ -1,0 +1,26 @@
+name: LAN dependency lock preparation
+on:
+  push:
+    branches: [codex/gm011a-secure-lan]
+    paths: [.github/workflows/lan-bootstrap.yml]
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Public lockfile checkpoint (no credentials or application data)
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const text=JSON.stringify(JSON.parse(fs.readFileSync('package-lock.json','utf8')));
+          for(let i=0;i<text.length;i+=3000) console.log('GM011A_LOCK_'+String(i/3000).padStart(4,'0')+':'+text.slice(i,i+3000));
+          NODE

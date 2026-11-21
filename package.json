@@ -23,7 +23,8 @@
     "desktop:dev": "npm run build:windows && electron .",
     "test:desktop:unit": "npm run desktop:compile && node desktop-tests/policy.test.cjs",
     "test:desktop": "playwright test --config=playwright.desktop.config.ts",
-    "windows:installer": "npm run build:windows && electron-builder --win nsis --x64 --config desktop/electron-builder.cjs --publish never"
+    "windows:installer": "npm run build:windows && electron-builder --win nsis --x64 --config desktop/electron-builder.cjs --publish never",
+    "test:lan": "npm run desktop:compile && node --test lan-tests/*.test.cjs"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",
@@ -35,7 +36,11 @@
     "lucide-react": "^0.468.0",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "@peculiar/x509": "3.1.0",
+    "reflect-metadata": "0.2.2",
+    "multicast-dns": "7.2.5",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "@capacitor/cli": "8.6.0",
