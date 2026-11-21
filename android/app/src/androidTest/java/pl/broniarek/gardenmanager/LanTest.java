@@ -46,6 +46,7 @@ public class LanTest {
     }
     private void connect(ActivityScenario<MainActivity> s,JSONObject p)throws Exception{connect(s,p,true);}
     private void connect(ActivityScenario<MainActivity> s,JSONObject p,boolean waitForReverse)throws Exception{
+        waitFor(s,"Array.from(document.querySelectorAll('select[aria-label=\"Sparowany komputer\"] option')).some(o=>o.value==="+JSONObject.quote(p.getJSONObject("device").getString("id"))+")");
         set(s,"Sparowany komputer",p.getJSONObject("device").getString("id"));set(s,"Adres IPv4",p.getString("host"));set(s,"Port TLS",String.valueOf(p.getInt("port")));
         click(s,"Połącz ręcznie");String id=p.getJSONObject("device").getString("id");
         until(s,v->v.optJSONObject("connected")!=null&&v.optJSONObject("connected").optString("id").equals(id));
