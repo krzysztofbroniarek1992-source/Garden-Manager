@@ -46,7 +46,7 @@ export function header(value: unknown): Message {
 async function exact(socket: TLSSocket, n: number) {
   const output = Buffer.alloc(n); let offset = 0;
   while (offset < n) {
-    if (socket.destroyed || socket.readableEnded) fail("DISCONNECTED");
+    if ((socket.destroyed || socket.readableEnded) && socket.readableLength === 0) fail("DISCONNECTED");
     const chunk = socket.read(Math.min(n - offset, socket.readableLength || 1)) as Buffer | null;
     if (chunk) { chunk.copy(output, offset); offset += chunk.length; continue; }
     await new Promise<void>((resolve, reject) => {

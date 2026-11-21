@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 final class LanChannel {
     final SSLSocket socket;final JSONObject remote;final LanWire wire;
     volatile boolean ready=false,busy=false,closed=false;private Probe probe;
+    private final java.util.concurrent.atomic.AtomicBoolean ending=new java.util.concurrent.atomic.AtomicBoolean();
     private final Consumer<JSONObject> result;private final Consumer<String> ended;
     private final LanIdentity identity;private final java.util.Timer deadlines=new java.util.Timer("gm-lan-deadline",true);
     private static final class Probe {
@@ -88,7 +89,7 @@ final class LanChannel {
             .put("sentSha256",p.sent).put("receivedSha256",p.received).put("elapsedMs",(System.nanoTime()-p.start)/1000000L));complete(p);
     }
     void close(String code){
-        if(closed)return;closed=true;ready=false;deadlines.cancel();try{socket.close();}catch(Exception ignored){}
+        if(!ending.compareAndSet(false,true))return;closed=true;ready=false;deadlines.cancel();try{socket.close();}catch(Exception ignored){}
         synchronized(this){Probe p=probe;probe=null;busy=false;
             if(p!=null)try{JSONObject r=summary(p).put("ok",false).put("error",code);result.accept(r);if(p.future!=null)p.future.completeExceptionally(new Exception(code));}catch(Exception ignored){}
         }

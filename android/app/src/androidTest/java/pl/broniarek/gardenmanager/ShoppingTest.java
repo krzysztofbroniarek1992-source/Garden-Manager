@@ -13,6 +13,7 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 @RunWith(AndroidJUnit4.class)
 public class ShoppingTest {
     private void click(ActivityScenario<MainActivity> s,String name)throws Exception {
+        waitFor(s,"Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==="+org.json.JSONObject.quote(name)+"&&!b.disabled)");
         evaluate(s,"(()=>{const name="+org.json.JSONObject.quote(name)+";const row=Array.from(document.querySelectorAll('article[aria-label]')).find(e=>e.getAttribute('aria-label')==='Zakup: Sekator Android GM010A');const root=row&&['Edytuj zakup','Oznacz jako zamówione','Odebrano — kupione','Dodaj do wydatków firmowych','Archiwizuj zakup'].includes(name)?row:document;const b=Array.from(root.querySelectorAll('button')).find(b=>b.textContent.trim()==="+org.json.JSONObject.quote(name)+");if(!b)throw Error('Button missing');b.click()})()");
     }
     private void set(ActivityScenario<MainActivity> s,String label,String value)throws Exception {
@@ -43,7 +44,7 @@ public class ShoppingTest {
             click(scenario,"Zapisz zakup");
             waitFor(scenario,"!document.querySelector('[role=dialog]')");
             click(scenario,"Oznacz jako zamówione");
-            waitFor(scenario,"document.querySelector('.shopping-list')?.textContent.includes('Zamówione')");
+            waitFor(scenario,"Array.from(document.querySelectorAll('article[aria-label]')).find(e=>e.getAttribute('aria-label')==='Zakup: Sekator Android GM010A')?.textContent.includes('Zamówione')");
             click(scenario,"Odebrano — kupione");
             waitFor(scenario,"Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==='Dodaj do wydatków firmowych')");
             assertEquals(originalCosts,Integer.parseInt(async(scenario,READ_STATE+"return String(state.data.expenses.length)")));

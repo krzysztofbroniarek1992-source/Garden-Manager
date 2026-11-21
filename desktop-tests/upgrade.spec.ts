@@ -36,7 +36,10 @@ test(`actual NSIS installation ${phase}: v12 preservation in one persistent prof
       await route(page, "#shopping");
       await quickShopping(page, "Zakup przed aktualizacją LAN");
       await shoppingRow(page,"Zakup przed aktualizacją LAN").getByRole("button",{name:"Oznacz jako zamówione",exact:true}).click();
+      await expect.poll(async()=>(await snapshot(page)).shoppingItems.find((p:any)=>p.name==="Zakup przed aktualizacją LAN")?.status).toBe("ordered");
+      await expect(page.locator("html")).not.toHaveAttribute("aria-busy","true");
       await route(page, "#field?field=job-1");
+      await expect(page.getByRole("dialog",{name:"Wizyta w terenie",exact:true})).toBeVisible();
       await page
         .getByRole("button", { name: /START — Rozpocznij pomiar/ })
         .click();

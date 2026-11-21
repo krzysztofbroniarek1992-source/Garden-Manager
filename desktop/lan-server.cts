@@ -21,7 +21,7 @@ export class LanServer {
   private server?:tls.Server;private pairing?:tls.Server;private sockets=new Set<Socket>();private pairSockets=new Set<tls.TLSSocket>();private sessionTimer?:NodeJS.Timeout;
   private expires?:NodeJS.Timeout;private stopAdvertisement?:()=>void;private generation=0;
   private invitation?:LanView["invitation"];private ticket="";private pairId="";private deadline=0;private candidate?:Candidate;
-  private attempts:number[]=[];private endpoint?:{host:string;port:number};private channel?:Channel;private connecting=false;
+  private inviting=false;private inviteVersion=0;private attempts:number[]=[];private endpoint?:{host:string;port:number};private channel?:Channel;private connecting=false;
   private last?:LanView["result"];private diagnostic="Sesja komunikacji nie jest uruchomiona.";
   constructor(readonly store:Store,private options:{interfaces?:typeof interfaces;discovery?:boolean;advertisedAddress?:string}={}){}
   async view():Promise<LanView>{
@@ -47,9 +47,9 @@ export class LanServer {
       await this.listen(server,address);
       if(generation!==this.generation)fail("CLOSED");
       this.endpoint={host:address,port:(server.address() as {port:number}).port};
+      this.diagnostic="Nasłuch TLS aktywny. Sparuj telefon lub połącz zaufane urządzenie.";
       if(this.options.discovery!==false)try{this.stopAdvertisement=advertise(own.id,address,this.endpoint.port,()=>{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu.";});}catch{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu."; }
       this.sessionTimer=setTimeout(()=>{void this.stop();},15*60*1000);this.sessionTimer.unref();
-      this.diagnostic="Nasłuch TLS aktywny. Sparuj telefon lub połącz zaufane urządzenie.";
       return this.view();
     }catch(e){await this.stop();throw e;}
   }
@@ -84,21 +84,29 @@ export class LanServer {
     }finally{this.connecting=false;}
   }
   async invite(){
-    if(!this.server||!this.endpoint)fail("CLOSED");const generation=this.generation;await this.closePairing();
-    const own=await this.store.get();if(generation!==this.generation||!this.server||!this.endpoint)fail("CLOSED");
-    this.ticket=randomBytes(32).toString("base64url");this.pairId=randomUUID();this.deadline=performance.now()+120000;
-    const server=tls.createServer({...tlsOptions(own),requestCert:false,rejectUnauthorized:true},socket=>{
-      this.pairSockets.add(socket);socket.once("close",()=>this.pairSockets.delete(socket));
-      void this.pairConnection(socket,generation).catch(()=>socket.destroy());
-    });
-    this.track(server);this.pairing=server;await this.listen(server,this.endpoint.host);
-    const raw={v:1,host:this.options.advertisedAddress??this.endpoint.host,port:this.endpoint.port,pairPort:(server.address() as {port:number}).port,
-      pairId:this.pairId,ticket:this.ticket,expiresAt:Date.now()+120000,device:{...publicPeer(own),cert:own.cert}};
-    const text="GM011A:"+Buffer.from(JSON.stringify(raw)).toString("base64url");
-    const qr=await (require("qrcode") as {toDataURL:(s:string,o:unknown)=>Promise<string>}).toDataURL(text,{errorCorrectionLevel:"M",width:480,margin:4});
-    if(generation!==this.generation||!this.pairing)fail("CLOSED");
-    this.invitation={text,qr,expiresAt:raw.expiresAt};
-    this.expires=setTimeout(()=>{void this.closePairing();},120000);this.expires.unref();return this.view();
+    if(this.inviting)fail("BUSY");
+    if(!this.server||!this.endpoint)fail("CLOSED");
+    this.inviting=true;const generation=this.generation,version=++this.inviteVersion;let listener:tls.Server|undefined;
+    try{
+      await this.closePairing();
+      const own=await this.store.get();
+      if(generation!==this.generation||version!==this.inviteVersion||!this.server||!this.endpoint)fail("CLOSED");
+      this.ticket=randomBytes(32).toString("base64url");this.pairId=randomUUID();this.deadline=performance.now()+120000;
+      const server=tls.createServer({...tlsOptions(own),requestCert:false,rejectUnauthorized:true},socket=>{
+        this.pairSockets.add(socket);socket.once("close",()=>this.pairSockets.delete(socket));
+        void this.pairConnection(socket,generation).catch(()=>socket.destroy());
+      });
+      listener=server;this.track(server);this.pairing=server;await this.listen(server,this.endpoint.host);
+      if(generation!==this.generation||version!==this.inviteVersion||this.pairing!==server)fail("CLOSED");
+      const raw={v:1,host:this.options.advertisedAddress??this.endpoint.host,port:this.endpoint.port,pairPort:(server.address() as {port:number}).port,
+        pairId:this.pairId,ticket:this.ticket,expiresAt:Date.now()+120000,device:{...publicPeer(own),cert:own.cert}};
+      const text="GM011A:"+Buffer.from(JSON.stringify(raw)).toString("base64url");
+      const qr=await (require("qrcode") as {toDataURL:(s:string,o:unknown)=>Promise<string>}).toDataURL(text,{errorCorrectionLevel:"M",width:480,margin:4});
+      if(generation!==this.generation||version!==this.inviteVersion||this.pairing!==server)fail("CLOSED");
+      this.invitation={text,qr,expiresAt:raw.expiresAt};
+      this.expires=setTimeout(()=>{void this.closePairing();},120000);this.expires.unref();return this.view();
+    }catch(e){if(listener&&this.pairing===listener)await this.closePairing();throw e;}
+    finally{if(version===this.inviteVersion)this.inviting=false;}
   }
   private async pairConnection(socket:tls.TLSSocket,generation:number){
     socket.setTimeout(120000,()=>socket.destroy());
@@ -113,7 +121,7 @@ export class LanServer {
     proof(this.ticket,own.id,p,m.payload.signature);
     if(this.candidate||generation!==this.generation||!this.pairing)fail("CLOSED");
     const c:Candidate={peer:p,code:pairingCode(this.ticket,own.id,p),wire,local:false,remote:false};
-    this.candidate=c;this.invitation=undefined;
+    this.candidate=c;this.invitation=undefined;this.ticket=""; // A captured proof cannot reuse this invitation.
     socket.once("close",()=>{if(this.candidate===c){this.candidate=undefined;this.diagnostic="Parowanie przerwane. Pokaż nowy kod i ponów."; }});
     await wire.send("pair-pending",{code:c.code});
     while(this.candidate===c){
@@ -153,7 +161,7 @@ export class LanServer {
     const s=this.pairing;this.pairing=undefined;if(s)await new Promise<void>(r=>s.close(()=>r()));
   }
   async stop(){
-    ++this.generation;clearTimeout(this.sessionTimer);this.sessionTimer=undefined;
+    ++this.generation;++this.inviteVersion;this.inviting=false;clearTimeout(this.sessionTimer);this.sessionTimer=undefined;
     try{this.stopAdvertisement?.();}catch{/* Closing TLS must not depend on mDNS. */}this.stopAdvertisement=undefined;
     this.channel?.close("CLOSED");this.channel=undefined;
     for(const s of this.sockets)s.destroy();this.sockets.clear();

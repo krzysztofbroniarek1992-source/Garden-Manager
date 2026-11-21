@@ -21,7 +21,7 @@ adb shell "run-as $android_package sh -c 'cat > files/gm011a-test.json'" < artif
 # In this disposable rooted CI emulator, deny app internet egress while retaining LAN.
 adb root
 adb wait-for-device
-lan_uid=$(adb shell cmd package list packages -U "$android_package" | sed -n 's/.*uid:\([0-9]*\).*/\1/p' | tr -d '\r')
+lan_uid=$(adb shell cmd package list packages -U "$android_package" | awk -v name="package:$android_package" '$1==name {sub(/^uid:/,"",$2);print $2}' | tr -d '\r')
 test -n "$lan_uid"
 adb shell iptables -N GM011A_TEST
 adb shell iptables -A OUTPUT -m owner --uid-owner "$lan_uid" -j GM011A_TEST

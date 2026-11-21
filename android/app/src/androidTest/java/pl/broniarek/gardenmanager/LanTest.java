@@ -19,6 +19,7 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 @RunWith(AndroidJUnit4.class)
 public class LanTest {
     private void click(ActivityScenario<MainActivity> s,String name)throws Exception{
+        waitFor(s,"Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==="+JSONObject.quote(name)+"&&!b.disabled)");
         evaluate(s,"(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==="+JSONObject.quote(name)+");if(!b||b.disabled)throw Error('Button unavailable');b.click();})()");
     }
     private void set(ActivityScenario<MainActivity> s,String label,String value)throws Exception{
@@ -54,7 +55,7 @@ public class LanTest {
         JSONArray servers=fixture.getJSONArray("servers");String id,fingerprint,before;
         try(ActivityScenario<MainActivity> s=ActivityScenario.launch(MainActivity.class)){
             ready(s);before=async(s,READ_STATE+"return JSON.stringify(state)");
-            evaluate(s,"location.hash='#dashboard'");waitFor(s,"!!document.querySelector('.dashboard')");
+            evaluate(s,"location.hash='#dashboard'");waitFor(s,"location.hash==='#dashboard' && !!document.querySelector('.dashboard-heading')");
             click(s,"Więcej");waitFor(s,"!!document.querySelector('.mobile-more-list')");click(s,"Synchronizacja");
             waitFor(s,"!!document.querySelector('.lan-page input')");
             JSONObject own=view(s).getJSONObject("device");id=own.getString("id");fingerprint=own.getString("fingerprint");
@@ -88,6 +89,7 @@ public class LanTest {
             assertEquals(id,view(s).getJSONObject("device").getString("id"));assertEquals(fingerprint,view(s).getJSONObject("device").getString("fingerprint"));
             assertEquals(2,view(s).getJSONArray("peers").length());assertFalse(view(s).getBoolean("active"));
             assertEquals(before,async(s,READ_STATE+"return JSON.stringify(state)"));
+            evaluate(s,"location.hash='#dashboard'");waitFor(s,"!!document.querySelector('.dashboard-heading')");click(s,"Więcej");waitFor(s,"!!document.querySelector('.mobile-more-list')");click(s,"Synchronizacja");
             click(s,"Rozpocznij sesję");
             s.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
             // Back returns through the shared history and unmount closes the native session.

@@ -23,8 +23,10 @@ export class Vault implements Store {
     identity(data);const bytes=this.seal(JSON.stringify(data)), tmp=this.file+"."+randomUUID()+".tmp";
     await fs.mkdir(path.dirname(this.file),{recursive:true});
     const file=await fs.open(tmp,"wx",0o600);
-    try {await file.writeFile(bytes);await file.sync();}finally{await file.close();}
-    try {await fs.rename(tmp,this.file);}catch(e){await fs.unlink(tmp).catch(()=>{});throw e;}
+    try {
+      try {await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+      await fs.rename(tmp,this.file);
+    } finally {await fs.unlink(tmp).catch(()=>{});}
   }
   update(change:(current:Identity)=>Identity):Promise<Identity>{
     const run=async()=>{const next=identity(change(await this.get()));await this.save(next);this.cached=Promise.resolve(next);return next;};

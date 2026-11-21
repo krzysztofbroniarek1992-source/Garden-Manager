@@ -14,7 +14,7 @@ export function advertise(id:string,address:string,port:number,warning:()=>void)
   let last=0,closed=false;
   mdns.on("error",warning);mdns.on("warning",()=>{});
   mdns.on("query",packet=>{
-    if(closed||Date.now()-last<1000||!Array.isArray(packet.questions))return;
+    if(closed||!packet||typeof packet!=="object"||Date.now()-last<1000||!Array.isArray(packet.questions))return;
     if(packet.questions.some((q:unknown)=>q&&typeof q==="object"&&[SERVICE,instance,host].includes((q as {name:string}).name))){
       last=Date.now();mdns.respond({answers:records(120)});
     }

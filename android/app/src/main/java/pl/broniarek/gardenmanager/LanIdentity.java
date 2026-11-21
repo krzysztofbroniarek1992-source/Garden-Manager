@@ -118,7 +118,7 @@ final class LanIdentity {
         persist(new JSONObject(data.toString()).put("peers",a));
     }
     byte[] transcript(String ticket,String serverId)throws Exception{
-        JSONObject p=own();return String.join("\n","GM011A-PAIR-v1",ticket,serverId,id(),p.getString("fingerprint"),name()).getBytes(StandardCharsets.UTF_8);
+        JSONObject p=own();return ("GM011A-PAIR-v1\n"+ticket+"\n"+serverId+"\n"+id()+"\n"+p.getString("fingerprint")+"\n"+name()).getBytes(StandardCharsets.UTF_8);
     }
     String proof(String ticket,String serverId)throws Exception{
         Signature s=Signature.getInstance("SHA256withECDSA");s.initSign(key());s.update(transcript(ticket,serverId));return Base64.encodeToString(s.sign(),Base64.NO_WRAP);
