@@ -20,10 +20,11 @@ final class LanChannel {
     }
     void run(){
         try{
-            LanWire.Frame hello=wire.receive();LanWire.fields(hello.payload,"deviceId","name","nonce");
+            LanWire.Frame hello=wire.receive();LanWire.fields(hello.payload,"deviceId","name","nonce","versions","maxBytes","mode");
+            if(hello.payload.getJSONArray("versions").length()!=1||!(hello.payload.getJSONArray("versions").get(0) instanceof Number)||hello.payload.getJSONArray("versions").getInt(0)!=1||LanWire.integer(hello.payload,"maxBytes")!=LanWire.MAX_BODY||!hello.payload.getString("mode").equals("synthetic-only"))throw new Exception("VERSION");
             if(!hello.type.equals("hello")||!hello.payload.getString("deviceId").equals(remote.getString("id")))throw new Exception("IDENTITY");
             LanWire.name(hello.payload.getString("name"));LanWire.uuid(hello.payload.getString("nonce"));
-            wire.send("hello",new JSONObject().put("deviceId",identity.id()).put("name",identity.name()).put("nonce",UUID.randomUUID().toString()));
+            wire.send("hello",new JSONObject().put("deviceId",identity.id()).put("name",identity.name()).put("nonce",UUID.randomUUID().toString()).put("versions",new JSONArray().put(1)).put("maxBytes",LanWire.MAX_BODY).put("mode","synthetic-only"));
             ready=true;
             while(!closed){
                 LanWire.Frame frame=wire.receive((m,n)->{

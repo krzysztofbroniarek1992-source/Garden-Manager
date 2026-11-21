@@ -21,12 +21,13 @@ export class Channel {
   }
   async start(server:boolean) {
     try {
-      if(server) await this.wire.send("hello",{deviceId:this.own.id,name:this.own.name,nonce:randomUUID()});
+      if(server) await this.wire.send("hello",{deviceId:this.own.id,name:this.own.name,nonce:randomUUID(),versions:[1],maxBytes:10485760,mode:"synthetic-only"});
       const {message:m}=await this.wire.receive();
-      if(m.type!=="hello") fail(); fields(m.payload,["deviceId","name","nonce"]);
+      if(m.type!=="hello") fail(); fields(m.payload,["deviceId","name","nonce","versions","maxBytes","mode"]);
+      if(!Array.isArray(m.payload.versions)||m.payload.versions.length!==1||m.payload.versions[0]!==1||m.payload.maxBytes!==10485760||m.payload.mode!=="synthetic-only")fail("VERSION");
       identifier(m.payload.deviceId);identifier(m.payload.nonce);deviceName(m.payload.name);
       if(m.payload.deviceId!==this.remote.id)fail("IDENTITY");
-      if(!server)await this.wire.send("hello",{deviceId:this.own.id,name:this.own.name,nonce:randomUUID()});
+      if(!server)await this.wire.send("hello",{deviceId:this.own.id,name:this.own.name,nonce:randomUUID(),versions:[1],maxBytes:10485760,mode:"synthetic-only"});
       this.ready=true;this.changed();
       while(!this.closed){
         const {message,body}=await this.wire.receive((m,n)=>m.type==="data"?

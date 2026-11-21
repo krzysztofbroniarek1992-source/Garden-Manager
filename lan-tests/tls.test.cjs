@@ -35,7 +35,7 @@ test("real authenticated TLS rejects "+attack,{timeout:20000},async()=>{
     const w=new Wire(s,""),hello=(await w.receive()).message;
     if(attack==="oversized-header"){const b=Buffer.alloc(4);b.writeUInt32BE(8193);s.write(b);}
     else{
-      await w.send("hello",{deviceId:phone.id,name:phone.name,nonce:crypto.randomUUID()});
+      await w.send("hello",{deviceId:phone.id,name:phone.name,nonce:crypto.randomUUID(),versions:[1],maxBytes:10485760,mode:"synthetic-only"});
       let h={v:1,type:"probe",id:crypto.randomUUID(),seq:1,sid:w.sid,payload:{probeId:crypto.randomUUID(),bytes:1024,kind:"json"}};
       if(attack==="version")h.v=2;
       if(attack==="replay")h.seq=0;

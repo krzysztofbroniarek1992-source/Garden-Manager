@@ -7,7 +7,10 @@ export function dns(id: string) { identifier(id); return "gm-" + id + ".local"; 
 export function certificate(pem: unknown, id: string) {
   identifier(id);
   if (typeof pem !== "string" || pem.length > 4096 || !pem.startsWith("-----BEGIN CERTIFICATE-----")) fail("CERTIFICATE");
+  if (!/^-----BEGIN CERTIFICATE-----\s*[A-Za-z0-9+/=\r\n]+-----END CERTIFICATE-----\s*$/.test(pem)) fail("CERTIFICATE");
   const c = new X509Certificate(pem);
+  const base64 = pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g,"");
+  if (!c.raw.equals(Buffer.from(base64,"base64"))) fail("CERTIFICATE");
   if (c.publicKey.asymmetricKeyType !== "ec" || c.publicKey.asymmetricKeyDetails?.namedCurve !== "prime256v1" ||
     !c.verify(c.publicKey) || Date.parse(c.validFrom) > Date.now() || Date.parse(c.validTo) < Date.now() ||
     c.subject !== "CN=" + dns(id)) fail("CERTIFICATE");

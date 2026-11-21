@@ -76,7 +76,10 @@ final class LanIdentity {
     static String dns(String id)throws Exception{LanWire.uuid(id);return "gm-"+id+".local";}
     static X509Certificate parseCertificate(String pem,String id)throws Exception{
         if(pem.length()>4096||!pem.startsWith("-----BEGIN CERTIFICATE-----"))throw new Exception("CERTIFICATE");
-        X509Certificate c=(X509Certificate)CertificateFactory.getInstance("X.509").generateCertificate(new java.io.ByteArrayInputStream(pem.getBytes(StandardCharsets.US_ASCII)));
+        if(!pem.matches("(?s)^-----BEGIN CERTIFICATE-----\\s*[A-Za-z0-9+/=\\r\\n]+-----END CERTIFICATE-----\\s*$"))throw new Exception("CERTIFICATE");
+        byte[] der=Base64.decode(pem.replace("-----BEGIN CERTIFICATE-----","").replace("-----END CERTIFICATE-----","").replaceAll("\\s",""),Base64.NO_WRAP);
+        X509Certificate c=(X509Certificate)CertificateFactory.getInstance("X.509").generateCertificate(new java.io.ByteArrayInputStream(der));
+        if(!Arrays.equals(der,c.getEncoded()))throw new Exception("CERTIFICATE");
         checkCertificate(c,id);return c;
     }
     static void checkCertificate(X509Certificate c,String id)throws Exception{
@@ -87,7 +90,7 @@ final class LanIdentity {
         if(!key.getParams().getOrder().equals(p.getParameterSpec(java.security.spec.ECParameterSpec.class).getOrder()))throw new Exception("CERTIFICATE");
     }
     static JSONObject validatePeer(JSONObject p)throws Exception{
-        LanWire.fields(p,"id","name","cert","fingerprint");String id=p.getString("id");LanWire.uuid(id);LanWire.name(p.getString("name"));
+        LanWire.fields(p,"id","name","cert","fingerprint");for(String k:new String[]{"id","name","cert","fingerprint"})if(!(p.get(k) instanceof String))throw new Exception("PROTOCOL");String id=p.getString("id");LanWire.uuid(id);LanWire.name(p.getString("name"));
         X509Certificate c=parseCertificate(p.getString("cert"),id);
         if(!LanWire.sha(c.getEncoded()).equals(p.getString("fingerprint")))throw new Exception("CERTIFICATE");return p;
     }
