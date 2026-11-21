@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { pendingWrite } from "../data/pending";
 import { useUnsavedChanges } from "../navigation/unsaved";
 import { lanPort, type LanView, type LanCommand, type LanSize, type LanKind } from "./port";
 import "./lan.css";
@@ -17,7 +18,7 @@ export default function Sync(){
     if(!mounted.current)return;
     setView(v);
     if(v.device&&!nameDirty.current){setName(v.device.name);setOriginalName(v.device.name);}
-    setAddress(a=>a||v.interfaces[0]?.address||"");
+    setAddress(a=>v.interfaces.some(i=>i.address===a)?a:v.interfaces[0]?.address||"");
     if(v.scannedInvitation){setInvitation(v.scannedInvitation);setNotice("Odczytano zaproszenie. Rozpocznij sesję na telefonie, następnie połącz i porównaj kody.");}
   }
   useEffect(()=>{
@@ -37,16 +38,21 @@ export default function Sync(){
     }catch(e){if(mounted.current)setError((e as Error).message);}
     finally{operation.current=false;if(mounted.current)setBusy(false);}
   }
-  async function rename(e:FormEvent){e.preventDefault();await guard.save(()=>run({action:"rename",name}));}
+  async function rename(e:FormEvent){
+    e.preventDefault();if(!port||operation.current)return;operation.current=true;setBusy(true);setError("");
+    try{await guard.save(()=>pendingWrite(async()=>{const v=await port.command({action:"rename",name});apply(v);setName(v.device!.name);setOriginalName(v.device!.name);}));}
+    catch(e){if(mounted.current)setError((e as Error).message);}
+    finally{operation.current=false;if(mounted.current)setBusy(false);}
+  }
   return <section className="entities-page lan-page">
     <div className="page-heading"><div><span className="eyebrow">GM-011A · TEST KOMUNIKACJI</span><h1>Synchronizacja</h1>
       <p>Ten etap sprawdza wyłącznie bezpieczne połączenie LAN i dane syntetyczne. Synchronizacja danych firmowych nie jest jeszcze dostępna.</p></div></div>
     {!port?<div className="card"><h2>Wymagana aplikacja natywna</h2><p>Komunikacja lokalna wymaga obsługiwanej aplikacji Windows lub Android. Wersja web/PWA nadal działa offline; dane firmowe pozostają na tym urządzeniu.</p></div>:<>
       {error&&<p role="alert" className="gm-form-error">{error}</p>}{notice&&<p role="status">{notice}</p>}
-      {!view?<p role="status">Odczyt chronionej tożsamości urządzenia…</p>:<>
+      {!view?<p role="status">{error?"Tryb komunikacji jest niedostępny. Pozostałe moduły i dane firmowe pozostają lokalnie.":"Odczyt chronionej tożsamości urządzenia…"}</p>:<>
       <div className="lan-grid">
       <article className="card"><h2>Bieżące urządzenie</h2>
-        <form ref={guard.ref} onSubmit={rename}><label className="field">Nazwa urządzenia<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)}/></label><button className="button secondary" disabled={busy||name===originalName}>Zapisz nazwę urządzenia</button></form>
+        <form ref={guard.ref} onSubmit={rename}><label className="field">Nazwa urządzenia<input required maxLength={80} value={name} onChange={e=>{nameDirty.current=true;setName(e.target.value);}}/></label><button className="button secondary" disabled={busy||name===originalName}>Zapisz nazwę urządzenia</button></form>
         <p className="muted">Identyfikator instalacji: {view.device?.id}</p><details><summary>Odcisk klucza urządzenia</summary><code className="lan-hash">{view.device?.fingerprint}</code></details>
         <p>Klucze i zaufane urządzenia pozostają lokalnie, poza kopiami JSON/ZIP danych firmowych.</p>
       </article>

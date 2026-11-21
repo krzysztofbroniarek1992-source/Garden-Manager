@@ -35,3 +35,12 @@ Na tym punkcie nie zadeklarowano żadnych zaliczonych testów nowej funkcji. Dok
 - https://developer.android.com/reference/android/net/nsd/NsdManager
 
 Target Android pozostaje 36. Zgodnie z dokumentacją platformy nie dodajemy ACCESS_LOCAL_NETWORK przed podniesieniem target do 37. Odmowa dostępu do LAN ma być obsłużona diagnostycznie; nie obchodzimy zabezpieczeń systemu.
+
+## Checkpoint transportu i aplikacji
+
+- Gałąź codex/gm011a-secure-lan; roboczy PR #28.
+- Rzeczywiste testy Node/TLS: 9/9, w tym wzajemny TLS, parowanie, ataki na ramki, zmiana adresu, dwa serwery i testy 1 KB–10 MB w obu kierunkach. Nie są to fizyczne testy Windows/Android.
+- TypeScript, dotychczasowe jednostkowe i kompilacja Android JVM/APK na punktach kontrolnych zaliczone.
+- Dodano natywne magazyny, ścisły IPC, mostek Capacitor i wspólny ekran. Format danych firmowych pozostaje v12.
+- Trwa integracja testu rzeczywistego klienta AndroidKeyStore/JSSE z tą samą implementacją serwera na runnerze. Nie zadeklarowano jeszcze wyniku tej integracji ani fizycznego odbioru.
+- Pozostałe zadania: rozszerzone testy transportu, rzeczywisty Electron/DPAPI i NSIS z v12, testy emulatora, pełne E2E/PWA/regresja aparatu, końcowa dokumentacja, artefakty i SHA256.

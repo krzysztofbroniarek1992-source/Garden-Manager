@@ -23,8 +23,9 @@ export class LanServer {
   private invitation?:LanView["invitation"];private ticket="";private pairId="";private deadline=0;private candidate?:Candidate;
   private attempts:number[]=[];private endpoint?:{host:string;port:number};private channel?:Channel;private connecting=false;
   private last?:LanView["result"];private diagnostic="Sesja komunikacji nie jest uruchomiona.";
-  constructor(readonly store:Store,private options:{interfaces?:typeof interfaces;discovery?:boolean}={}){}
+  constructor(readonly store:Store,private options:{interfaces?:typeof interfaces;discovery?:boolean;advertisedAddress?:string}={}){}
   async view():Promise<LanView>{
+    if(this.server&&this.endpoint&&!(this.options.interfaces??interfaces)().some(i=>i.address===this.endpoint!.host)){await this.stop();this.diagnostic="Adres interfejsu zmienił się. Rozpocznij sesję na aktualnym adresie; sparowanie pozostaje ważne.";}
     const own=await this.store.get(),p=this.candidate;
     return {supported:true,platform:"windows",device:publicPeer(own),active:!!this.server,
       interfaces:(this.options.interfaces??interfaces)(),endpoint:this.endpoint,peers:own.peers.map(publicPeer),discovered:[],
@@ -46,7 +47,7 @@ export class LanServer {
       await this.listen(server,address);
       if(generation!==this.generation)fail("CLOSED");
       this.endpoint={host:address,port:(server.address() as {port:number}).port};
-      if(this.options.discovery!==false)this.stopAdvertisement=advertise(own.id,address,this.endpoint.port,()=>{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu.";});
+      if(this.options.discovery!==false)try{this.stopAdvertisement=advertise(own.id,address,this.endpoint.port,()=>{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu.";});}catch{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu."; }
       this.sessionTimer=setTimeout(()=>{void this.stop();},15*60*1000);this.sessionTimer.unref();
       this.diagnostic="Nasłuch TLS aktywny. Sparuj telefon lub połącz zaufane urządzenie.";
       return this.view();
@@ -74,6 +75,7 @@ export class LanServer {
       const p=raw&&own.peers.find(p=>p.fingerprint===sha(raw));
       if(!p||!this.server||generation!==this.generation)fail("CERTIFICATE");
       certificate(p.cert,p.id);
+      this.last=undefined;
       this.channel=new Channel(socket,own,p,true,r=>{this.last=r;},()=>{},code=>{
         this.channel=undefined;this.diagnostic=code==="CLOSED"?"Połączenie zakończone.":"Połączenie przerwane lub odrzucone: "+code+". Połącz ponownie; dane firmowe pozostają bez zmian.";
       });
@@ -90,7 +92,7 @@ export class LanServer {
       void this.pairConnection(socket,generation).catch(()=>socket.destroy());
     });
     this.track(server);this.pairing=server;await this.listen(server,this.endpoint.host);
-    const raw={v:1,host:this.endpoint.host,port:this.endpoint.port,pairPort:(server.address() as {port:number}).port,
+    const raw={v:1,host:this.options.advertisedAddress??this.endpoint.host,port:this.endpoint.port,pairPort:(server.address() as {port:number}).port,
       pairId:this.pairId,ticket:this.ticket,expiresAt:Date.now()+120000,device:{...publicPeer(own),cert:own.cert}};
     const text="GM011A:"+Buffer.from(JSON.stringify(raw)).toString("base64url");
     const qr=await (require("qrcode") as {toDataURL:(s:string,o:unknown)=>Promise<string>}).toDataURL(text,{errorCorrectionLevel:"M",width:480,margin:4});
@@ -152,7 +154,7 @@ export class LanServer {
   }
   async stop(){
     ++this.generation;clearTimeout(this.sessionTimer);this.sessionTimer=undefined;
-    this.stopAdvertisement?.();this.stopAdvertisement=undefined;
+    try{this.stopAdvertisement?.();}catch{/* Closing TLS must not depend on mDNS. */}this.stopAdvertisement=undefined;
     this.channel?.close("CLOSED");this.channel=undefined;
     for(const s of this.sockets)s.destroy();this.sockets.clear();
     await this.closePairing();const s=this.server;this.server=undefined;this.endpoint=undefined;

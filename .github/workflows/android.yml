@@ -120,6 +120,7 @@ jobs:
             adb shell am instrument -w -r -e class pl.broniarek.gardenmanager.CameraFlowSetupTest pl.broniarek.gardenmanager.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/android-camera-setup.txt
             grep -q 'OK (1 test)' artifacts/android-camera-setup.txt
             node scripts/android-camera-check.mjs
+            bash scripts/android-lan-check.sh
       - name: Collect device log
         if: always()
         run: |

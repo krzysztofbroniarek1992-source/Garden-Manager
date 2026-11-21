@@ -4,6 +4,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "pl.broniarek.gardenmanager",
   appName: "Garden Manager",
+  // Pairing invitations must never be copied into Capacitor bridge logs.
+  loggingBehavior: "none",
   webDir: "dist",
   server: { hostname: "localhost", androidScheme: "https" },
   android: { allowMixedContent: false },

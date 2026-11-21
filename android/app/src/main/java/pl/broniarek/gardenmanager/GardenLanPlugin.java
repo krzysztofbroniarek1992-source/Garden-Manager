@@ -32,7 +32,7 @@ public class GardenLanPlugin extends Plugin {
                 action=text(call,"action",20);
                 switch(action){
                     case "status":exact(call,"action");break;
-                    case "start":exact(call,"action","address");engine.start();break;
+                    case "start":exact(call,"action","address");if(!text(call,"address",32).isEmpty())throw new Exception("PROTOCOL");engine.start();break;
                     case "stop":exact(call,"action");engine.stop();break;
                     case "rename":exact(call,"action","name");engine.rename(text(call,"name",80));break;
                     case "pair":exact(call,"action","invitation");engine.pair(text(call,"invitation",8192));break;

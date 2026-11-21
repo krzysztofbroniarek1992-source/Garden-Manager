@@ -44,6 +44,7 @@ final class LanEngine {
         SSLSocket socket=LanTls.connect(identity(),peer,host,port,true,s->{opening=s;if(!active||generation!=gen)try{s.close();}catch(Exception ignored){}});
         synchronized(this){
             if(!active||generation!=gen){socket.close();throw new Exception("CLOSED");}
+            last=null;
             channel=new LanChannel(socket,identity(),peer,r->last=r,c->{channel=null;diagnostic="Połączenie zakończone: "+c+". Możesz połączyć ponownie.";});
             opening=null;diagnostic="Trwa uwierzytelnianie zaufanego komputera.";
             LanChannel current=channel;readers.execute(current::run);

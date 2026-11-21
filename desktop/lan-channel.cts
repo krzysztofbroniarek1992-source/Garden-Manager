@@ -87,7 +87,7 @@ export class Channel {
     await this.wire.send("done",{probeId:p.id,bytes:p.bytes,kind:p.kind,sentSha256:p.sent,receivedSha256:p.received,elapsedMs:r.elapsedMs});
     this.complete(p);
   }
-  private summary(p:Probe):LanResult{return {ok:true,bytes:p.bytes,kind:p.kind,sentSha256:p.sent,receivedSha256:p.received,elapsedMs:Math.round(performance.now()-p.start),at:Date.now()};}
+  private summary(p:Probe):LanResult{return {peerId:this.remote.id,ok:true,bytes:p.bytes,kind:p.kind,sentSha256:p.sent,receivedSha256:p.received,elapsedMs:Math.round(performance.now()-p.start),at:Date.now()};}
   private complete(p:Probe){clearTimeout(p.timer);const r=this.summary(p);this.probe=undefined;this.busy=false;this.result(r);p.resolve?.(r);this.changed();}
   close(code="CLOSED"){
     if(this.closed)return;this.closed=true;this.ready=false;

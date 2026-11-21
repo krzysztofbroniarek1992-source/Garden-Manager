@@ -21,7 +21,7 @@ final class LanChannel {
     void run(){
         try{
             LanWire.Frame hello=wire.receive();LanWire.fields(hello.payload,"deviceId","name","nonce","versions","maxBytes","mode");
-            if(hello.payload.getJSONArray("versions").length()!=1||!(hello.payload.getJSONArray("versions").get(0) instanceof Number)||hello.payload.getJSONArray("versions").getInt(0)!=1||LanWire.integer(hello.payload,"maxBytes")!=LanWire.MAX_BODY||!hello.payload.getString("mode").equals("synthetic-only"))throw new Exception("VERSION");
+            if(hello.payload.getJSONArray("versions").length()!=1||!(hello.payload.getJSONArray("versions").get(0) instanceof Number)||((Number)hello.payload.getJSONArray("versions").get(0)).doubleValue()!=1d||LanWire.integer(hello.payload,"maxBytes")!=LanWire.MAX_BODY||!hello.payload.getString("mode").equals("synthetic-only"))throw new Exception("VERSION");
             if(!hello.type.equals("hello")||!hello.payload.getString("deviceId").equals(remote.getString("id")))throw new Exception("IDENTITY");
             LanWire.name(hello.payload.getString("name"));LanWire.uuid(hello.payload.getString("nonce"));
             wire.send("hello",new JSONObject().put("deviceId",identity.id()).put("name",identity.name()).put("nonce",UUID.randomUUID().toString()).put("versions",new JSONArray().put(1)).put("maxBytes",LanWire.MAX_BODY).put("mode","synthetic-only"));
@@ -79,7 +79,7 @@ final class LanChannel {
             default:throw new Exception("PROTOCOL");
         }
     }
-    private JSONObject summary(Probe p)throws Exception{return new JSONObject().put("ok",true).put("bytes",p.bytes).put("kind",p.kind)
+    private JSONObject summary(Probe p)throws Exception{return new JSONObject().put("peerId",remote.getString("id")).put("ok",true).put("bytes",p.bytes).put("kind",p.kind)
         .put("sentSha256",p.sent).put("receivedSha256",p.received).put("elapsedMs",(System.nanoTime()-p.start)/1000000L).put("at",System.currentTimeMillis());}
     private void complete(Probe p)throws Exception{p.timeout.cancel();JSONObject r=summary(p);probe=null;busy=false;result.accept(r);if(p.future!=null)p.future.complete(r);}
     private void finish(Probe p)throws Exception{

@@ -3,7 +3,7 @@ export type LanKind = "json" | "binary";
 export type LanSize = 1024 | 102400 | 1048576 | 10485760;
 export interface LanPeer { id: string; name: string; fingerprint: string }
 export interface LanResult {
-  ok: boolean; bytes: number; kind: LanKind; sentSha256: string;
+  peerId: string; ok: boolean; bytes: number; kind: LanKind; sentSha256: string;
   receivedSha256: string; elapsedMs: number; at: number; error?: string;
 }
 export interface LanView {
