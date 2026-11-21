@@ -1,3 +1,4 @@
+import { withShopping } from "../shopping/model";
 import { withExpenses } from "../expenses/model";
 import { pendingWrite } from "./pending";
 import type { Data } from "../domain";
@@ -117,7 +118,8 @@ export class AtomicRepository {
             state.formatVersion !== undefined &&
             state.formatVersion !== STORAGE_VERSION &&
             state.formatVersion !== 9 &&
-            state.formatVersion !== 10
+            state.formatVersion !== 10 &&
+            state.formatVersion !== 11
           )
             throw new Error(
               "Nieobsługiwana wersja bezpiecznej pamięci. Zachowano oryginalny zapis.",
@@ -126,10 +128,12 @@ export class AtomicRepository {
             if (!initialize) throw unavailable();
             const original = state;
             const key =
-              state.formatVersion === 10
+              state.formatVersion === 11
+                ? "format-v11-source"
+                : state.formatVersion === 10
                 ? "format-v10-source"
                 : "format-v9-source";
-            state = { ...state, data: withExpenses(state.data) };
+            state = { ...state, data: withShopping(state.formatVersion === 11 ? state.data : withExpenses(state.data)) };
             validateData(state.data);
             const backup = store.get(key);
             backup.onsuccess = () => {

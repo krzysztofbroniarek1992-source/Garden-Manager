@@ -1,3 +1,5 @@
+import * as shopping from '../shopping/commands';
+import type { ShoppingItem } from '../shopping/model';
 import * as expenses from '../expenses/commands';
 import type { Expense, ExpenseCategory, ExpenseRule, ExpenseProfile, ImportRequest } from '../expenses/model';
 import { assertUnchanged } from './entity-edit';
@@ -249,6 +251,13 @@ export class GardenStore {
   moveChecklistItem = (id: string, revision: number, itemId: string, direction: -1|1) => this.commit(data=>checklists.moveChecklistItem(data,id,revision,itemId,direction,this.clock()));
   removeChecklistItem = (id: string, revision: number, itemId: string) => this.commit(data=>checklists.removeChecklistItem(data,id,revision,itemId,this.clock()));
   deleteChecklist = (id: string, revision: number) => this.commit(data=>checklists.deleteChecklist(data,id,revision,this.clock()));
+
+  saveShoppingItem = (input: ShoppingItem, expected: number | null) => this.commit(data => shopping.saveShopping(data, input, expected, this.clock()));
+  addShoppingBatch = (items: ShoppingItem[]) => this.commit(data => shopping.addShoppingBatch(data, items, this.clock()));
+  shoppingAction = (id: string, revision: number, action: Parameters<typeof shopping.shoppingAction>[3]) => this.commit(data => shopping.shoppingAction(data, id, revision, action, this.clock()));
+  repeatShopping = (id: string, revision: number, newId: string) => this.commit(data => shopping.repeatShopping(data, id, revision, newId, this.clock()));
+  createShoppingExpense = (id: string, revision: number, expense: Expense) => this.commit(data => shopping.createShoppingExpense(data, id, revision, expense, this.clock()));
+  linkShoppingExpense = (id: string, revision: number, expenseId: string, expenseRevision: number) => this.commit(data => shopping.linkShoppingExpense(data, id, revision, expenseId, expenseRevision, this.clock()));
 
   saveNote = (note: Note) => this.commit(data => desk.saveNote(data, note, this.clock()));
   archiveNote = (id: string, revision: number, archived: boolean) => this.commit(data => desk.archiveNote(data, id, revision, archived, this.clock()));

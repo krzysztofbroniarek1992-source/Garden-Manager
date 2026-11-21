@@ -474,7 +474,7 @@ describe("atomic persistence, migration and backups", () => {
       const migrated = await repo.initialize();
       expect(migrated).toEqual({
         ...source,
-        formatVersion: 11,
+        formatVersion: STORAGE_VERSION,
         data: { ...old, ...initialExpenseData() },
       });
       const backup = await new Promise<any>((resolve) => {
@@ -491,7 +491,7 @@ describe("atomic persistence, migration and backups", () => {
         memory(JSON.stringify({ version: 10, data: backup.data })),
       ).load();
       expect(recovered).toEqual(migrated.data);
-      expect(JSON.parse(storage.getItem(STORAGE_KEY)!).version).toBe(11);
+      expect(JSON.parse(storage.getItem(STORAGE_KEY)!).version).toBe(STORAGE_VERSION);
     } finally {
       await repo.close();
     }
@@ -510,7 +510,7 @@ describe("atomic persistence, migration and backups", () => {
         value: any,
         key?: IDBValidKey,
       ) {
-        if (key === "current" && value.formatVersion === 11)
+        if (key === "current" && value.formatVersion === STORAGE_VERSION)
           throw new DOMException("Full", "QuotaExceededError");
         return put.call(this, value, key);
       });
