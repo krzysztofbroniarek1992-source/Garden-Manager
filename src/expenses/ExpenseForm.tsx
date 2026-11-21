@@ -29,9 +29,15 @@ export const newExpense = (): Expense => ({
 export default function ExpenseForm({
   initial,
   onClose,
+  onSave,
+  title,
+  introduction,
 }: {
   initial: Expense;
   onClose: () => void;
+  onSave?: (expense: Expense, expected: Expense | null) => Promise<void>;
+  title?: string;
+  introduction?: string;
 }) {
   const { data, saveExpense } = useGarden();
   const [original] = useState(
@@ -56,7 +62,7 @@ export default function ExpenseForm({
       const amountCents = parseMoney(amount, amount.includes(",") ? "," : ".");
       if (amountCents <= 0) throw new Error("Podaj dodatnią kwotę wydatku.");
       await guard.save(async () => {
-        await saveExpense({ ...draft, amountCents }, original);
+        await (onSave ?? saveExpense)({ ...draft, amountCents }, original);
         onClose();
       });
     } catch (e) {
@@ -67,10 +73,11 @@ export default function ExpenseForm({
   }
   return (
     <Modal
-      title={original ? "Edytuj wydatek" : "Nowy wydatek"}
+      title={title ?? (original ? "Edytuj wydatek" : "Nowy wydatek")}
       onClose={onClose}
     >
       <form ref={guard.ref} onSubmit={submit}>
+        {introduction && <p className="gm-form-note">{introduction}</p>}
         {error && (
           <p role="alert" className="gm-form-error">
             {error}
@@ -132,7 +139,7 @@ export default function ExpenseForm({
             Status wydatku
             <select
               value={draft.status}
-              disabled={draft.direction === "incoming"}
+              disabled={draft.direction === "incoming" || !!onSave}
               onChange={(e) =>
                 patch("status", e.target.value as Expense["status"])
               }
