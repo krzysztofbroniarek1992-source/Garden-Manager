@@ -29,7 +29,7 @@ public class LanTest {
         return new JSONObject(async(s,"return JSON.stringify(await window.Capacitor.Plugins.GardenLan.command({action:'status'}))"));
     }
     private void until(ActivityScenario<MainActivity> s,java.util.function.Predicate<JSONObject> condition)throws Exception{
-        long end=System.currentTimeMillis()+30000;while(System.currentTimeMillis()<end){if(condition.test(view(s)))return;Thread.sleep(150);}fail("Native LAN condition timed out (no invitation or key logged)");
+        long end=System.currentTimeMillis()+30000;while(System.currentTimeMillis()<end){if(condition.test(view(s)))return;Thread.sleep(150);}fail("Native LAN condition timed out: "+view(s).optString("diagnostic")+"; UI: "+evaluate(s,"document.querySelector('.lan-page [role=alert]')?.textContent || 'no public error'"));
     }
     private void pair(ActivityScenario<MainActivity> s,JSONObject peer)throws Exception{
         if(!view(s).getBoolean("active"))click(s,"Rozpocznij sesję");
@@ -42,12 +42,13 @@ public class LanTest {
         UiObject2 trust=device.wait(Until.findObject(By.text("Zaufaj")),20000);assertNotNull("Native identity confirmation",trust);trust.click();
         until(s,v->!v.has("pending")&&v.optJSONArray("peers").toString().contains(peer.optJSONObject("device").optString("id")));
     }
-    private void connect(ActivityScenario<MainActivity> s,JSONObject p)throws Exception{
+    private void connect(ActivityScenario<MainActivity> s,JSONObject p)throws Exception{connect(s,p,true);}
+    private void connect(ActivityScenario<MainActivity> s,JSONObject p,boolean waitForReverse)throws Exception{
         set(s,"Sparowany komputer",p.getJSONObject("device").getString("id"));set(s,"Adres IPv4",p.getString("host"));set(s,"Port TLS",String.valueOf(p.getInt("port")));
         click(s,"Połącz ręcznie");String id=p.getJSONObject("device").getString("id");
         until(s,v->v.optJSONObject("connected")!=null&&v.optJSONObject("connected").optString("id").equals(id));
         // The fixture performs one server-initiated probe before the phone probes.
-        until(s,v->v.optJSONObject("result")!=null&&v.optJSONObject("result").optBoolean("ok")&&v.optJSONObject("result").optString("peerId").equals(id));
+        if(waitForReverse)until(s,v->v.optJSONObject("result")!=null&&v.optJSONObject("result").optBoolean("ok")&&v.optJSONObject("result").optString("peerId").equals(id));
     }
     @Test public void realKeystorePairingTwoComputersDuplexOfflineAndRestart()throws Exception{
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -90,7 +91,8 @@ public class LanTest {
             assertEquals(2,view(s).getJSONArray("peers").length());assertFalse(view(s).getBoolean("active"));
             assertEquals(before,async(s,READ_STATE+"return JSON.stringify(state)"));
             evaluate(s,"location.hash='#dashboard'");waitFor(s,"!!document.querySelector('.dashboard-heading')");click(s,"Więcej");waitFor(s,"!!document.querySelector('.mobile-more-list')");click(s,"Synchronizacja");
-            click(s,"Rozpocznij sesję");
+            click(s,"Rozpocznij sesję");connect(s,servers.getJSONObject(0),false);
+            assertEquals("true",async(s,"const r=await window.Capacitor.Plugins.GardenLan.command({action:'test',bytes:1024,kind:'json'});return String(r.result.ok && r.result.sentSha256===r.result.receivedSha256)"));
             s.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
             // Back returns through the shared history and unmount closes the native session.
             until(s,v->!v.optBoolean("active"));

@@ -2,6 +2,14 @@
 # Disposable CI emulator only. No production identity or business data is read.
 set -euo pipefail
 android_package=pl.broniarek.gardenmanager
+adb shell svc data disable
+adb shell svc wifi enable
+for attempt in $(seq 1 80); do
+  lan_wifi_state=$(adb shell ip -4 addr show wlan0 2>/dev/null || true)
+  if [[ "$lan_wifi_state" == *"inet "* ]]; then break; fi
+  sleep 0.5
+done
+[[ "$lan_wifi_state" == *"inet "* ]]
 mkdir -p artifacts/lan-runtime
 npm run desktop:compile
 node lan-tests/emulator-server.cjs artifacts/lan-runtime > artifacts/lan-runtime/peer.log 2>&1 &

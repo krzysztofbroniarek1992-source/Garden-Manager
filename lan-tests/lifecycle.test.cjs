@@ -37,3 +37,13 @@ test("real authenticated transfer "+mode+" fails and a new connection succeeds",
   c=await connect(server,phone);assert.equal((await c.channel.test(1024,"json")).ok,true);
  }finally{s?.destroy();c?.channel.close();await server.stop();}
 });}
+
+test("a valid invitation cannot pair a device without its private signing key",{timeout:15000},async()=>{
+ const {server,phone}=await setup();let s;
+ try{
+  const v=await server.invite(),i=JSON.parse(Buffer.from(v.invitation.text.slice(7),"base64url"));
+  s=await socket(phone,i.device,i.host,i.pairPort,false);const closed=once(s,"close");
+  await new Wire(s,i.pairId).send("pair",{ticket:i.ticket,device:pub(phone),signature:Buffer.alloc(72,65).toString("base64")});
+  await closed;assert.equal((await server.view()).peers.length,0);
+ }finally{s?.destroy();await server.stop();}
+});

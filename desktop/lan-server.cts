@@ -138,7 +138,7 @@ export class LanServer {
     if(!c.local||!c.remote||c.finish)return c.finish;
     c.finish=(async()=>{
       if(this.candidate!==c||generation!==this.generation||performance.now()>this.deadline)fail("CLOSED");
-      await this.store.update(d=>({...d,peers:[...d.peers.filter(p=>p.id!==c.peer.id),c.peer]}));
+      await this.store.update(d=>{if(this.candidate!==c||generation!==this.generation)fail("CLOSED");return {...d,peers:[...d.peers.filter(p=>p.id!==c.peer.id),c.peer]};});
       if(this.candidate!==c||generation!==this.generation)fail("CLOSED");
       await this.refreshTrust();
       await c.wire.send("pair-done",{deviceId:(await this.store.get()).id,code:c.code});
@@ -148,9 +148,9 @@ export class LanServer {
   }
   private async refreshTrust(){const d=await this.store.get();this.server?.setSecureContext(tlsOptions(d,d.peers));}
   async forget(id:string){
-    await this.store.update(d=>({...d,peers:d.peers.filter(p=>p.id!==id)}));
-    if(this.channel?.remote.id===id)this.channel.close("CLOSED");
     if(this.candidate?.peer.id===id)await this.closePairing();
+    if(this.channel?.remote.id===id)this.channel.close("CLOSED");
+    await this.store.update(d=>({...d,peers:d.peers.filter(p=>p.id!==id)}));
     await this.refreshTrust();return this.view();
   }
   async test(bytes:LanSize,kind:LanKind){if(!this.channel)fail("DISCONNECTED");await this.channel.test(bytes,kind);return this.view();}

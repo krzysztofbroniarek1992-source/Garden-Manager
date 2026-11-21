@@ -22,5 +22,7 @@ jobs:
       - run: npm run build:windows
       - name: Native Node TLS on Windows
         run: node --test lan-tests/tls.test.cjs lan-tests/lifecycle.test.cjs
+      - name: Real Electron TLS compatibility matrix
+        run: npx electron lan-tests/electron-probe.cjs
       - name: Real Electron and DPAPI
         run: npx playwright test --config=playwright.desktop.config.ts desktop-tests/lan.spec.ts

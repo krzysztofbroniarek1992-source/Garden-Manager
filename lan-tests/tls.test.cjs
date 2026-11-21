@@ -7,8 +7,10 @@ test("real TLS: two-sided pairing, mutual authentication, duplex synthetic JSON/
     client=await connect(server,phone);
     for(const bytes of [1024,102400,1048576,10485760])for(const kind of ["json","binary"]){
       const a=await client.channel.test(bytes,kind);assert.equal(a.ok,true);assert.equal(a.sentSha256,a.receivedSha256);
+      await until(async()=>!(await server.view()).busy);
       const b=(await server.test(bytes,kind)).result;assert.equal(b.ok,true);assert.equal(b.sentSha256,b.receivedSha256);
       console.log(JSON.stringify({synthetic:true,bytes,kind,clientInitiatedMs:a.elapsedMs,serverInitiatedMs:b.elapsedMs,sha256Matches:true}));
+      await until(()=>!client.channel.busy);
     }
     client.channel.close();await until(async()=>!(await server.view()).connected);
     client=await connect(server,phone);assert.equal((await client.channel.test(1024,"json")).ok,true);

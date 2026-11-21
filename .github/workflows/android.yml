@@ -67,6 +67,14 @@ jobs:
       - name: Build B, native tests and external camera fixture
         working-directory: android
         run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :camera-fixture:assembleDebug --no-daemon
+      - name: JVM test totals
+        run: |
+          python3 - <<'PY'
+          import pathlib, xml.etree.ElementTree as ET
+          for path in pathlib.Path('android/app/build/test-results').glob('**/TEST-*.xml'):
+              root = ET.parse(path).getroot()
+              print({k: root.attrib.get(k) for k in ('name', 'tests', 'failures', 'errors', 'skipped')})
+          PY
       - name: Preserve B and test runner
         run: |
           mkdir -p artifacts
