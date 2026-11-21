@@ -18,7 +18,7 @@ export interface LanView {
   result?: LanResult; busy: boolean; diagnostic: string;
 }
 export type LanCommand =
-  | { action: "status" | "stop" | "invite" | "confirm" | "scan" }
+  | { action: "status" | "stop" | "invite" | "confirm" | "scan" | "copy" }
   | { action: "rename"; name: string }
   | { action: "start"; address: string }
   | { action: "pair"; invitation: string }

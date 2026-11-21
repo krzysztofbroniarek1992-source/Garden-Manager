@@ -1,3 +1,4 @@
+import type { LanPort } from "./lan-contracts.js";
 /** Closed capability surface; paths and ipcRenderer never cross into the page. */
 export type DesktopKind = "zip" | "csv";
 export type DesktopMime =
@@ -6,6 +7,7 @@ export type DesktopMime =
   | "application/zip";
 export interface DesktopBridge {
   readonly platform: "windows";
+  readonly lan: LanPort;
   readonly security: { sandboxed: boolean; isolated: boolean };
   beginSave(options: {
     name: string;

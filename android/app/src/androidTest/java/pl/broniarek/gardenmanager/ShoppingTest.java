@@ -13,7 +13,7 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
 @RunWith(AndroidJUnit4.class)
 public class ShoppingTest {
     private void click(ActivityScenario<MainActivity> s,String name)throws Exception {
-        evaluate(s,"(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==="+org.json.JSONObject.quote(name)+");if(!b)throw Error('Button missing');b.click()})()");
+        evaluate(s,"(()=>{const name="+org.json.JSONObject.quote(name)+";const row=document.querySelector('[aria-label=\\"Zakup: Sekator Android GM010A\\"]');const root=row&&['Edytuj zakup','Oznacz jako zamówione','Odebrano — kupione','Dodaj do wydatków firmowych','Archiwizuj zakup'].includes(name)?row:document;const b=Array.from(root.querySelectorAll('button')).find(b=>b.textContent.trim()==="+org.json.JSONObject.quote(name)+");if(!b)throw Error('Button missing');b.click()})()");
     }
     private void set(ActivityScenario<MainActivity> s,String label,String value)throws Exception {
         evaluate(s,"(()=>{const e=Array.from(document.querySelectorAll('label')).find(e=>e.childNodes[0]?.textContent.trim()==="+org.json.JSONObject.quote(label)+").querySelector('input,textarea');Object.getOwnPropertyDescriptor(e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(e,"+org.json.JSONObject.quote(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
@@ -54,7 +54,7 @@ public class ShoppingTest {
             click(scenario,"Zapisz wydatek");
             waitFor(scenario,"!document.querySelector('[role=dialog]') && document.querySelector('.shopping-list')?.textContent.includes('Powiązany wydatek')");
             click(scenario,"Archiwizuj zakup");
-            waitFor(scenario,"!document.querySelector('.shopping-item')");
+            waitFor(scenario,"!document.querySelector('[aria-label=\"Zakup: Sekator Android GM010A\"]')");
             assertEquals(before,async(scenario,READ_STATE+"return JSON.stringify([state.data.jobs,state.data.payments,state.data.timer])"));
             scenario.recreate();ready(scenario);
             assertEquals("ok",async(scenario,READ_STATE+"const p=state.data.shoppingItems.find(p=>p.name==='Sekator Android GM010A');const e=state.data.expenses.find(e=>e.id===p?.expenseId);if(state.formatVersion!==12||!p?.archivedAt||p.notes!=='Nie zgub szkicu Android'||e?.amountCents!==2550||state.data.expenses.length!=="+(originalCosts+1)+")throw Error('Shopping reopen');return 'ok'"));

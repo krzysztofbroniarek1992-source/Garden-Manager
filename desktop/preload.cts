@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { LanCommand } from "./lan-contracts.js" with { "resolution-mode": "import" };
 import type { DesktopBridge } from "./contracts.js" with { "resolution-mode": "import" };
 const bridge: DesktopBridge = {
   platform: "windows",
+  lan: Object.freeze({ command: (options: LanCommand) => ipcRenderer.invoke("gm:lan", options) }),
   security: {
     sandboxed: process.sandboxed === true,
     isolated: process.contextIsolated === true,

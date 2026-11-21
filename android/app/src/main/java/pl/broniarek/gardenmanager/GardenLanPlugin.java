@@ -46,7 +46,7 @@ public class GardenLanPlugin extends Plugin {
                             .setTitle("Potwierdź tożsamość komputera")
                             .setMessage("Porównaj na obu ekranach kod: "+pending.optString("code")+"\n"+pending.optString("name")+"\nSHA256: "+pending.optString("fingerprint")+"\nZaufaj tylko zgodnemu urządzeniu.")
                             .setNegativeButton("Anuluj",(d,w)->call.reject("Anulowano potwierdzenie."))
-                            .setPositiveButton("Zaufaj",(d,w)->commands.execute(()->{try{engine.confirm();call.resolve(JSObject.fromJSONObject(engine.view()));}catch(Exception e){call.reject(LanEngine.message(e));}}))
+                            .setPositiveButton("Zaufaj",(d,w)->commands.execute(()->{try{JSONObject current=engine.view().optJSONObject("pending");if(current==null||!current.optString("id").equals(pending.optString("id"))||!current.optString("fingerprint").equals(pending.optString("fingerprint"))||!current.optString("code").equals(pending.optString("code")))throw new Exception("PAIRING");engine.confirm();call.resolve(JSObject.fromJSONObject(engine.view()));}catch(Exception e){call.reject(LanEngine.message(e));}}))
                             .setOnCancelListener(d->call.reject("Anulowano potwierdzenie.")).show());
                         return;
                     case "scan":exact(call,"action");capture(call);return;

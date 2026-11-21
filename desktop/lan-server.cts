@@ -36,7 +36,8 @@ export class LanServer {
   async start(address:string){
     if(this.server)fail("BUSY");
     if(!(this.options.interfaces??interfaces)().some(i=>i.address===address))fail("ADDRESS");
-    const own=await this.store.get(),generation=++this.generation;
+    const generation=++this.generation,own=await this.store.get();
+    if(generation!==this.generation)fail("CLOSED");
     const server=tls.createServer({...tlsOptions(own,own.peers),requestCert:true,rejectUnauthorized:true},socket=>{
       void this.accept(socket,generation).catch(()=>socket.destroy());
     });
@@ -81,8 +82,8 @@ export class LanServer {
     }finally{this.connecting=false;}
   }
   async invite(){
-    if(!this.server||!this.endpoint)fail("CLOSED");await this.closePairing();
-    const own=await this.store.get(),generation=this.generation;
+    if(!this.server||!this.endpoint)fail("CLOSED");const generation=this.generation;await this.closePairing();
+    const own=await this.store.get();if(generation!==this.generation||!this.server||!this.endpoint)fail("CLOSED");
     this.ticket=randomBytes(32).toString("base64url");this.pairId=randomUUID();this.deadline=performance.now()+120000;
     const server=tls.createServer({...tlsOptions(own),requestCert:false,rejectUnauthorized:true},socket=>{
       this.pairSockets.add(socket);socket.once("close",()=>this.pairSockets.delete(socket));

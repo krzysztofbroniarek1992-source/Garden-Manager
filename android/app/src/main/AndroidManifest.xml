@@ -39,7 +39,7 @@
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/garden_file_paths"/>
         </provider>
-        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.lan.qr" android:exported="false" android:grantUriPermissions="true">
+        <provider android:name=".GardenLanFileProvider" android:authorities="${applicationId}.lan.qr" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/lan_qr_paths"/>
         </provider>
     </application>

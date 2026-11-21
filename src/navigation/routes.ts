@@ -16,6 +16,7 @@ export const pages = [
   "templates",
   "expenses",
   "shopping",
+  "sync",
 ] as const;
 export type Page = (typeof pages)[number];
 export const dialogs = ["menu", "settings", "new-job"] as const;

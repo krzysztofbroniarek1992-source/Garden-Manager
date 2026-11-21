@@ -28,12 +28,12 @@ jobs:
         run: npm run build:windows
       - name: Real Electron windows, native IPC, files and offline
         run: npm run test:desktop
-      - name: Checkout actual v11 application A
+      - name: Checkout actual v12 application A
         uses: actions/checkout@v4
         with:
-          ref: 4fcb792be7881b50a35f1ba3105403764ce738a1
+          ref: 607baeabac46c593a1780591181763c303e79353
           path: baseline
-      - name: Build original installer A with original v11 data
+      - name: Build original installer A with original v12 data
         shell: pwsh
         working-directory: baseline
         run: |
