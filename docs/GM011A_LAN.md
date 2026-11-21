@@ -136,3 +136,9 @@ Bieżące wyniki oraz linki do dokładnych przebiegów są utrzymywane w docs/GM
 Testy transportu używają rzeczywistego TCP/TLS, standardowych bibliotek kryptograficznych i tożsamości tworzonych podczas przebiegu. Emulator używa prawdziwego AndroidKeyStore/JSSE oraz produkcyjnej implementacji serwera uruchomionej w Node na runnerze. Świadome automatyczne potwierdzenie jest dozwolone wyłącznie w syntetycznym fixture, a test Electron osobno sprawdza rzeczywisty mostek potwierdzenia. Testy nie mają dostępu do danych użytkownika. Klucze i zaproszenia nie są publikowane w artefaktach.
 
 Ostateczna lista EXE/APK, metadanych i SHA256 zostanie podana po zakończeniu natywnej regresji. Nie instaluj artefaktu z niezaliczonego przebiegu jako odebranej wersji.
+
+### Klucz AndroidKeyStore i standardowy stos TLS
+
+Conscrypt przekazuje do klucza nieeksportowalnego skrót obliczony przez TLS i podpisuje go przez NONEwithECDSA. Dlatego klucz uprawnia do DIGEST_NONE oraz SHA256: pierwsze uprawnienie służy standardowemu stosowi TLS, drugie podpisowi parowania SHA256withECDSA. Nie wyłącza to haszowania TLS ani weryfikacji certyfikatów. Zobacz [oficjalne wymagania KeyGenParameterSpec](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setDigests(java.lang.String...)) i [implementację Conscrypt](https://github.com/google/conscrypt/blob/master/common/src/main/java/org/conscrypt/CryptoUpcalls.java).
+
+Klucze utworzone przez nieodebrane robocze APK GM-011A sprzed tej poprawki mogą nie mieć uprawnienia wymaganego przez TLS. Nie zastępujemy ich automatycznie. Taki profil testowy wymaga świadomego ponownego przygotowania po zabezpieczeniu danych pełnym ZIP-em; nowa instalacja oznacza nowe parowanie. Stabilny main v12 nie zawierał jeszcze tych kluczy. Dane firmowe nie są resetowane przez aktualizację.

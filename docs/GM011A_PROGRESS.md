@@ -63,3 +63,7 @@ Target Android pozostaje 36. Zgodnie z dokumentacją platformy nie dodajemy ACCE
 - Android przeszedł pierwsze parowanie i oba potwierdzenia. Test mTLS został zatrzymany na uwierzytelnianiu klienta; weryfikujemy obsługę wyboru aliasu dla SSLEngine/Conscrypt. Dodano standardowy chooseEngineClientAlias i jawny SNI, bez wyłączania walidacji TLS.
 - Dodano test połączenia podczas zapisu odwołania zaufania oraz kontrolę świeżego zaufania przy zatwierdzaniu połączenia Androida.
 - Ostateczna pełna regresja i odbiór pakietów nadal wymagają zielonego przebiegu. Nie wykonano fizycznego testu dwóch urządzeń.
+
+## Wymaganie platformy Android potwierdzone w źródłach
+
+Conscrypt używa NONEwithECDSA do podpisania skrótu obliczonego przez TLS. Klucz był uprawniony tylko do SHA256withECDSA dla parowania, co nie wystarczało dla stosu TLS. Dodano DIGEST_NONE zgodnie z dokumentacją Android KeyGenParameterSpec. Test czyta rzeczywiste uprawnienia KeyInfo, a osobne wywołanie instrumentacji po am force-stop sprawdza tożsamość, zaufanie, brak automatycznej sesji i skrót danych biznesowych. Wynik uruchomienia tej poprawki pozostaje do potwierdzenia w CI.

@@ -31,7 +31,7 @@ final class LanIdentity {
             String id=UUID.randomUUID().toString();
             KeyPairGenerator gen=KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC,"AndroidKeyStore");
             gen.initialize(new KeyGenParameterSpec.Builder(SIGNING,KeyProperties.PURPOSE_SIGN|KeyProperties.PURPOSE_VERIFY)
-                .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1")).setDigests(KeyProperties.DIGEST_SHA256)
+                .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1")).setDigests(KeyProperties.DIGEST_NONE,KeyProperties.DIGEST_SHA256)
                 .setCertificateSubject(new X500Principal("CN="+dns(id)))
                 .setCertificateSerialNumber(new BigInteger(127,new SecureRandom()).add(BigInteger.ONE))
                 .setCertificateNotBefore(new Date(System.currentTimeMillis()-86400000L))

@@ -81,6 +81,9 @@ public class LanTest {
             KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);
             assertNull("Signing key is not exportable",ks.getKey(LanIdentity.SIGNING,null).getEncoded());
             assertNull("Vault key is not exportable",ks.getKey(LanIdentity.VAULT,null).getEncoded());
+            android.security.keystore.KeyInfo info=java.security.KeyFactory.getInstance("EC","AndroidKeyStore").getKeySpec(ks.getKey(LanIdentity.SIGNING,null),android.security.keystore.KeyInfo.class);
+            assertTrue("TLS stack can sign its own digest",Arrays.asList(info.getDigests()).contains(android.security.keystore.KeyProperties.DIGEST_NONE));
+            assertTrue("Pairing uses SHA256",Arrays.asList(info.getDigests()).contains(android.security.keystore.KeyProperties.DIGEST_SHA256));
             set(s,"Nazwa urządzenia","Telefon CI LAN");
             assertEquals("painted",async(s,"await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));return 'painted'"));
             s.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
@@ -115,6 +118,8 @@ public class LanTest {
             s.onActivity(a->a.getOnBackPressedDispatcher().onBackPressed());
             // Back returns through the shared history and unmount closes the native session.
             until(s,v->!v.optBoolean("active"));
+            JSONObject persisted=view(s);
+            Files.write(new java.io.File(context.getFilesDir(),"gm011a-persistence-test.json").toPath(),new JSONObject().put("device",persisted.getJSONObject("device")).put("peers",persisted.getJSONArray("peers")).put("businessSha256",LanWire.sha(before.getBytes(StandardCharsets.UTF_8))).toString().getBytes(StandardCharsets.UTF_8));
         }finally{new java.io.File(context.getFilesDir(),"gm011a-test.json").delete();}
     }
 }

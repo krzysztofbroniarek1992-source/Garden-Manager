@@ -60,5 +60,6 @@ jobs:
           name: LAN-Android-checkpoint
           path: |
             artifacts/android-lan-test.txt
+            artifacts/android-lan-restart-test.txt
             artifacts/android-lan-metrics.jsonl
           if-no-files-found: ignore
