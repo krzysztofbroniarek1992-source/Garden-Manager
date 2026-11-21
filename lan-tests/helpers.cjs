@@ -25,7 +25,7 @@ async function connect(server,phone){
 const v=await server.view(),peer=phone.peers.find(p=>p.id===v.device.id);
 const s=await socket(phone,peer,v.endpoint.host,v.endpoint.port);
 let last;const channel=new Channel(s,phone,peer,false,r=>last=r,()=>{},()=>{});
-void channel.start(false);await until(()=>channel.ready);return {channel,s,last:()=>last};
+void channel.start(false);try{await until(()=>channel.ready);}catch(e){s.destroy();const v=await server.view();throw Error("Synthetic peer admission failed: "+v.diagnostic);}return {channel,s,last:()=>last};
 }
 async function until(f){const end=Date.now()+10000;while(!await f()){if(Date.now()>end)throw Error("condition timeout");await new Promise(r=>setTimeout(r,10));}}
 module.exports={Memory,pub,setup,socket,pair,connect,until,Wire,Channel,createIdentity};

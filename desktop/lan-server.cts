@@ -59,7 +59,7 @@ export class LanServer {
       if(this.sockets.size>=4){socket.destroy();return;}
       this.sockets.add(socket);socket.once("close",()=>this.sockets.delete(socket));
     });
-    server.on("tlsClientError",()=>{this.diagnostic="Odrzucono nieuprawnione połączenie TLS. Sprawdź sparowanie i datę obu urządzeń.";});
+    server.on("tlsClientError",(error)=>{const code=(error as NodeJS.ErrnoException).code;const detail=typeof code==="string"&&/^[A-Z0-9_]{1,80}$/.test(code)?code:"TLS";this.diagnostic="Odrzucono nieuprawnione połączenie TLS ("+detail+"). Sprawdź sparowanie i datę obu urządzeń.";});
     server.on("resumeSession",(_id,cb)=>cb(null,null));
   }
   private listen(server:tls.Server,address:string){return new Promise<void>((resolve,reject)=>{

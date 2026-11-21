@@ -1,0 +1,26 @@
+name: LAN Windows native checkpoint
+on:
+  push:
+    branches: [codex/gm011a-secure-lan]
+    paths: ['desktop/**','desktop-tests/lan.spec.ts','lan-tests/**','.github/workflows/lan-windows-check.yml']
+permissions:
+  contents: read
+concurrency:
+  group: lan-windows-check
+  cancel-in-progress: true
+jobs:
+  native-lan:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build:windows
+      - name: Native Node TLS on Windows
+        run: node --test lan-tests/tls.test.cjs lan-tests/lifecycle.test.cjs
+      - name: Real Electron and DPAPI
+        run: npx playwright test --config=playwright.desktop.config.ts desktop-tests/lan.spec.ts
