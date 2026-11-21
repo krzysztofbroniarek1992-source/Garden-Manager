@@ -75,7 +75,7 @@ final class LanChannel {
                 LanWire.fields(v,"probeId","bytes","kind","sentSha256","receivedSha256","elapsedMs");
                 if(!p.initiator||!p.ack||p.received.isEmpty()||LanWire.integer(v,"bytes")!=p.bytes||!v.getString("kind").equals(p.kind)||
                     !v.getString("sentSha256").equals(p.received)||!v.getString("receivedSha256").equals(p.sent)||
-                    v.getDouble("elapsedMs")<0||v.getDouble("elapsedMs")>120000)throw new Exception("INTEGRITY");
+                    !(v.get("elapsedMs") instanceof Number)||!Double.isFinite(v.getDouble("elapsedMs"))||v.getDouble("elapsedMs")<0||v.getDouble("elapsedMs")>120000)throw new Exception("INTEGRITY");
                 complete(p);break;
             default:throw new Exception("PROTOCOL");
         }

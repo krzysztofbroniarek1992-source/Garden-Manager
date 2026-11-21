@@ -51,7 +51,7 @@ export class LanServer {
       if(this.options.discovery!==false)try{this.stopAdvertisement=advertise(own.id,address,this.endpoint.port,()=>{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu.";});}catch{this.diagnostic="Wykrywanie mDNS jest niedostępne. Użyj ręcznego IP i portu."; }
       this.sessionTimer=setTimeout(()=>{void this.stop();},15*60*1000);this.sessionTimer.unref();
       return this.view();
-    }catch(e){await this.stop();throw e;}
+    }catch(e){if(generation===this.generation&&this.server===server)await this.stop();else if(server.listening)server.close();throw e;}
   }
   private track(server:tls.Server){
     server.maxConnections=4;server.on("error",()=>{this.diagnostic="Nie można uruchomić lub utrzymać nasłuchu. Sprawdź interfejs i zaporę.";});

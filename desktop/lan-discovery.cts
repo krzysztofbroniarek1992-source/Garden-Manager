@@ -2,7 +2,7 @@ import { dns } from "./lan-identity.cjs";
 export const SERVICE="_gardenmanager._tcp.local";
 /** Standard mDNS/DNS-SD records only. No name, invitation, key or business fields. */
 export function advertise(id:string,address:string,port:number,warning:()=>void){
-  const mdns=require("multicast-dns")({interface:address,type:"udp4",reuseAddr:true}) as {
+  const mdns=require("multicast-dns")({interface:address,bind:"0.0.0.0",type:"udp4",reuseAddr:true}) as {
     on:(event:string,listener:(packet:any)=>void)=>void;respond:(packet:unknown)=>void;destroy:()=>void;
   };
   const instance="GM-"+id+"."+SERVICE,host=dns(id),records=(ttl:number)=>[

@@ -53,7 +53,7 @@ public class GardenLanPlugin extends Plugin {
                     default:throw new Exception("PROTOCOL");
                 }
                 call.resolve(JSObject.fromJSONObject(engine.view()));
-            }catch(Exception e){if(action.equals("pair")||action.equals("connect"))engine.stop();call.reject(LanEngine.message(e));}
+            }catch(Exception e){call.reject(LanEngine.message(e));}
         });
     }
     private void capture(PluginCall call)throws Exception{

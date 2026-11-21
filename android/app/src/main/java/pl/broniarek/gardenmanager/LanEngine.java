@@ -62,7 +62,7 @@ final class LanEngine {
                 last=null;LanChannel[] holder=new LanChannel[1];
                 LanChannel next=new LanChannel(socket,own,peer,r->{if(active&&generation==gen)last=r;},c->{
                     release(owned);
-                    synchronized(LanEngine.this){if(channel==holder[0]){channel=null;diagnostic="Połączenie zakończone: "+c+". Możesz połączyć ponownie.";}}
+                    try{readers.execute(()->{synchronized(LanEngine.this){if(channel==holder[0]&&generation==gen){channel=null;diagnostic="Połączenie zakończone: "+c+". Możesz połączyć ponownie.";}}});}catch(RejectedExecutionException ignored){}
                 });
                 holder[0]=next;channel=next;handedOff=true;diagnostic="Trwa uwierzytelnianie zaufanego komputera.";
                 readers.execute(next::run);
