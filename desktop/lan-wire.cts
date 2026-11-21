@@ -6,7 +6,7 @@ export const SIZES = [1024, 102400, 1048576, MAX_BODY] as const;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const HASH = /^[0-9a-f]{64}$/;
 export const sha = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
-export const fail = (code = "PROTOCOL"): never => { throw new Error(code); };
+export function fail(code = "PROTOCOL"): never { throw new Error(code); }
 export function object(value: unknown): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail();
 }
@@ -30,7 +30,7 @@ export function probeOptions(bytes: unknown, kind: unknown): asserts kind is "js
 }
 export function synthetic(bytes: number, kind: string) {
   probeOptions(bytes, kind);
-  if (kind === "binary") return Buffer.from(Array.from({ length: bytes }, (_, i) => (i * 31 + 17) % 251));
+  if (kind === "binary") { const b = Buffer.alloc(bytes); for (let i=0;i<bytes;i++) b[i]=(i*31+17)%251; return b; }
   const prefix = '{"kind":"gm011a-synthetic","padding":"', suffix = '"}';
   return Buffer.from(prefix + "A".repeat(bytes - prefix.length - suffix.length) + suffix);
 }
