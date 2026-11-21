@@ -32,6 +32,7 @@ await page.evaluate(({ data, version }) => { localStorage.setItem('garden-manage
   await settled(page); await page.reload();
 }
 async function snapshot(page: Page): Promise<{ version: number; data: Data }> {
+  await page.locator('.app-shell').waitFor();
   await settled(page); return page.evaluate(() => JSON.parse(localStorage.getItem('garden-manager:v1')!));
 }
 async function navigate(page: Page, name: string) {
