@@ -57,3 +57,28 @@ jobs:
             test-results-pwa/
             test-results-android/
           if-no-files-found: ignore
+
+  shopping-ui:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/shopping.spec.ts
+      - name: Failure context
+        if: failure()
+        run: find test-results -name error-context.md -print -exec cat {} \; 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Shopping-targeted-reports
+          path: test-results/
+          if-no-files-found: ignore

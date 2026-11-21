@@ -431,7 +431,7 @@ test("native file bridge: CSV decisions, actual PDF, JSON, ZIP with photo and re
     const json = path.join(folder, "dane.json");
     await saveDialog(instance, json);
     await exportButton(page, "Eksportuj dane");
-    expect((await jsonFile(json)).version).toBe(11);
+    expect((await jsonFile(json)).version).toBe(12);
     const zip = path.join(folder, "pełna kopia.zip");
     await saveDialog(instance, zip);
     await exportButton(page, "Pobierz pełną kopię ZIP");

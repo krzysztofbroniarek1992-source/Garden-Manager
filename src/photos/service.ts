@@ -1,3 +1,4 @@
+import { readJsonBackup } from './json-backup';
 import { withShopping } from '../shopping/model';
 import { withExpenses } from '../expenses/model';
 import type { StorePort } from '../data/atomic';
@@ -67,6 +68,10 @@ export class PhotoService {
       if (error instanceof SyntaxError || error instanceof Error && /invalid zip|unexpected eof|invalid distance|invalid length/i.test(error.message)) throw new Error('Nie można odczytać pełnej kopii ZIP. Plik jest uszkodzony lub nie jest kopią Garden Manager.');
       throw error;
     }
+    return this.inspectPrepared(prepared);
+  }
+  prepareJSON(blob: Blob) { return locked(async () => this.inspectPrepared(await readJsonBackup(blob, this.assets, this.clock()))); }
+  private async inspectPrepared(prepared: PreparedBackup) {
     const current = await this.store.snapshot();
     if (current.timer) throw new Error('Przed odtwarzaniem zakończ pomiar wizyty przyciskiem STOP.');
     if (await this.assets.recovery()) throw new Error('Najpierw pobierz lub przywróć zachowany punkt odzyskiwania, a następnie usuń go przed kolejnym importem.');

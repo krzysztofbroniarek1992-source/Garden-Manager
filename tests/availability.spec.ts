@@ -604,7 +604,7 @@ test("native v10 without availability preserves business data on v11 bootstrap a
         };
       }),
   );
-  expect(meta.current).toEqual({ formatVersion: 11, revision: 47, data });
+  expect(meta.current).toEqual({ formatVersion: 12, revision: 47, data });
   expect(meta.keys).toEqual(["current", "format-v10-source"]);
   await daily(page)
     .getByRole("button", { name: "Ustaw dostępność", exact: true })

@@ -1,3 +1,4 @@
+import { readJsonBackup } from "../photos/json-backup";
 import { describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
@@ -209,4 +210,15 @@ describe("v11 to v12 migration and full backup compatibility", () => {
     expect(old.data).toEqual({ ...envelope.data, shoppingItems: [] });
     expect(old.data.expenses).toEqual(d.expenses); expect(await sha256(old.assets[0].thumbnail)).toBe(hash);
   });
+  it("restores old and new JSON without photos through validation, and refuses ambiguous active timer snapshots", async () => {
+    const d = added(), assets = new IndexedDbPhotoRepository(new IDBFactory());
+    const parsed = await readJsonBackup(new Blob([JSON.stringify({ version: 12, data: d })]), assets, at);
+    expect(parsed.data).toEqual(d);
+    const old = seed(); delete (old as Partial<typeof old>).shoppingItems;
+    expect((await readJsonBackup(new Blob([JSON.stringify({ version: 11, data: old })]), assets, at)).data).toEqual({ ...old, shoppingItems: [] });
+    const running = seed(); running.jobs[0].status = "in-progress"; running.timer = { jobId: running.jobs[0].id, startedAt: at, paused: false };
+    await expect(readJsonBackup(new Blob([JSON.stringify({ version: 12, data: running })]), assets, at)).rejects.toThrow("aktywny stoper");
+    await expect(readJsonBackup(new Blob(["corrupt"]), assets, at)).rejects.toThrow();
+  });
+
 });
