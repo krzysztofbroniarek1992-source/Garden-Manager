@@ -44,3 +44,13 @@ Target Android pozostaje 36. Zgodnie z dokumentacją platformy nie dodajemy ACCE
 - Dodano natywne magazyny, ścisły IPC, mostek Capacitor i wspólny ekran. Format danych firmowych pozostaje v12.
 - Trwa integracja testu rzeczywistego klienta AndroidKeyStore/JSSE z tą samą implementacją serwera na runnerze. Nie zadeklarowano jeszcze wyniku tej integracji ani fizycznego odbioru.
 - Pozostałe zadania: rozszerzone testy transportu, rzeczywisty Electron/DPAPI i NSIS z v12, testy emulatora, pełne E2E/PWA/regresja aparatu, końcowa dokumentacja, artefakty i SHA256.
+
+## Weryfikacja po uruchomieniu natywnym
+
+- Head fd80bb1: rzeczywiste testy transportu 19/19, aplikacja 683/683, polityki Electron 6/6, TypeScript i JVM zaliczone.
+- Poprawiono odbiór multicastu mDNS: wildcard UDP z członkostwem i wysyłaniem na wybranym interfejsie; rzeczywisty test sieciowy przechodzi.
+- Usunięto możliwość ponownego użycia przyjętego zaproszenia, wyścig równoległych zaproszeń i wyścigi zamykania starych połączeń Androida. Magazyn chroniony pozostaje poza modelem danych.
+- Rzeczywisty Electron: 12 dotychczasowych testów zaliczonych. Nowe parowanie zapisuje zaufanie, ale ponowne połączenie mTLS nie kończy się poprawnie; trwa odrębna macierz TLS 1.2/1.3 i początkowe/dodane zaufanie. Bez wyłączania walidacji certyfikatów.
+- Emulator: aktualizacja rzeczywistego A (main v12) → B, odczyt po restarcie, wydatki, zakupy i dotychczasowy aparat zaliczone. Nowy test LAN zatrzymał się przy pierwszym parowaniu; dodano bezpieczną diagnostykę publicznego błędu i osobny szybki przebieg natywny.
+- Nie uznajemy tych dwóch nowych testów za zaliczone. PR #28 pozostaje draft. Pakiety z niezaliczonego przebiegu nie są odbiorem GM-011A.
+- Pełna instrukcja architektury, protokołu, parowania, sieci i odbioru fizycznego: GM011A_LAN.md.

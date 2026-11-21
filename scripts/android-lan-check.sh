@@ -24,6 +24,7 @@ test -s artifacts/lan-runtime/fixture.json
 adb shell svc data disable
 adb shell svc wifi enable
 # Copy invitations through stdin into the debug app's private files, never argv/logs.
+adb shell "run-as $android_package mkdir -p files"
 adb shell "run-as $android_package sh -c 'cat > files/gm011a-test.json'" < artifacts/lan-runtime/fixture.json
 # The normal packaged application never executes shell commands or changes firewalls.
 # In this disposable rooted CI emulator, deny app internet egress while retaining LAN.
