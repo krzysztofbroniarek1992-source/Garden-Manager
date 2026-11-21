@@ -9,6 +9,8 @@ import {
   addPhoto,
 } from "./helpers";
 import { quickShopping, shoppingRow } from "../tests/shopping-helpers";
+// The LAN invitation must never be captured in failure traces or screenshots.
+test.use({trace:"off",screenshot:"off"});
 const phase = process.env.GM_UPGRADE_PHASE;
 test(`actual NSIS installation ${phase}: v12 preservation in one persistent profile, photo, expense and running timer`, async () => {
   const executable = process.env.GM_INSTALLED_APP!,
@@ -81,6 +83,14 @@ test(`actual NSIS installation ${phase}: v12 preservation in one persistent prof
       });
       await page.getByRole("button", { name: /STOP/ }).click();
       await expect.poll(async () => (await snapshot(page)).timer).toBeNull();
+      // Exercise the installed ASAR, bundled TLS/certificate/QR dependencies and DPAPI.
+      await route(page,"#sync");
+      await expect(page.getByLabel("Nazwa urządzenia",{exact:true})).toHaveValue("Komputer Windows");
+      await page.getByRole("button",{name:"Rozpocznij sesję",exact:true}).click();
+      await page.getByRole("button",{name:"Pokaż nowy kod parowania",exact:true}).click();
+      await expect(page.locator(".lan-invitation img")).toBeVisible();
+      await page.getByRole("button",{name:"Zakończ sesję",exact:true}).click();
+      await expect(page.locator(".lan-page")).toContainText("Sesja wyłączona");
     }
     const exit = new Promise<void>((resolve) =>
       instance.process().once("exit", () => resolve()),

@@ -4,7 +4,7 @@ import os from "node:os";
 import { randomBytes, randomUUID, constants } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import type { LanView, LanKind, LanSize } from "./lan-contracts.js" with { "resolution-mode":"import" };
-import { certificate, publicPeer, peer, proof, secretEqual, pairingCode, type Identity, type Peer } from "./lan-identity.cjs";
+import { certificate, publicPeer, peer, proof, secretEqual, pairingCode, dns, type Identity, type Peer } from "./lan-identity.cjs";
 import type { Store } from "./lan-vault.cjs";
 import { Wire, fields, privateAddress, deviceName, sha, fail } from "./lan-wire.cjs";
 import { Channel, safeCode } from "./lan-channel.cjs";
@@ -20,7 +20,7 @@ export const tlsOptions=(own:Identity,peers:Peer[]=[])=>({
 });
 export function interfaces(){return Object.entries(os.networkInterfaces()).flatMap(([name,ips])=>(ips??[]).filter(i=>i.family==="IPv4"&&!i.internal&&privateAddress(i.address)).map(i=>({name,address:i.address})));}
 export class LanServer {
-  private server?:tls.Server;private pairing?:tls.Server;private sockets=new Set<Socket>();private pairSockets=new Set<tls.TLSSocket>();private sessionTimer?:NodeJS.Timeout;
+  private server?:tls.Server;private trustContext?:tls.SecureContext;private pairing?:tls.Server;private sockets=new Set<Socket>();private pairSockets=new Set<tls.TLSSocket>();private sessionTimer?:NodeJS.Timeout;
   private expires?:NodeJS.Timeout;private stopAdvertisement?:()=>void;private generation=0;
   private invitation?:LanView["invitation"];private ticket="";private pairId="";private deadline=0;private candidate?:Candidate;
   private inviting=false;private inviteVersion=0;private attempts:number[]=[];private endpoint?:{host:string;port:number};private channel?:Channel;private connecting=false;
@@ -41,7 +41,11 @@ export class LanServer {
     if(!(this.options.interfaces??interfaces)().some(i=>i.address===address))fail("ADDRESS");
     const generation=++this.generation,own=await this.store.get();
     if(generation!==this.generation)fail("CLOSED");
-    const server=tls.createServer({...tlsOptions(own,own.peers),requestCert:true,rejectUnauthorized:true},socket=>{
+    this.trustContext=tls.createSecureContext(tlsOptions(own,own.peers));
+    // Node Server.setSecureContext omits allowPartialTrustChain. Pass an explicit
+    // standard SNI SecureContext so BoringSSL receives the pinned trust anchors.
+    const server=tls.createServer({...tlsOptions(own,own.peers),requestCert:true,rejectUnauthorized:true,
+      SNICallback:(name,callback)=>{if(name!==dns(own.id)||!this.trustContext)callback(new Error("CERTIFICATE"));else callback(null,this.trustContext);}},socket=>{
       void this.accept(socket,generation).catch(error=>{this.diagnostic="Odrzucono uwierzytelnienie urządzenia: "+safeCode(error)+".";socket.destroy();});
     });
     this.track(server);this.server=server;
@@ -73,7 +77,9 @@ export class LanServer {
     if(!socket.authorized||generation!==this.generation||this.channel||this.connecting){socket.destroy();return;}
     this.connecting=true;
     try {
-      const own=await this.store.get(),raw=socket.getPeerX509Certificate()?.raw??socket.getPeerCertificate(true).raw;
+      const own=await this.store.get();
+      if((socket as tls.TLSSocket & {servername?:string}).servername!==dns(own.id))fail("IDENTITY");
+      const raw=socket.getPeerX509Certificate()?.raw??socket.getPeerCertificate(true).raw;
       const p=raw&&own.peers.find(p=>p.fingerprint===sha(raw));
       if(!p||!this.server||generation!==this.generation)fail("CERTIFICATE");
       certificate(p.cert,p.id);
@@ -148,7 +154,7 @@ export class LanServer {
       await this.closePairing();
     })();return c.finish;
   }
-  private async refreshTrust(){const d=await this.store.get();this.server?.setSecureContext(tlsOptions(d,d.peers));}
+  private async refreshTrust(){const d=await this.store.get();this.trustContext=tls.createSecureContext(tlsOptions(d,d.peers));this.server?.setSecureContext(tlsOptions(d,d.peers));}
   async forget(id:string){
     if(this.candidate?.peer.id===id)await this.closePairing();
     if(this.channel?.remote.id===id)this.channel.close("CLOSED");
@@ -167,7 +173,7 @@ export class LanServer {
     try{this.stopAdvertisement?.();}catch{/* Closing TLS must not depend on mDNS. */}this.stopAdvertisement=undefined;
     this.channel?.close("CLOSED");this.channel=undefined;
     for(const s of this.sockets)s.destroy();this.sockets.clear();
-    await this.closePairing();const s=this.server;this.server=undefined;this.endpoint=undefined;
+    await this.closePairing();const s=this.server;this.server=undefined;this.trustContext=undefined;this.endpoint=undefined;
     if(s)await new Promise<void>(r=>s.close(()=>r()));
     this.diagnostic="Sesja zakończona. Porty są zamknięte, zaproszenie unieważnione.";
   }
