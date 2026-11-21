@@ -7,7 +7,7 @@ import type { LanView, LanKind, LanSize } from "./lan-contracts.js" with { "reso
 import { certificate, publicPeer, peer, proof, secretEqual, pairingCode, type Identity, type Peer } from "./lan-identity.cjs";
 import type { Store } from "./lan-vault.cjs";
 import { Wire, fields, privateAddress, deviceName, sha, fail } from "./lan-wire.cjs";
-import { Channel } from "./lan-channel.cjs";
+import { Channel, safeCode } from "./lan-channel.cjs";
 import { advertise } from "./lan-discovery.cjs";
 interface Candidate { peer:Peer; code:string; wire:Wire; local:boolean; remote:boolean; finish?:Promise<void> }
 export const tlsOptions=(own:Identity,peers:Peer[]=[])=>({
@@ -42,7 +42,7 @@ export class LanServer {
     const generation=++this.generation,own=await this.store.get();
     if(generation!==this.generation)fail("CLOSED");
     const server=tls.createServer({...tlsOptions(own,own.peers),requestCert:true,rejectUnauthorized:true},socket=>{
-      void this.accept(socket,generation).catch(()=>socket.destroy());
+      void this.accept(socket,generation).catch(error=>{this.diagnostic="Odrzucono uwierzytelnienie urządzenia: "+safeCode(error)+".";socket.destroy();});
     });
     this.track(server);this.server=server;
     try {
@@ -73,7 +73,7 @@ export class LanServer {
     if(!socket.authorized||generation!==this.generation||this.channel||this.connecting){socket.destroy();return;}
     this.connecting=true;
     try {
-      const own=await this.store.get(),raw=socket.getPeerCertificate().raw;
+      const own=await this.store.get(),raw=socket.getPeerX509Certificate()?.raw??socket.getPeerCertificate(true).raw;
       const p=raw&&own.peers.find(p=>p.fingerprint===sha(raw));
       if(!p||!this.server||generation!==this.generation)fail("CERTIFICATE");
       certificate(p.cert,p.id);

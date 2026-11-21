@@ -10,6 +10,8 @@ app.whenReady().then(async()=>{
    const own=await createIdentity("CI Windows"),phone=await createIdentity("CI phone");
    if(placement==="initial-trust"){own.peers=[pub(phone)];phone.peers=[pub(own)];}
    server=new LanServer(new Memory(own),{interfaces:()=>[{name:"CI",address:"127.0.0.1"}],discovery:false});await server.start("127.0.0.1");
+   server.server.on("secureConnection",s=>console.log(JSON.stringify({synthetic:true,event:"tls-accepted",authorized:s.authorized,legacyRaw:!!s.getPeerCertificate(true).raw,x509Raw:!!s.getPeerX509Certificate()?.raw,protocol:s.getProtocol()})));
+   server.server.on("tlsClientError",e=>console.log(JSON.stringify({synthetic:true,event:"tls-rejected",code:/^[A-Z0-9_]{1,80}$/.test(e.code||"")?e.code:"TLS"})));
    if(placement==="pairing-refresh")await pair(server,phone);
    client=await connect(server,phone);const result=await client.channel.test(1024,"json");
    client.channel.close();await until(async()=>!(await server.view()).connected);

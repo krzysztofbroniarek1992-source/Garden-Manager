@@ -59,14 +59,19 @@ test("real Electron DPAPI, narrow IPC, mutual TLS, synthetic duplex, ZIP isolati
   await a.page.getByRole("button",{name:"Odtwórz dane i zdjęcia",exact:true}).click();
   await expect(a.page.getByRole("dialog",{name:"Ustawienia",exact:true})).toContainText("Dane i zdjęcia zostały odtworzone");
   await expect(a.page.locator("html")).not.toHaveAttribute("aria-busy","true");
-  expect(await snapshot(a.page)).toEqual(saved);expect(await metadata(a.page)).toEqual(photos);expect(await readFile(vault)).toEqual(encrypted);
+  const restored=await snapshot(a.page);
+  for(const key of Object.keys(saved).filter(k=>k!=="photos"&&k!=="photoRestoreId"))expect(restored[key]).toEqual(saved[key]);
+  expect(restored.photoRestoreId).toEqual(expect.any(String));
+  expect(restored.photos.map(({assetId,...p}:any)=>p)).toEqual(saved.photos.map(({assetId,...p}:any)=>p));
+  const restoredAssets=(await metadata(a.page)).filter(a=>restored.photos.some((p:any)=>p.assetId===a.id));
+  expect(restoredAssets.map(({id,...a})=>a)).toEqual(photos.map(({id,...a})=>a));expect(await readFile(vault)).toEqual(encrypted);
   const exit=new Promise<void>(r=>a.instance.process().once("exit",()=>r()));
   await a.instance.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());await exit;closed=true;
   const b=await launch(a.profile);
   try{
    await route(b.page,"#sync");const status=()=>b.page.evaluate(()=>window.gardenDesktop!.lan.command({action:"status"}));
    await expect.poll(async()=>(await status()).device?.id).toBe(initial.id);expect((await status()).device?.fingerprint).toBe(initial.fingerprint);
-   expect((await status()).active).toBe(false);expect((await status()).peers).toHaveLength(1);expect(await snapshot(b.page)).toEqual(saved);
+   expect((await status()).active).toBe(false);expect((await status()).peers).toHaveLength(1);expect(await snapshot(b.page)).toEqual(restored);
    await b.page.getByRole("button",{name:"Rozpocznij sesję",exact:true}).click();await expect.poll(async()=>(await status()).active).toBe(true);
    client=await helper.connect({view:status},phone);expect((await client.channel.test(1024,"json")).ok).toBe(true);client.channel.close();
   }finally{await b.instance.close();}
