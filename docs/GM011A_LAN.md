@@ -29,7 +29,7 @@ Uszkodzenie lub niedostępność magazynu blokuje komunikację bez resetowania d
 
 ## Zabezpieczenia TLS i pierwszego parowania
 
-Zwykłe połączenie wymaga wzajemnego TLS: certyfikat klienta, zapisany certyfikat serwera oraz zgodność UUID i SHA256 certyfikatu z listą zaufania. Włączona pozostaje standardowa walidacja certyfikatów; Android sprawdza także nazwę HTTPS gm-UUID.local nad połączeniem do prywatnego IP. Nie stosujemy trust-all, wyłączenia weryfikacji, cleartext HTTP ani globalnego wyjątku CSP.
+Zwykłe połączenie wymaga wzajemnego TLS: certyfikat klienta, zapisany certyfikat serwera oraz zgodność UUID i SHA256 certyfikatu z listą zaufania. Włączona pozostaje standardowa walidacja certyfikatów; Android sprawdza także nazwę HTTPS gm-UUID.local nad połączeniem do prywatnego IP. Nie stosujemy trust-all, wyłączenia weryfikacji, cleartext HTTP ani globalnego wyjątku CSP. Electron/BoringSSL otrzymuje allowPartialTrustChain, aby jawnie zapisany certyfikat końcowy był kotwicą zaufania, tak jak w magazynie JSSE. Lista CA zawiera wyłącznie przypięte certyfikaty. Nadal sprawdzane są poprawność certyfikatu, ważność, tożsamość i dokładny odcisk DER; nie ufamy dowolnemu certyfikatowi wystawionemu przez drugi klucz. Zasada kotwic jest opisana w dokumentacji Node TLS i BoringSSL X509_V_FLAG_PARTIAL_CHAIN.
 
 Pierwsze parowanie ma osobny, ograniczony kanał TLS. Telefon ufa wyłącznie certyfikatowi serwera przekazanemu fizycznie w zaproszeniu. Jest to na tym etapie TLS uwierzytelniający serwer, a nie jeszcze obustronny TLS z zapisanym zaufaniem. Telefon dowodzi posiadania własnego klucza przez podpis ECDSA SHA256 standardowym API platformy.
 

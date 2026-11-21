@@ -8,7 +8,7 @@ async function setup(){const pc=await createIdentity("Syntetyczny Windows"),phon
 const store=new Memory(pc),server=new LanServer(store,{interfaces:()=>[{name:"CI loopback",address:"127.0.0.1"},{name:"CI second address",address:"127.0.0.2"}],discovery:false});
 await server.start("127.0.0.1");return {pc,phone,store,server};}
 async function socket(own,peer,host,port,clientCert=true){
-const s=tls.connect({host,port,servername:dns(peer.id),ca:[peer.cert],...(clientCert?{key:own.key,cert:own.cert}:{}),rejectUnauthorized:true,minVersion:"TLSv1.2"});
+const s=tls.connect({host,port,servername:dns(peer.id),ca:[peer.cert],allowPartialTrustChain:true,...(clientCert?{key:own.key,cert:own.cert}:{}),rejectUnauthorized:true,minVersion:"TLSv1.2"});
 s.on("error",()=>{});s.setTimeout(10000,()=>s.destroy(Error("TIMEOUT")));
 await Promise.race([once(s,"secureConnect"),once(s,"error").then(([e])=>Promise.reject(e))]);return s;}
 async function pair(server,phone){

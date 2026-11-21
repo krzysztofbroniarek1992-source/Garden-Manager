@@ -11,7 +11,9 @@ import { Channel } from "./lan-channel.cjs";
 import { advertise } from "./lan-discovery.cjs";
 interface Candidate { peer:Peer; code:string; wire:Wire; local:boolean; remote:boolean; finish?:Promise<void> }
 export const tlsOptions=(own:Identity,peers:Peer[]=[])=>({
-  key:own.key,cert:own.cert,ca:peers.map(p=>p.cert),minVersion:"TLSv1.2" as const,
+  // Explicitly pinned leaf certificates are trust anchors in BoringSSL as well as OpenSSL.
+  // Standard verification stays enabled; accept() additionally requires the exact DER fingerprint.
+  key:own.key,cert:own.cert,ca:peers.map(p=>p.cert),allowPartialTrustChain:true,minVersion:"TLSv1.2" as const,
   ciphers:"TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384",
   secureOptions:constants.SSL_OP_NO_TICKET,
   sessionIdContext:randomBytes(16).toString("hex"),handshakeTimeout:10000,
