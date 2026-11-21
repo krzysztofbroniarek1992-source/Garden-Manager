@@ -85,3 +85,19 @@ test("real Electron DPAPI, narrow IPC, mutual TLS, synthetic duplex, ZIP isolati
   }finally{await b.instance.close();}
  }finally{client?.channel.close();if(!closed)await a.instance.close();}
 });
+
+test("real DPAPI vault corruption fails closed, keeps business data and exposes a safe diagnostic",async()=>{
+ const a=await launch();let initial:any,vault:string,broken:Buffer;
+ try{
+  await route(a.page,"#sync");await expect(a.page.getByLabel("Nazwa urządzenia",{exact:true})).toHaveValue("Komputer Windows");
+  initial=await snapshot(a.page);vault=path.join(a.profile,"lan","identity.dpapi");
+ }finally{await a.instance.close();}
+ const encrypted=await readFile(vault!);broken=Buffer.from(encrypted);broken[Math.floor(broken.length/2)]^=1;
+ await (await import("node:fs/promises")).writeFile(vault!,broken);
+ const b=await launch(a.profile);
+ try{
+  await route(b.page,"#sync");await expect(b.page.getByRole("alert")).toContainText("Chroniony magazyn DPAPI");
+  expect(await snapshot(b.page)).toEqual(initial);expect(await readFile(vault!)).toEqual(broken);
+  await route(b.page,"#clients");await expect(b.page.locator("main h1")).toContainText("Klienci");expect(await snapshot(b.page)).toEqual(initial);
+ }finally{await b.instance.close();}
+});

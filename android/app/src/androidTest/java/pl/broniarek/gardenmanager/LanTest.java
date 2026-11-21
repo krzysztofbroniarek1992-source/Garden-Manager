@@ -49,9 +49,24 @@ public class LanTest {
         waitFor(s,"Array.from(document.querySelectorAll('select[aria-label=\"Sparowany komputer\"] option')).some(o=>o.value==="+JSONObject.quote(p.getJSONObject("device").getString("id"))+")");
         set(s,"Sparowany komputer",p.getJSONObject("device").getString("id"));set(s,"Adres IPv4",p.getString("host"));set(s,"Port TLS",String.valueOf(p.getInt("port")));
         click(s,"Połącz ręcznie");String id=p.getJSONObject("device").getString("id");
-        until(s,v->v.optJSONObject("connected")!=null&&v.optJSONObject("connected").optString("id").equals(id));
+        try{until(s,v->v.optJSONObject("connected")!=null&&v.optJSONObject("connected").optString("id").equals(id));}
+        catch(AssertionError failure){diagnoseSyntheticTls(p);throw failure;}
         // The fixture performs one server-initiated probe before the phone probes.
         if(waitForReverse)until(s,v->v.optJSONObject("result")!=null&&v.optJSONObject("result").optBoolean("ok")&&v.optJSONObject("result").optString("peerId").equals(id));
+    }
+    private void diagnoseSyntheticTls(JSONObject peer)throws Exception{
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();LanIdentity own=new LanIdentity(context);
+        try{
+            javax.net.ssl.SSLSocket socket=LanTls.connect(own,own.peer(peer.getJSONObject("device").getString("id")),peer.getString("host"),peer.getInt("port"),true,s->{});
+            socket.close();System.out.println("{\"synthetic\":true,\"phase\":\"direct-android-tls\",\"ok\":true}");
+        }catch(Exception error){
+            JSONArray causes=new JSONArray();
+            for(Throwable e=error;e!=null&&causes.length()<5;e=e.getCause()){
+                String text=String.valueOf(e.getMessage()).replaceAll("[A-Za-z0-9+/=_-]{32,}","[redacted]").replaceAll("[\\r\\n]"," ");
+                causes.put(e.getClass().getSimpleName()+": "+text.substring(0,Math.min(600,text.length())));
+            }
+            System.out.println(new JSONObject().put("synthetic",true).put("phase","direct-android-tls").put("ok",false).put("causes",causes));
+        }
     }
     @Test public void realKeystorePairingTwoComputersDuplexOfflineAndRestart()throws Exception{
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
