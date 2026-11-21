@@ -79,7 +79,7 @@ export default function ShoppingForm({ initial, onClose }: { initial: ShoppingIt
           {draft.jobId && !data.jobs.some(j => j.id === draft.jobId) && <option value={draft.jobId}>{draft.jobTitle || "Zlecenie"} (usunięte)</option>}
           {data.jobs.map(j => <option key={j.id} value={j.id}>{j.title} · {j.date}</option>)}
         </select></label>
-        <label className="field full-width">Notatki<textarea maxLength={3000} value={draft.notes} onChange={e => patch("notes", e.target.value)}/></label>
+        <label className="field full-width">Notatki<textarea aria-label="Notatki" maxLength={3000} value={draft.notes} onChange={e => patch("notes", e.target.value)}/></label>
       </div>
       <p>Planowana wartość pozycji: {total === null ? "bez poprawnie podanej ceny" : moneyCents(total)}.</p>
       {original.expenseId && <p className="gm-form-note">Zmiany pozycji nie zmieniają powiązanego wydatku. Kolejny zakup dodaj przyciskiem Ponów zakup.</p>}
