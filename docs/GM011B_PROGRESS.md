@@ -14,7 +14,7 @@ GM-011A, tożsamości LAN i magazyny kluczy są wykorzystywane ponownie, nie odt
 
 ## Wybór architektury
 
-1. Dziennik, zegary przyczynowe, potwierdzenia, tombstones, konflikty i lokalna tożsamość repliki będą rekordami pomocniczymi w **tej samej bazie i magazynie IndexedDB**, poza obiektem Data. Zapis current i dziennika musi zatwierdzać się lub wycofywać razem. Na tym etapie nie ma uzasadnienia zmiany biznesowego v12 → v13 ani klucza localStorage.
+1. Dziennik, zegary przyczynowe, potwierdzenia, tombstones, konflikty i lokalna tożsamość repliki są projektowane jako rekordy **oddzielnego magazynu sync w tej samej bazie IndexedDB**, poza obiektem Data. Zapis current i dziennika musi zatwierdzać się lub wycofywać razem. Nie ma uzasadnienia zmiany biznesowego v12 → v13 ani klucza localStorage. Pierwsza jawna aktywacja dziennika podnosi techniczną wersję bazy IndexedDB z 1 do 2. Dzięki temu starszy writer GM-011A, otwierający jawnie wersję 1, nie może zapisać current z pominięciem dziennika. Przed zmianą zachowany jest dokładny rekord źródłowy.
 2. Identyfikator repliki historii jest stabilny i lokalny, oddzielony od kopii firmowej; powiązanie z uwierzytelnioną instalacją GM-011A następuje przy onboardingu. Nie zależy od IP. Nie kopiujemy kluczy, certyfikatów ani zaufania przez JSON/ZIP.
 3. Operacja ma niezmienną tożsamość źródła, monotoniczny licznik, UUID oraz wektor poprzednio znanych operacji. Przekazanie przez telefon zachowuje oryginalną operację i jej kontekst. Zegary ścienne służą prezentacji, nie wyborowi zwycięzcy.
 4. Jedna atomowa komenda lokalna tworzy atomową paczkę zmian rekordów. Zmiana zakupu i utworzenie wydatku albo ukończenie wystąpienia i powiązanie wizyty nie mogą zostać dowolnie rozdzielone przy odbiorze.
@@ -57,3 +57,19 @@ Dodano src/sync/model.ts i causal.ts: niezmienne operacje źródłowe, wektory w
 Dodano 22 testy jednostkowe, w tym syntetyczny przepływ A ↔ B ↔ C, odwróconą kolejność, luki, replay, tombstones, konflikt ceny i losową sekwencję 120 operacji. To testy czystego silnika, **nie** końcowy test trwałych baz i natywnego transportu. Workflow Business sync foundations sprawdzi TypeScript, nowe testy i dotychczasowe jednostkowe. Wyniki pozostają do potwierdzenia w CI.
 
 Wektor known oznacza odebranie i sprawdzenie przyczynowości; nie jest potwierdzeniem trwałego zastosowania danych biznesowych. Ten moduł nie modyfikuje Data, nie ma dostępu do IndexedDB i nie uruchamia komunikacji LAN. Następny punkt: trwały dziennik i adaptery jednostek v12. PR pozostaje Draft.
+
+## Punkt 2 — jawna aktywacja trwałego dziennika, implementacja w toku
+
+Poprawiono błąd zawężania typu w nowym walidatorze JSON. Workflow pierwszego punktu przeszedł TypeScript, testy silnika i dotychczasowe testy jednostkowe. Nie była to awaria istniejącej logiki biznesowej.
+
+Dodano opt-in enableSyncJournal w AtomicRepository. Zwykły start oraz GM-011A nie aktywują dziennika. Przy aktywacji powstaje magazyn sync w DB v2, dokładny checkpoint przed zmianą schematu oraz rekord v12 sprzed aktywacji. Dane biznesowe nadal mają wersję 12. Starszy writer jawnie otwierający DB v1 jest blokowany przez IndexedDB VersionError, zamiast tworzyć niezarejestrowane zapisy.
+
+Po aktywacji każda komenda GardenStore zapisuje current i operację w tej samej transakcji state+sync. Awaria journal.put wycofuje oba zapisy; localStorage jest projektowany dopiero po zatwierdzeniu. Dwie karty korzystają z tej samej tożsamości/licznika w kanonicznym magazynie, niezależnie od swoich kopii localStorage.
+
+Projekcja rekordów obejmuje kolekcje v12. Wizyta wraz z płatnościami, ceną, czasem i historią jest jedną jednostką. Timer, Data.photos i photoRestoreId nie są operacjami. Referencje zdjęć w notatkach/checklistach nie opuszczają lokalnej projekcji. Raport wymagający zdjęć pozostaje lokalny w pełnej postaci; w jednostce wizyty rejestrowana jest tylko tożsamość dokumentu/rezerwacja numeru. Odbiór takich dokumentów, dostępność plików i polityka numeracji pozostają do ukończenia i nie są przedstawiane jako pełna synchronizacja raportów.
+
+Przy restoreSnapshot oryginalny dziennik i liczniki nie są cofane; nowe lokalne zmiany są zapisywane, ale trwały stan restore-review będzie wymagał kreatora przed ponowną propagacją. **Kreator, odbiór zmian biznesowych, kontrola zastosowanych operacji i natywna wymiana nie są jeszcze zaimplementowane.**
+
+Dodano 14 testów jednostkowych dziennika: źródła v12, blokada starego writera, dwie karty, restart, quota/rollback, pełny mirror, zakupy+wydatki, płatności, wykluczenie zdjęć, stoper, przywrócenie i niespójny dziennik. Ich wynik pozostaje do potwierdzenia w CI. Następnie wymagane są testy rzeczywistego IndexedDB w Chromium oraz dopracowanie ograniczeń i retencji. Dziennik w obecnej implementacji zachowuje historię do jawnego limitu; nie wdrożono jeszcze bezpiecznej kompakcji.
+
+To nadal punkt kontrolny Draft, nie wersja 0.7.0 gotowa do instalacji ani odbioru.

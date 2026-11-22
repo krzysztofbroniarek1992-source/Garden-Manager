@@ -1,3 +1,4 @@
+import { JOURNAL_STORE, JOURNAL_DATABASE_VERSION, JOURNAL_KEY, JOURNAL_SOURCE, DATABASE_SOURCE, activateJournal, validateJournal, captureInTransaction, type JournalState } from "../sync/journal";
 import { withShopping } from "../shopping/model";
 import { withExpenses } from "../expenses/model";
 import { pendingWrite } from "./pending";
@@ -48,13 +49,14 @@ export class AtomicRepository {
     return (this.connection ??= new Promise<IDBDatabase>((resolve, reject) => {
       let request: IDBOpenDBRequest;
       try {
-        request = (this.factory ?? globalThis.indexedDB).open(this.name, 1);
+        request = (this.factory ?? globalThis.indexedDB).open(this.name);
       } catch {
         reject(unavailable());
         return;
       }
-      request.onupgradeneeded = () =>
-        request.result.createObjectStore(STATE_STORE);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(STATE_STORE)) request.result.createObjectStore(STATE_STORE);
+      };
       request.onblocked = () => reject(unavailable());
       request.onerror = () => {
         this.connection = undefined;
@@ -62,6 +64,10 @@ export class AtomicRepository {
       };
       request.onsuccess = () => {
         const db = request.result;
+        if (!db.objectStoreNames.contains(STATE_STORE) || db.version > JOURNAL_DATABASE_VERSION ||
+          (db.version === JOURNAL_DATABASE_VERSION && !db.objectStoreNames.contains(JOURNAL_STORE))) {
+          db.close(); reject(unavailable()); return;
+        }
         db.onversionchange = () => {
           db.close();
           this.connection = undefined;
@@ -72,12 +78,13 @@ export class AtomicRepository {
   }
   private async transaction<T>(
     mode: IDBTransactionMode,
-    action: (state: State, store: IDBObjectStore) => { state: State; value: T },
+    action: (state: State, store: IDBObjectStore, abort: (error: unknown) => void, journal?: IDBObjectStore) => { state: State; value: T },
     initialize = false,
   ) {
     const db = await this.open();
     return new Promise<{ state: State; value: T }>((resolve, reject) => {
-      const tx = db.transaction(STATE_STORE, mode, { durability: "strict" });
+      const hasJournal = db.objectStoreNames.contains(JOURNAL_STORE);
+      const tx = db.transaction(hasJournal ? [STATE_STORE, JOURNAL_STORE] : STATE_STORE, mode, { durability: "strict" });
       const store = tx.objectStore(STATE_STORE);
       let result: { state: State; value: T }, failure: unknown;
       const compatibilityBackups = new Map<string, string>();
@@ -143,7 +150,8 @@ export class AtomicRepository {
             store.put(state, "current");
           }
           validateData(state.data);
-          result = action(state, store);
+          result = action(state, store, error => { failure = error; tx.abort(); },
+            hasJournal ? tx.objectStore(JOURNAL_STORE) : undefined);
         } catch (e) {
           failure = e;
           tx.abort();
@@ -192,7 +200,7 @@ export class AtomicRepository {
     return pendingWrite(async () => {
       const result = await this.transaction(
         "readwrite",
-        (state, objectStore) => {
+        (state, objectStore, abort, journal) => {
           let data = state.data;
           const store = new GardenStore(
             {
@@ -203,6 +211,9 @@ export class AtomicRepository {
             },
             () => at,
           );
+          let restored = false;
+          const restore = store.restoreSnapshot;
+          store.restoreSnapshot = (...args) => { restored = true; return restore(...args); };
           const value = execute(store);
           if (value instanceof Promise)
             throw new Error("Komenda transakcji musi być synchroniczna.");
@@ -222,6 +233,7 @@ export class AtomicRepository {
             data,
           };
           objectStore.put(next, "current");
+          captureInTransaction(journal, state.data, data, state.revision, next.revision, restored, abort);
           return { state: next, value };
         },
       );
@@ -245,6 +257,70 @@ export class AtomicRepository {
       this.warning =
         "Dane zapisano w IndexedDB. Nie udało się odświeżyć kopii localStorage; wykonaj eksport JSON lub ZIP.";
     }
+  }
+  /** Explicit onboarding capability. It does not pair devices or transfer data.
+   * DB v2 protects the journal from GM-011A writers that explicitly open v1. */
+  async enableSyncJournal(installation = crypto.randomUUID()): Promise<JournalState> {
+    return pendingWrite(async () => {
+      await this.initialize();
+      const old = await this.open();
+      if (old.version < JOURNAL_DATABASE_VERSION) {
+        await this.close();
+        this.connection = new Promise<IDBDatabase>((resolve, reject) => {
+          let settled = false;
+          const request = (this.factory ?? globalThis.indexedDB).open(this.name, JOURNAL_DATABASE_VERSION);
+          request.onupgradeneeded = () => {
+            const db = request.result, tx = request.transaction!;
+            if (!db.objectStoreNames.contains(JOURNAL_STORE)) db.createObjectStore(JOURNAL_STORE);
+            const source = tx.objectStore(STATE_STORE).get("current");
+            source.onsuccess = () => {
+              if (source.result !== undefined) tx.objectStore(JOURNAL_STORE).put(source.result, DATABASE_SOURCE);
+            };
+          };
+          request.onblocked = () => { settled = true; this.connection = undefined; reject(unavailable()); };
+          request.onerror = () => { this.connection = undefined; reject(unavailable()); };
+          request.onsuccess = () => {
+            const db = request.result;
+            if (settled) { db.close(); return; }
+            db.onversionchange = () => { db.close(); this.connection = undefined; };
+            resolve(db);
+          };
+        });
+        await this.connection;
+      }
+      await this.transaction("readwrite", (state, _store, abort, sync) => {
+        if (!sync) throw unavailable();
+        const request = sync.get(JOURNAL_KEY);
+        request.onsuccess = () => {
+          try {
+            if (request.result !== undefined) { validateJournal(request.result); return; }
+            const journal = activateJournal(state.data, state.revision, installation);
+            sync.put(state, JOURNAL_SOURCE);
+            sync.put(journal, JOURNAL_KEY);
+          } catch (error) { abort(error); }
+        };
+        return { state, value: undefined };
+      });
+      const journal = await this.readSyncJournal();
+      if (!journal) throw unavailable();
+      return journal;
+    });
+  }
+  async readSyncJournal(): Promise<JournalState | null> {
+    const db = await this.open();
+    if (!db.objectStoreNames.contains(JOURNAL_STORE)) return null;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(JOURNAL_STORE, "readonly"), request = tx.objectStore(JOURNAL_STORE).get(JOURNAL_KEY);
+      let result: JournalState | null = null, failure: unknown;
+      request.onsuccess = () => {
+        try {
+          if (request.result !== undefined) { validateJournal(request.result); result = request.result; }
+        } catch (error) { failure = error; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onabort = () => reject(failure ?? unavailable());
+      tx.onerror = () => {};
+    });
   }
   async close() {
     try {
