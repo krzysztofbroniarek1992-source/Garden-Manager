@@ -78,7 +78,17 @@ export function validateFinanceValue(data:Data,key:string,value:Json) {
 export function financeEligibility(data:Data,o:Operation) {
   const present=businessRecords(data);
   for(const c of o.changes.filter(x=>isFinance(x.key))) {
-    for(const v of [c.before,c.after]) validateFinanceValue(data,c.key,v);
+    for(const v of [c.before,c.after]) {
+      try {validateFinanceValue(data,c.key,v);}
+      catch(e) {
+        // A 5a inbox may already KNOW a formerly opaque bank record. New strict
+        // validation must quarantine it without aborting unrelated valid plans.
+        // Fresh incoming records still use validateFinanceValue directly.
+        if(e instanceof SyncError && e.code==="INVALID")
+          throw new ApplyBlocked("domain","FINANCE_INVALID: Wcześniej odebrany rekord wymaga naprawy/uzgodnienia; nie zastosowano go.");
+        throw e;
+      }
+    }
     if(o.resolution) throw new ApplyBlocked("unsupported","Nieobsługiwana decyzja finansowa; wymagane uzgodnienie całej historii.");
     const {kind,id}=keyParts(c.key);
     if(kind==="visits" && data.timer?.jobId===id)

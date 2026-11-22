@@ -238,3 +238,8 @@ Dodano trzy E2E w istniejącym rzeczywistym rig A/B/C: plan CSV zachowany przez 
 
 
 Dodatkowy przegląd integralności dodał trzy regresje: różne prawidłowe ID bankowe nie są łączone pomimo identycznego match; nadanie ID wcześniej bez-ID transakcji wymaga review (również lokalnie przy aktywnym dzienniku); occurrence musi odpowiadać liczbie takich samych oryginalnych wierszy w uporządkowanym źródle. Bieżący import nie może twierdzić, że wpływ bankowy zatwierdzono jako koszt. Dla duplicate-only audytu zachowujemy oryginalne occurrence wcześniejszej transakcji, zamiast przeliczać go według nowego pliku. Zestaw CSV ma 21 testów; wyniki wymagają kolejnego CI.
+
+
+Przegląd zgodności 5a→5b ujawnił konkretną granicę: wcześniej known/blocked mógł zawierać finansowy payload opaque, który nowa walidacja odrzuci. Adapter zatrzymuje taki rekord jako FINANCE_INVALID, zamiast abortować plan bezpiecznych niezależnych rekordów. Świeży odbiór nadal odrzuca nieprawidłowe dane przed known; nic nie zostaje zastosowane. Test odtwarza dawny inbox+log w IndexedDB i potwierdza przejście niezależnego klienta oraz trwałość blokady. Nie zmieniono silnika przyczynowego ani formatu receiver.
+
+Dodano także deterministyczny test zbieżności sześciu importów A↔B↔C i sum groszy oraz test cyklicznej, starszej historii importów: nieudana aktywacja zachowuje cały Data i source-before-db-v2. Zestaw bankowy ma 24 testy; końcowe wyniki wymagają CI.

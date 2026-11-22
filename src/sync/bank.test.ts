@@ -5,9 +5,9 @@ import { createDemoData } from "../data/demo";
 import { STORAGE_KEY, validateData } from "../data/repository";
 import type { Data } from "../domain";
 import { defaultOptions, otherCategory, reviewRows, rowIdentity, rulesKey, type BankRow, type ExpenseProfile } from "../expenses/model";
-import { appendLocal } from "./causal";
+import { appendLocal, receive } from "./causal";
 import { RECEIVER_KEY } from "./receiver-model";
-import { JOURNAL_SOURCE } from "./journal";
+import { DATABASE_SOURCE, JOURNAL_KEY, JOURNAL_SOURCE } from "./journal";
 import type { Json, Operation } from "./model";
 import { prepareTransfer, TransferAssembler } from "./packets";
 
@@ -338,6 +338,59 @@ describe("GM-011B 5b CSV, three independent durable IndexedDB stores",()=>{
       expect((await b.repo.read()).data.expenses).toEqual([]);expect((await b.repo.read()).data.expenseImports).toEqual([]);
       await checkProtected(b);
     }
+  });
+
+  it("quarantines a formerly opaque 5a bank record without poisoning safe independent operations",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2);await addProfile(a);
+    const original=(await importCsv(a))!,log=(await a.repo.readSyncJournal())!.log;
+    await deliver(b,log.operations.filter(o=>o.id!==original.id));
+    const bad=structuredClone(original);
+    (bad.changes.find(x=>x.key.startsWith("expenses/"))!.after as any).origin.identity="synthetic-invalid-legacy-identity";
+    const journal=(await b.repo.readSyncJournal())!,receiver=(await b.repo.readSyncReceiver())!;
+    // Reproduce the exact 5a capability boundary: causal verification accepted
+    // this opaque financial body, but business application remained blocked.
+    journal.log=receive(journal.log,[bad]);receiver.revision++;
+    receiver.plan=null;receiver.receipts.push({operation:bad,stage:"blocked",reason:"5a opaque fixture",appliedRevision:null,resolvedBy:null});
+    const db=await new Promise<IDBDatabase>(ok=>{const q=b.factory.open(b.name);q.onsuccess=()=>ok(q.result);});
+    await new Promise<void>((ok,no)=>{const t=db.transaction("sync","readwrite");t.objectStore("sync").put(journal,JOURNAL_KEY);
+      t.objectStore("sync").put(receiver,RECEIVER_KEY);t.oncomplete=()=>ok();t.onabort=()=>no(t.error);});db.close();
+    await c.repo.command(s=>s.saveClient({id:"safe-after-legacy",name:"Synthetic",phone:"",email:"",notes:""},null));
+    await send(c,b);await restart(b);
+    expect((await stage(b,bad)).stage).toBe("blocked");expect((await stage(b,bad)).reason).toContain("FINANCE_INVALID");
+    const data=(await b.repo.read()).data;
+    expect(data.expenses).toEqual([]);expect(data.expenseImports).toEqual([]);
+    expect(data.clients.some(v=>v.id==="safe-after-legacy")).toBe(true);await checkProtected(b);
+  });
+  it("converges integer CSV totals under seeded A-B-C exchanges and repeated delivery",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2),rigs=[a,b,c];
+    await addProfile(a);await send(a,b);await send(b,c);
+    let seed=51112,total=0;
+    const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+    for(let n=0;n<6;n++) {
+      const amount=random()%100000+1,source=rigs[random()%3],hash=(n+1).toString(16).padStart(64,"0");total+=amount;
+      await importCsv(source,"seeded-csv-"+n,{statement:hash,file:hash,
+        rows:[{line:2,row:row({signedCents:-amount,transactionId:"seeded-bank-id-"+n}),error:""}]});
+      if(random()%2)await exchange(a,b);else await exchange(b,c);
+    }
+    for(let n=0;n<2;n++){await exchange(a,b);await exchange(b,c);}
+    const final=await Promise.all(rigs.map(async r=>(await r.repo.read()).data));
+    for(const d of final) {expect(d.expenses).toHaveLength(6);expect(d.expenseImports).toHaveLength(6);expect(cost(d)).toBe(total);}
+    await exchange(a,b);await exchange(b,c);
+    for(let n=0;n<3;n++){expect((await rigs[n].repo.read()).data).toEqual(final[n]);await checkProtected(rigs[n]);}
+  },30000);
+  it("fails a cyclic legacy CSV bootstrap without changing Data or losing its original checkpoint",async()=>{
+    const a=await replica(0,false);await addProfile(a);await importCsv(a,"cycle-a");
+    await importCsv(a,"cycle-b",{statement:"d".repeat(64),file:"e".repeat(64),
+      rows:[{line:2,row:row({transactionId:"second-bank-id",signedCents:-555}),error:""}]});
+    const prior=(await a.repo.read()).data,legacy=structuredClone(prior),[first,second]=legacy.expenseImports;
+    first.rows.push({...second.rows[0],line:99,decision:"duplicate"});first.duplicates++;
+    second.rows.push({...first.rows[0],line:100,decision:"duplicate"});second.duplicates++;
+    validateData(legacy);
+    await a.repo.command(s=>s.restoreSnapshot(legacy,JSON.stringify(prior)));
+    const before=await a.repo.read(),mirror=a.storage.getItem(STORAGE_KEY);
+    await expect(a.repo.enableSyncJournal(origins[0])).rejects.toThrow("CSV_BOOTSTRAP");
+    expect(await a.repo.read()).toEqual(before);expect(await a.repo.readSyncJournal()).toBeNull();
+    expect(await raw(a,DATABASE_SOURCE)).toEqual(before);expect(a.storage.getItem(STORAGE_KEY)).toBe(mirror);
   });
 
 });
