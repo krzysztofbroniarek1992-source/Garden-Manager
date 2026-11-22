@@ -5,7 +5,8 @@ import {
 import { type JournalState, validateJournal } from "./journal";
 import { SyncError, syncLimits, type Json, type Operation, type ReplicaLog, type Vector } from "./model";
 import { businessRecords, validateWireProjection } from "./records";
-import { ApplyBlocked, applyBasic, eligibility, keyParts, validateBasicValue } from "./basic";
+import { ApplyBlocked, applyBasic, eligibility, keyParts } from "./basic";
+import { eligibilityUnits, applyUnits, financeParents, validateIncomingValue } from "./units";
 import {
   newReceiver, type ReceiverState, type Receipt,
   type SyncPlan, type CommitReceipt, type PlanSummary, type ConflictDecision,
@@ -128,7 +129,7 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
       c.receiver.receipts.push(row); dots.set(key,row); ids.set(o.id,row.operation); received.push(key);
       try {
         for (const change of o.changes) {
-          validateBasicValue(c.data,change.key,change.before); validateBasicValue(c.data,change.key,change.after);
+          validateIncomingValue(c.data,change.key,change.before); validateIncomingValue(c.data,change.key,change.after);
         }
       } catch(e) {
         if (!(e instanceof SyncError)) throw e;
@@ -199,7 +200,14 @@ function pendingAncestors(c: ReceiverContext, o: Operation, ids: Set<string>) {
   const keys=new Set(o.changes.map(x=>x.key));
   return c.journal.log.operations.filter(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>keys.has(x.key)));
 }
-function checkParents(c:ReceiverContext,o:Operation,ids:Set<string>) {
+function checkParents(c:ReceiverContext,o:Operation,ids:Set<string>,data:Data=c.data) {
+  for(const parent of financeParents(data,o)) {
+    const inOperation=o.changes.find(x=>x.key===parent && x.after!==null);
+    const source=recordView(c.journal.log,parent,o.context), present=recordView(c.journal.log,parent);
+    if(!inOperation && (source.status!=="value" || present.status!=="value" ||
+      c.journal.log.operations.some(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>x.key===parent))))
+      throw new ApplyBlocked("dependency","Rodzic finansowy jest brakujący, niezastosowany, usunięty lub w konflikcie.");
+  }
   for (const change of o.changes) {
     const {kind}=keyParts(change.key);
     if(kind!=="gardens" || change.after===null) continue;
@@ -216,7 +224,7 @@ function resolutionAncestors(c: ReceiverContext, o: Operation, ids: Set<string>)
   for (const p of ancestors) {
     if (p.changes.some(x=>!keys.has(x.key)))
       throw new ApplyBlocked("dependency","Rozstrzygnięcie wymaga całej wcześniejszej operacji atomowej.");
-    eligibility(c.data,p.changes);
+    eligibilityUnits(c.data,p);
   }
   return ancestors;
 }
@@ -242,7 +250,7 @@ function simulate(c: ReceiverContext) {
       const id=dotId(o), row=c.receiver.receipts.find(r=>dotId(r.operation)===id);
       if (!row || settled(row) || row.stage==="rejected" || ids.has(id)) continue;
       try {
-        eligibility(data,o.changes);
+        eligibilityUnits(data,o);
         if (o.changes.some(x=>recordView(c.journal.log,x.key).status==="conflict")) {
           row.stage="conflict"; row.reason="Rekord wymaga jawnego rozstrzygnięcia."; continue;
         }
@@ -250,7 +258,7 @@ function simulate(c: ReceiverContext) {
           p.changes.some(x=>o.changes.some(y=>y.key===x.key)))) {
           row.stage="conflict"; row.reason="Oczekuje na zastosowanie odebranego rozstrzygnięcia."; continue;
         }
-        checkParents(c,o,ids);
+        checkParents(c,o,ids,data);
         const ancestors=pendingAncestors(c,o,ids);
         if (!o.resolution && ancestors.length) {
           row.stage="waiting-records"; row.reason="Poprzednia wersja tego rekordu nie została zastosowana."; continue;
@@ -269,7 +277,7 @@ function simulate(c: ReceiverContext) {
           if (view.status==="conflict") throw new ApplyBlocked("dependency","Brak rozstrzygnięcia poprzedniej wersji.");
           values.set(change.key,view.value);
         }
-        data=applyBasic(data,values); log.operations.push(o); ids.add(id); actions.push(id);
+        data=applyUnits(data,values,o); log.operations.push(o); ids.add(id); actions.push(id);
         row.stage="planned"; row.reason="";
         if (o.resolution) for (const p of ancestors) {
           const key=dotId(p); ids.add(key); resolved.set(key,o.id);

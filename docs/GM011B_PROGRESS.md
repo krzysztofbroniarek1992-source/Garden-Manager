@@ -167,3 +167,18 @@ Przegląd wykrył, że traktowanie każdego nieobsługiwanego prefiksu jako opaq
 Potwierdzono rzeczywisty HEAD i wszystkie zakończone workflow 9bb3d01: 758/758 pełnych jednostkowych (75/75 synchronizacji, w tym 22 odbiorcy), 380/380 pełnych Chromium, 14/14 szybkich E2E baz, PWA 20/20, Android web 1/1, TLS 21/21, polityki Electron 6/6, rzeczywisty Electron 14/14, NSIS 1/1 + 1/1, Android JVM 20/20, instrumentacja 9/9 i aparat/galeria 5/5. TypeScript, build i git diff --check były zielone. Opis PR wskazywał jeszcze starszy head; zostanie uaktualniony.
 
 Przerwanie nastąpiło podczas zapisu dodatkowych testów; nie znalazły się na gałęzi. Odtworzono wyłącznie te zmiany: edycja/dodanie/usunięcie niepowiązanych stref, cena katalogowa bez zmiany historycznych cen zlecenia i odrzucenie powtórzonego ID strefy; rzeczywisty JPEG obejmuje także zdalne usunięcie klienta z lokalnym zdjęciem. Klient i plik muszą pozostać zachowane przy niezależnym postępie notatki. Zestaw odbiorcy ma teraz 23 testy; wynik dodatków wymaga ponownego CI. Nie wprowadzono nowej logiki finansowej przed zamknięciem tego punktu.
+
+
+## Punkt 4 zamknięty; punkt 5a — adapter finansowy w walidacji
+
+HEAD 9bc1161 przeszedł wszystkie uruchomione workflow: 759/759 jednostkowych (76 synchronizacji, 23 odbiorcy), 380/380 pełnych Chromium, 14/14 baz IndexedDB, PWA 20/20, Android web 1/1; workflow Windows/Electron/NSIS, Android/JVM/emulator/aparat oraz TLS/IPC zielone. TypeScript/build/diff-check zaliczone. Szczegóły przebiegów w PR. Nie jest to natywny biznesowy transport.
+
+Audyt finansów wykazał cykliczne powiązanie import CSV ↔ wydatek i tożsamość bankową zależną od profilu. Dlatego nowe/zmienione CSV, nowe profile/reguły/importy są nadal blocked do osobnego uzgodnienia kont/profili. Nie deduplikujemy po opisie ani podobieństwie.
+
+Podpunkt 5a dodaje ograniczony adapter: kategorie (bez fizycznego usuwania), wydatki ręczne z niezmiennym pochodzeniem i zachowaniem prefiksu historii, zakupy bez powiązań ze zleceniem i atomowe powiązanie z istniejącym/nowym wydatkiem. Soft-delete zakupu i powiązanie expenseId nie mogą zniknąć. Dopisywanie płatności jest dozwolone wyłącznie dla istniejącej zakończonej, zatwierdzonej i niezmienionej wizyty; job, seconds, timeHistory, settlement i reportIdentities nie są przypisywane z sieci. Stoper tej wizyty blokuje całą operację, bez zatrzymywania pomiaru. Równoległe finanse pozostają konfliktem całego rekordu; zarówno API decyzji, jak i odebrana operacja resolution pozostają blocked dla finansów.
+
+Identyczny rekord już istniejący lokalnie może zostać potwierdzony jako zagraniczna baza bez zmiany Data i bez deklaracji wspólnego przodka zestawu danych. Inne jednostki i niepodzielne grupy mieszane pozostają zablokowane. Wszystkie faktyczne zmiany finansowe wymagają źródłowej, zastosowanej wersji zależności oraz istniejącej walidacji Data. Odbiór nadal nie jest applied.
+
+Dodano 11 testów trwałych magazynów finansowych i E2E rzeczywistych trzech baz: A-klient, B-zakup, C-wydatek, przekazanie przez B i brak powielania kwot; historia, zakup/wydatek, stabilne płatności, trwałe konflikty, blokada CSV, quota/rollback i restart. Wyniki tego podpunktu wymagają CI; nie deklarujemy ich zaliczenia przed odczytem przebiegów.
+
+Następna granica po potwierdzeniu 5a: tożsamość importów CSV i atomowe zależności, pełne zlecenia/czas/rozliczenia, bezpieczne decyzje finansowe oraz polityka kolizji numerów wydanych raportów. Nie włączono UI, natywnego przesyłania biznesowego, automatycznej aktywacji, GM-011C ani wydania 0.7.

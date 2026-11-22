@@ -256,4 +256,42 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
     expect(result.fake.rejected).toHaveLength(1);expect(result.reuse.rejected).toHaveLength(1);
     expect(result.after).toEqual(result.before);expect(result.receipt.stage).toBe("applied");expect(result.stale).toBe(true);
   });
+  test("financial checkpoint: client, shopping, expense and payments relay through B without duplication",async({page})=>{
+    await boot(page);
+    const first=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig, shoppingPath="/src/shopping/model.ts", expensePath="/src/expenses/model.ts";
+      const {newShoppingItem}=await import(shoppingPath), {otherCategory}=await import(expensePath);
+      await x.client("A","financial-relay");
+      await x.rigs.B.command((s:any)=>s.saveShoppingItem({...newShoppingItem("Synthetic tool"),id:"financial-shopping"},null));
+      await x.exchange("A","B");
+      const expense={id:"financial-expense",revision:1,createdAt:0,updatedAt:0,date:"2026-11-22",amountCents:12345,
+        direction:"outgoing",counterparty:"Synthetic",description:"Synthetic",categoryId:otherCategory,
+        source:"manual",origin:null,status:"approved",note:"Synthetic",history:[]};
+      await x.rigs.C.command((s:any)=>s.saveExpense(expense,null));
+      await x.exchange("B","C");await x.exchange("A","B");
+      await x.rigs.A.command((s:any)=>s.savePayment({id:"financial-payment",jobId:"job-5",amountCents:1000,
+        receivedDate:"2026-11-22",method:"cash",note:"Synthetic"},null));
+      await x.exchange("A","B");await x.exchange("B","C");
+      await x.close();return true;
+    });
+    expect(first).toBe(true);
+    await page.reload();await boot(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;
+      const snapshots=await Promise.all(["A","B","C"].map((label:string)=>x.data(label)));
+      for(let i=0;i<2;i++){await x.exchange("A","B");await x.exchange("B","C");}
+      const final=await Promise.all(["A","B","C"].map((label:string)=>x.data(label)));
+      await x.close();return {snapshots,final};
+    });
+    expect(result.final).toEqual(result.snapshots);
+    for(const d of result.final) {
+      expect(d.clients.some((c:any)=>c.id==="financial-relay")).toBe(true);
+      expect(d.shoppingItems.filter((p:any)=>p.id==="financial-shopping")).toHaveLength(1);
+      expect(d.expenses.map((e:any)=>[e.id,e.amountCents])).toEqual([["financial-expense",12345]]);
+      expect(d.payments.map((p:any)=>[p.id,p.amountCents])).toEqual([["financial-payment",1000]]);
+      expect(d.jobs.find((j:any)=>j.id==="job-5").seconds).toBe(14400);
+      expect(d.timer).toBeNull();
+    }
+  });
+
 });
