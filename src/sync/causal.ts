@@ -131,7 +131,7 @@ export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordVie
   for (const name of [...names].sort()) {
     const changes = writes.filter(x => x.change.after !== null)
       .map(x => ({ ...x, before: field(x.change.before, name), after: field(x.change.after, name) }))
-      .filter(x => x.op.resolution || !same(x.before, x.after));
+      .filter(x => x.op.resolution || x.change.before === null || !same(x.before, x.after));
     const active = concurrentHeads(changes);
     if (!active.length) continue;
     const winner = active[0].after;
@@ -144,7 +144,17 @@ export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordVie
   }
   return conflicts.length ? conflict("fields", conflicts) : { ...view, status: "value", value: output };
 }
+/** Every causal frontier must include the dependencies of its own entries.
+ * A peer must not construct a snapshot that could never have existed. */
+export function validateCausalContext(op: Operation, lookup: (origin: string, sequence: number) => Operation | undefined) {
+  for (const [origin, sequence] of Object.entries(op.context)) {
+    const prior = lookup(origin, sequence);
+    if (!prior || !dominates(op.context, prior.context))
+      fail("PRECONDITION", "Wektor operacji pomija zależności przyczynowe poprzednika.");
+  }
+}
 function checkPreconditions(log: ReplicaLog, op: Operation) {
+  validateCausalContext(op, (origin, sequence) => log.operations.find(p => p.origin === origin && p.sequence === sequence));
   for (const c of op.changes) {
     const before = recordView(log, c.key, op.context);
     if (op.resolution) {

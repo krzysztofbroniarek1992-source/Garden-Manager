@@ -1,5 +1,5 @@
 import type { Data } from "../domain";
-import { appendLocal, canonical, newLog, validateOperation, validateVector, dominates, dotId } from "./causal";
+import { appendLocal, canonical, newLog, validateOperation, validateVector, dominates, dotId, validateCausalContext } from "./causal";
 import { SyncError, syncLimits, type ReplicaLog, type Vector } from "./model";
 import { businessRecords, recordChanges } from "./records";
 
@@ -28,10 +28,13 @@ export function validateJournal(value: unknown): asserts value is JournalState {
   if (l.nextSequence !== (l.known[l.installation] ?? 0) + 1 || !Number.isSafeInteger(l.nextSequence) ||
     l.operations.length + l.waiting.length > syncLimits.operations || l.waiting.length > syncLimits.waiting) throw invalid();
   const known: Vector = {}, dots = new Set<string>(), ids = new Set<string>();
+  const predecessors = new Map<string, typeof l.operations[number]>();
   for (const op of l.operations) {
     validateOperation(op);
     if (!dominates(known, op.context) || (known[op.origin] ?? 0) !== op.sequence - 1 ||
       dots.has(dotId(op)) || ids.has(op.id)) throw invalid();
+    validateCausalContext(op, (origin, sequence) => predecessors.get(dotId({ origin, sequence })));
+    predecessors.set(dotId(op), op);
     dots.add(dotId(op)); ids.add(op.id); known[op.origin] = op.sequence;
   }
   if (canonical(known) !== canonical(l.known)) throw invalid();

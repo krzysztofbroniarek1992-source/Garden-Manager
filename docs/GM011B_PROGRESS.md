@@ -103,3 +103,7 @@ Kodek nie jest podłączony do istniejących natywnych kanałów i nie zapisuje 
 Przegląd wykrył zbyt słabe określanie wspólnej wartości pola: dwa urządzenia mogły niezależnie zapisać tę samą wartość pośrednią, a potem różne wartości. Sama równość before nie dowodziła wspólnego przodka. Informacja o bazie konfliktu pochodzi teraz z przecięcia wektorów przyczynowych; dodano regresję tego wariantu i sprawdzenie bazy całego agregatu finansowego. Nie stosowano zegarów ściennych ani LWW.
 
 Końcowe wyniki automatycznych kontroli bieżącego HEAD są aktualizowane w opisie PR #29. Historyczne wyniki podpunktów odnoszą się wyłącznie do wymienionych commitów. Pozostałe blokady pełnego GM-011B są nadal otwarte.
+
+### Dodatkowa kontrola przyczynowości i ponownego utworzenia
+
+Przegląd dodał odrzucanie wektora, który wskazuje poprzednika, ale pomija jego zależności. Taki kontekst nie reprezentowałby poprawnego stanu repliki. Walidacja trwałego dziennika sprawdza tę samą regułę. Dodano test regresyjny oraz test ponownego utworzenia klienta po usunięciu: scalanie późniejszych niezależnych pól nie może przywrócić telefonu ze starego, usuniętego wcielenia rekordu. Utworzenie resetuje także nieobecne pola w rejestrach. Wyniki wymagają ponownego CI.

@@ -193,6 +193,32 @@ describe("GM-011B causal operations (no business application receipt)", () => {
     const op = write(newLog(A), key, null, base).operations[0];
     errorCode(() => receive(newLog(B), [{ ...op, context: { [B]: 1 } }]), "ORIGIN");
   });
+  it("rejects a context that observes a predecessor but omits that predecessor's dependency", () => {
+    const a = write(newLog(A), "clients/a", null, { name: "Synthetic A" });
+    let b = receive(newLog(B), a.operations);
+    b = write(b, "clients/b", null, { name: "Synthetic B" });
+    const c = receive(newLog(C), b.operations), before = canonical(c);
+    const forged: Operation = { protocol: 1, id: crypto.randomUUID(), origin: B, sequence: 2,
+      context: { [B]: 1 }, resolution: false,
+      changes: [{ key: "clients/c", before: null, after: { name: "Impossible history" } }] };
+    errorCode(() => receive(c, [forged]), "PRECONDITION");
+    expect(canonical(c)).toBe(before);
+    expect(c.known[B]).toBe(1);
+  });
+  it("does not resurrect fields from before deletion while merging edits to a recreated client", () => {
+    let a = write(newLog(A), key, null, base);
+    a = write(a, key, base, null);
+    const recreated = { id: "synthetic", name: "Recreated" };
+    a = write(a, key, null, recreated);
+    let b = receive(newLog(B), a.operations);
+    a = write(a, key, recreated, { ...recreated, name: "New name" });
+    b = write(b, key, recreated, { ...recreated, notes: "New notes" });
+    [a, b] = exchange(a, b);
+    for (const log of [a, b]) {
+      expect(recordView(log, key).value).toEqual({ ...recreated, name: "New name", notes: "New notes" });
+      expect(recordView(log, key).value).not.toHaveProperty("phone");
+    }
+  });
   it("rejects a wrong predecessor without acknowledging or partially changing the log", () => {
     const a = write(newLog(A), key, null, base), b = receive(newLog(B), a.operations);
     const wrong: Operation = { protocol: 1, id: crypto.randomUUID(), origin: C, sequence: 1,

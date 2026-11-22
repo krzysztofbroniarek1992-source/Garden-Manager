@@ -221,6 +221,21 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     expect(await f.repo.read()).toEqual(before);
     expect(await f.repo.readSyncJournal()).toEqual(journal);
   });
+  it("rejects a stored frontier that omits a transitive dependency despite contiguous counters", async () => {
+    const f = await setup(), j = await f.repo.enableSyncJournal(INSTALLATION);
+    const foreign = "22222222-2222-4222-8222-222222222222", damaged = structuredClone(j);
+    damaged.log.operations.push(
+      { protocol: 1, id: crypto.randomUUID(), origin: foreign, sequence: 1,
+        context: { [INSTALLATION]: 1 }, resolution: false,
+        changes: [{ key: "clients/foreign", before: null, after: { name: "Synthetic" } }] },
+      { protocol: 1, id: crypto.randomUUID(), origin: foreign, sequence: 2,
+        context: { [foreign]: 1 }, resolution: false,
+        changes: [{ key: "clients/foreign", before: { name: "Synthetic" }, after: { name: "Changed" } }] },
+    );
+    damaged.log.known[foreign] = 2;
+    expect(() => validateJournal(damaged)).toThrow("pomija zależności");
+    expect(await f.repo.readSyncJournal()).toEqual(j);
+  });
   it("rejects damaged causal metadata without replacing the original journal or business state", async () => {
     const f = await setup(); await f.repo.enableSyncJournal(INSTALLATION);
     const j = (await f.repo.readSyncJournal())!, damaged = structuredClone(j);
