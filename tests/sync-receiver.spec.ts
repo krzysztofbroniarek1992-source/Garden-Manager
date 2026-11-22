@@ -206,12 +206,13 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
       const {IndexedDbPhotoRepository}=await import(assetsPath),{PhotoService}=await import(servicePath),
         {BrowserPhotoProcessor}=await import(imagePath),{newNote}=await import(deskPath);
       const assets=new IndexedDbPhotoRepository(undefined,"gm011b-receiver-B-photos"), repo=x.rigs.B;
+      await x.client("B","photo-owner");await x.exchange("B","A");
       const canvas=document.createElement("canvas");canvas.width=2;canvas.height=2;canvas.getContext("2d")!.fillRect(0,0,2,2);
       const blob=await new Promise<Blob>(ok=>canvas.toBlob(v=>ok(v!),"image/jpeg"));
       const service=new PhotoService({snapshot:async()=>(await repo.read()).data,
         appendPhotos:async(metadata:any[])=>{await repo.command((s:any)=>s.appendPhotos(metadata));}},assets,new BrowserPhotoProcessor());
       const [photo]=await service.add([{id:"receiver-local-photo",blob,name:"synthetic-local.jpg"}],{
-        clientId:"client-1",gardenId:null,zoneId:null,jobId:null,category:"before",description:"Synthetic pixel",capturedDate:null});
+        clientId:"photo-owner",gardenId:null,zoneId:null,jobId:null,category:"before",description:"Synthetic pixel",capturedDate:null});
       const note={...newNote(await x.data("B")),id:"local-reference",title:"Synthetic independent note"};
       await repo.command((s:any)=>s.saveNote(note));await x.exchange("B","A");
       const n=(await x.data("B")).notes.find((n:any)=>n.id===note.id);
@@ -225,6 +226,7 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
       await x.rigs.A.command((s:any)=>s.saveNote({...remote,body:"Remote safe note update"}));
       await x.client("A","safe");
       await x.rigs.A.command((s:any)=>s.setRate(999));
+      await x.rigs.A.command((s:any)=>s.deleteClient("photo-owner"));
       await x.send("A","B");
       const after=await x.data("B"), stored=await assets.get(photo.assetId), receiver=await x.receiver("B");
       return{before,after,initialHash,afterHash:await hash(stored.image),
@@ -235,6 +237,7 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
       expect(result.after[k]).toEqual(result.before[k]);
     expect(result.afterHash).toBe(result.initialHash);
     expect(result.note).toMatchObject({photoId:result.localPhoto,body:"Remote safe note update"});expect(result.blocked).toBe(true);
+    expect(result.after.clients.some((c:any)=>c.id==="photo-owner")).toBe(true);
   });
   test("network applied forgery and changed operation identity are rejected, stale plans cannot commit",async({page})=>{
     await boot(page);

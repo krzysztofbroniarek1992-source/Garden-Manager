@@ -161,3 +161,9 @@ Doprecyzowano limit surowych luk inbox (2000) oraz walidację lokalnych wyników
 ### Dodatkowa granica prywatności projekcji
 
 Przegląd wykrył, że traktowanie każdego nieobsługiwanego prefiksu jako opaque/blocked pozwalałoby umieścić niedozwolone photos/timer/tożsamości w log i przekazać je dalej kodekiem. Dodano białą listę rodzajów biznesowych v12 oraz odrzucanie lokalnych referencji w notes/checklists i zależnych od plików snapshotów raportów. Takie wejścia trafiają wyłącznie do ograniczonego audytu odrzucenia, bez zachowania ich payloadu w inbox/log i bez forwarding. Legalne jednostki finansowe v12 nadal pozostają blocked, zamiast być ryzykownie zastosowane. Dodano test pięciu wariantów; nie wykorzystuje prawdziwych sekretów ani urządzeń.
+
+## Wznowienie po 9bb3d01 — domknięcie punktu 4
+
+Potwierdzono rzeczywisty HEAD i wszystkie zakończone workflow 9bb3d01: 758/758 pełnych jednostkowych (75/75 synchronizacji, w tym 22 odbiorcy), 380/380 pełnych Chromium, 14/14 szybkich E2E baz, PWA 20/20, Android web 1/1, TLS 21/21, polityki Electron 6/6, rzeczywisty Electron 14/14, NSIS 1/1 + 1/1, Android JVM 20/20, instrumentacja 9/9 i aparat/galeria 5/5. TypeScript, build i git diff --check były zielone. Opis PR wskazywał jeszcze starszy head; zostanie uaktualniony.
+
+Przerwanie nastąpiło podczas zapisu dodatkowych testów; nie znalazły się na gałęzi. Odtworzono wyłącznie te zmiany: edycja/dodanie/usunięcie niepowiązanych stref, cena katalogowa bez zmiany historycznych cen zlecenia i odrzucenie powtórzonego ID strefy; rzeczywisty JPEG obejmuje także zdalne usunięcie klienta z lokalnym zdjęciem. Klient i plik muszą pozostać zachowane przy niezależnym postępie notatki. Zestaw odbiorcy ma teraz 23 testy; wynik dodatków wymaga ponownego CI. Nie wprowadzono nowej logiki finansowej przed zamknięciem tego punktu.

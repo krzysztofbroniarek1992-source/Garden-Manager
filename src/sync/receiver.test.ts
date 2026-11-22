@@ -330,6 +330,31 @@ describe("GM-011B controlled durable receiver, three independent IDB stores",()=
     }
     expect(await b.repo.read()).toEqual(before);
   });
+  it("updates and removes unreferenced zones, preserves historical prices and rejects duplicate zone IDs",async()=>{
+    const a=await replica(0),b=await replica(1);await client(a,"zone-parent");
+    const zone={id:"zone-old",name:"Synthetic lawn",type:"trawnik",area:10,length:null,plants:"",requirements:"",treatments:""};
+    await a.repo.command(s=>s.saveGarden({id:"zone-garden",clientId:"zone-parent",name:"Synthetic",address:"",area:10,notes:"",zones:[zone]},null));
+    const item={id:"zone-catalog",name:"Synthetic material",category:"Synthetic",unit:"l" as const,purchaseUnitPrice:1,packageName:"",packageQuantity:null,notes:""};
+    await a.repo.command(s=>s.saveCatalogMaterial(item,null));await send(a,b);
+    const jobs=(await b.repo.read()).data.jobs;
+    await a.repo.command(s=>{
+      s.saveZone("zone-garden",{...zone,plants:"Synthetic plant"},zone);
+      s.saveZone("zone-garden",{...zone,id:"zone-new",name:"Synthetic new zone"},null);
+      s.saveCatalogMaterial({...item,purchaseUnitPrice:2.5},item);
+    });
+    await send(a,b);
+    let garden=(await b.repo.read()).data.gardens.find(g=>g.id==="zone-garden")!;
+    expect(garden.zones.find(z=>z.id===zone.id)?.plants).toBe("Synthetic plant");expect(garden.zones).toHaveLength(2);
+    expect((await b.repo.read()).data.materialCatalog.find(m=>m.id===item.id)?.purchaseUnitPrice).toBe(2.5);
+    expect((await b.repo.read()).data.jobs).toEqual(jobs);
+    await a.repo.command(s=>s.deleteZone("zone-garden",zone.id));await send(a,b);
+    garden=(await b.repo.read()).data.gardens.find(g=>g.id==="zone-garden")!;
+    expect(garden.zones.map(z=>z.id)).toEqual(["zone-new"]);
+    const before=await b.repo.read(), operation={protocol:1,id:crypto.randomUUID(),origin:origins[2],sequence:1,context:{},resolution:false,
+      changes:[{key:"gardens/bad-zones",before:null,after:{...garden,id:"bad-zones",zones:[zone,zone]}}]};
+    expect((await b.repo.receiveSyncOperations([operation])).rejected).toHaveLength(1);
+    expect(await b.repo.read()).toEqual(before);
+  });
   it("keeps the pre-application checkpoint and rejects malformed client contents without changing Data",async()=>{
     const a=await replica(0),b=await replica(1);const before=await b.repo.read();
     await client(a,"check");await send(a,b);
