@@ -47,13 +47,13 @@ function profile(id="profile-main",name="Synthetic bank"):ExpenseProfile {
 }
 async function addProfile(r:Replica,id="profile-main",name="Synthetic bank") {await r.repo.command(s=>s.saveExpenseProfile(profile(id,name),null));}
 const row=(patch:Partial<BankRow>={}):BankRow=>({line:2,date:"2026-11-22",signedCents:-12345,counterparty:"Synthetic vendor",description:"Synthetic statement",transactionId:"synthetic-tx-1",occurrence:1,...patch});
-interface Input {profileId?:string;statement?:string;file?:string;rows?:{line:number;row:BankRow|null;error:string}[];statuses?:("approved"|"excluded")[];skip?:number[];separate?:boolean}
+interface Input {profileId?:string;categoryId?:string;statement?:string;file?:string;rows?:{line:number;row:BankRow|null;error:string}[];statuses?:("approved"|"excluded")[];skip?:number[];separate?:boolean}
 async function importCsv(r:Replica,id="import-main",opts:Input={}) {
   const data=(await r.repo.read()).data,p=data.expenseProfiles.find(p=>p.id===(opts.profileId??"profile-main"))!;
   const statementKey=opts.statement??"a".repeat(64),fileHash=opts.file??"b".repeat(64);
   const reviewed=reviewRows(data,p.id,statementKey,opts.rows??[{line:2,row:row(),error:""}]);
   await r.repo.command(s=>s.importExpenses({id,profile:p,rulesKey:rulesKey(data),statementKey,fileHash,filename:"synthetic.csv",
-    requestKey:"c".repeat(64),rows:reviewed.map((v,i)=>({...v,selected:!(opts.skip??[]).includes(i),status:opts.statuses?.[i]??"approved",separate:opts.separate??false}))}));
+    requestKey:"c".repeat(64),rows:reviewed.map((v,i)=>({...v,selected:!(opts.skip??[]).includes(i),status:opts.statuses?.[i]??"approved",categoryId:opts.categoryId??v.categoryId,separate:opts.separate??false}))}));
   return (await r.repo.readSyncJournal())?.log.operations.at(-1);
 }
 const cost=(data:Data)=>data.expenses.filter(e=>e.direction==="outgoing"&&e.status==="approved").reduce((n,e)=>n+e.amountCents,0);
@@ -243,13 +243,26 @@ describe("GM-011B 5b CSV, three independent durable IndexedDB stores",()=>{
     }
   });
   it("keeps archived parent identities and original history without reactivating or reclassifying",async()=>{
-    const a=await replica(0,false),b=await replica(1);await addProfile(a);await importCsv(a);
-    const d=(await a.repo.read()).data,p=d.expenseProfiles[0],cat=d.expenseCategories.find(c=>c.id===otherCategory)!;
+    const a=await replica(0,false),b=await replica(1);await addProfile(a);
+    await a.repo.command(s=>s.saveExpenseCategory({id:"historical-category",name:"Synthetic historical",archived:false,revision:1,createdAt:0,updatedAt:0},null));
+    await importCsv(a,"import-main",{categoryId:"historical-category"});
+    const d=(await a.repo.read()).data,p=d.expenseProfiles[0],cat=d.expenseCategories.find(c=>c.id==="historical-category")!;
     await a.repo.command(s=>{s.saveExpenseProfile({...p,archived:true},p);s.saveExpenseCategory({...cat,archived:true},cat);});
     const before=(await a.repo.read()).data;await a.repo.enableSyncJournal(origins[0]);await send(a,b);
     const actual=(await b.repo.read()).data;
     expect(actual.expenseProfiles).toEqual(before.expenseProfiles);expect(actual.expenses).toEqual(before.expenses);
-    expect(actual.expenseImports).toEqual(before.expenseImports);expect(actual.expenseCategories.find(c=>c.id===otherCategory)?.archived).toBe(true);
+    expect(actual.expenseImports).toEqual(before.expenseImports);expect(actual.expenseCategories.find(c=>c.id==="historical-category")?.archived).toBe(true);
+  });
+  it("does not overwrite an independent default category while adopting a historical import",async()=>{
+    const a=await replica(0,false),b=await replica(1);await addProfile(a);await importCsv(a);
+    const category=(await a.repo.read()).data.expenseCategories.find(c=>c.id===otherCategory)!;
+    await a.repo.command(s=>s.saveExpenseCategory({...category,archived:true},category));
+    await a.repo.enableSyncJournal(origins[0]);await send(a,b);await restart(b);
+    const d=(await b.repo.read()).data,r=(await b.repo.readSyncReceiver())!;
+    expect(d.expenseCategories.find(c=>c.id===otherCategory)?.archived).toBe(false);
+    expect(d.expenses).toEqual([]);expect(d.expenseImports).toEqual([]);
+    expect(r.conflicts.some(v=>v.key==="expenseCategories/"+otherCategory&&v.status==="open")).toBe(true);
+    expect(r.receipts.some(v=>v.stage==="waiting-records"&&v.operation.changes.some(x=>x.key==="expenseImports/import-main"))).toBe(true);
   });
   it("keeps distinct occurrences in one no-ID statement but holds ambiguous rows from another statement",async()=>{
     const a=await replica(0),b=await replica(1);await addProfile(a);
@@ -292,4 +305,39 @@ describe("GM-011B 5b CSV, three independent durable IndexedDB stores",()=>{
     const deleted=appendLocal(log,[{key:"expenseProfiles/profile-main",before:(await a.repo.read()).data.expenseProfiles[0] as unknown as Json,after:null}]).operation!;
     await deliver(d,[deleted]);expect((await stage(d,deleted)).stage).toBe("blocked");expect((await d.repo.read()).data.expenseImports).toHaveLength(1);
   });
+  it("keeps distinct bank IDs separate despite equal date, amount, counterparty and description",async()=>{
+    const a=await replica(0),b=await replica(1);await addProfile(a);await importCsv(a,"first");
+    await importCsv(a,"distinct",{statement:"d".repeat(64),file:"e".repeat(64),
+      rows:[{line:2,row:row({transactionId:"a-different-bank-id"}),error:""}]});
+    await send(a,b);
+    const d=(await b.repo.read()).data;expect(d.expenses).toHaveLength(2);expect(cost(d)).toBe(24690);
+    expect(new Set(d.expenses.map(e=>e.origin!.identity)).size).toBe(2);
+  });
+  it("blocks an ID-column upgrade that would give a previously ID-less transaction a second identity",async()=>{
+    const a=await replica(0),b=await replica(1);await addProfile(a);
+    await importCsv(a,"id-less",{rows:[{line:2,row:row({transactionId:null}),error:""}]});await send(a,b);
+    const before=await a.repo.read(),journal=await a.repo.readSyncJournal();
+    await expect(importCsv(a,"new-identity",{statement:"d".repeat(64),file:"e".repeat(64)})).rejects.toThrow("CSV_AMBIGUOUS_ROW");
+    expect(await a.repo.read()).toEqual(before);expect(await a.repo.readSyncJournal()).toEqual(journal);
+    expect(cost((await b.repo.read()).data)).toBe(12345);
+  });
+  it("validates occurrence ordinals and the original incoming-transfer exclusion inside the atomic candidate",async()=>{
+    for(const type of ["occurrence","incoming"] as const) {
+      const a=await replica(0),b=await replica(1);await addProfile(a);
+      const op=(await importCsv(a,"integrity",type==="incoming"?{rows:[{line:2,row:row({signedCents:1000}),error:""}]}:{}))!;
+      await deliver(b,(await a.repo.readSyncJournal())!.log.operations.filter(o=>o.id!==op.id));
+      const bad=structuredClone(op),e=bad.changes.find(c=>c.key.startsWith("expenses/"))!.after as any;
+      if(type==="occurrence")e.origin.occurrence=999;
+      else {
+        const audit=bad.changes.find(c=>c.key.startsWith("expenseImports/"))!.after as any;
+        audit.approved=1;audit.excluded=0;audit.rows[0].decision="approved";
+        e.history=[{...e.history[0],status:"approved"},e.history[0]];e.revision=2;
+      }
+      await deliver(b,[bad]);expect((await stage(b,bad)).stage).toBe("blocked");
+      expect((await stage(b,bad)).reason).toContain(type==="occurrence"?"CSV_OCCURRENCE":"CSV_LINK");
+      expect((await b.repo.read()).data.expenses).toEqual([]);expect((await b.repo.read()).data.expenseImports).toEqual([]);
+      await checkProtected(b);
+    }
+  });
+
 });

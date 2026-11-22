@@ -48,6 +48,27 @@ async function boot(page:Page) {
     (window as any).__receiverRig=api; // Test-only; production source exposes no global database API.
   });
 }
+async function bankBoot(page:Page) {
+  await boot(page);
+  await page.evaluate(async()=>{
+    const p="/src/expenses/model.ts",m=await import(p),x=(window as any).__receiverRig;
+    x.bank={
+      async profile(label:string,id="browser-bank",name="Synthetic bank") {
+        const options=m.defaultOptions();options.mapping={...options.mapping,date:0,amount:1,counterparty:2,description:3,transactionId:4};
+        await x.rigs[label].command((s:any)=>s.saveExpenseProfile({id,name,revision:1,createdAt:0,updatedAt:0,
+          headers:["date","amount","party","description","id"],options,archived:false},null));
+      },
+      async import(label:string,id="browser-import",profileId="browser-bank") {
+        const d=await x.data(label),profile=d.expenseProfiles.find((p:any)=>p.id===profileId),hash="a".repeat(64);
+        const rows=m.reviewRows(d,profileId,hash,[{line:2,error:"",row:{line:2,date:"2026-11-22",signedCents:-12345,
+          counterparty:"Synthetic vendor",description:"Synthetic",transactionId:"synthetic-browser-tx",occurrence:1}}]);
+        await x.rigs[label].command((s:any)=>s.importExpenses({id,profile,rulesKey:m.rulesKey(d),statementKey:hash,fileHash:"b".repeat(64),
+          requestKey:"c".repeat(64),filename:"synthetic.csv",rows:rows.map((r:any)=>({...r,selected:true,status:"approved"}))}));
+        return (await x.rigs[label].readSyncJournal()).log.operations.at(-1);
+      },
+    };
+  });
+}
 test.describe("GM-011B actual independent IndexedDB databases (no native transport)",()=>{
   test.setTimeout(120000);
   test("A -> B -> C, independent B/C records, repeated exchanges and unchanged origin",async({page})=>{
@@ -292,6 +313,84 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
       expect(d.jobs.find((j:any)=>j.id==="job-5").seconds).toBe(14400);
       expect(d.timer).toBeNull();
     }
+  });
+
+  test("CSV A -> B -> C retains its atomic plan over reload and protects existing financial records",async({page})=>{
+    await bankBoot(page);
+    const initial=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;
+      await x.rigs.B.command((s:any)=>s.savePayment({id:"csv-existing-payment",jobId:"job-5",amountCents:100,
+        receivedDate:"2026-11-22",method:"cash",note:"Synthetic"},null));
+      const protectedBefore=await Promise.all(["A","B","C"].map((label:string)=>x.data(label)));
+      await x.bank.profile("A");const original=await x.bank.import("A");
+      const source=await x.data("A"),r=await x.send("A","B",false),pending=await x.data("B");
+      await x.close();return{original,source,plan:r.plan.plan,protectedBefore,pending};
+    });
+    expect(initial.pending.expenses).toEqual([]);expect(initial.pending.expenseImports).toEqual([]);
+    await page.reload();await bankBoot(page);
+    const result=await page.evaluate(async id=>{
+      const x=(window as any).__receiverRig,receipt=await x.rigs.B.applySyncPlan(id);
+      await x.send("B","C");
+      for(let n=0;n<2;n++){await x.exchange("A","B");await x.exchange("B","C");}
+      const data=await Promise.all(["A","B","C"].map((label:string)=>x.data(label)));
+      const origin=(await x.receiver("C")).receipts.find((r:any)=>r.operation.changes.some((c:any)=>c.key==="expenseImports/browser-import"));
+      const repeated=await x.rigs.B.applySyncPlan(id);
+      await x.close();return{data,origin,receipt,repeated};
+    },initial.plan.id);
+    expect(result.repeated).toEqual(result.receipt);expect(result.origin.operation).toEqual(initial.original);
+    expect(result.origin.stage).toBe("applied");
+    for(let n=0;n<3;n++) {
+      const d=result.data[n];
+      expect(d.expenses).toEqual(initial.source.expenses);expect(d.expenseImports).toEqual(initial.source.expenseImports);
+      expect(d.expenseProfiles).toEqual(initial.source.expenseProfiles);
+      expect(d.expenses.reduce((sum:number,e:any)=>sum+e.amountCents,0)).toBe(12345);
+      for(const k of ["jobs","payments","photos","timer","reportSequence"])expect(d[k]).toEqual(initial.protectedBefore[n][k]);
+    }
+  });
+  test("independent CSV identities and profiles require durable review instead of duplicated cost",async({page})=>{
+    await bankBoot(page);
+    await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;
+      await x.bank.profile("A","browser-bank","Bank");await x.exchange("A","B");
+      await x.bank.import("A","independent-A");await x.bank.import("B","independent-B");
+      await x.exchange("A","B");
+      await x.bank.profile("C","other-bank","Bank");await x.bank.import("C","independent-C","other-bank");
+      await x.exchange("B","C");await x.close();
+    });
+    await page.reload();await bankBoot(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig,data=await Promise.all(["A","B","C"].map((label:string)=>x.data(label))),
+        receiver=await x.receiver("B");
+      await x.close();return{data,receiver};
+    });
+    for(const d of result.data) {
+      expect(d.expenses).toHaveLength(1);expect(d.expenseImports).toHaveLength(1);
+      expect(d.expenses[0].amountCents).toBe(12345);
+    }
+    expect(result.data[1].expenseProfiles.map((p:any)=>p.id).sort()).toEqual(["browser-bank","other-bank"]);
+    expect(result.receiver.receipts.some((r:any)=>r.stage==="blocked"&&r.reason.includes("CSV_DUPLICATE_IDENTITY"))).toBe(true);
+    expect(result.receiver.receipts.some((r:any)=>r.stage==="blocked"&&r.reason.includes("CSV_PROFILE_SCOPE"))).toBe(true);
+  });
+  test("real CSV IndexedDB abort leaves neither import nor expense applied, retry commits both exactly once",async({page})=>{
+    await bankBoot(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;
+      await x.bank.profile("A");const operation=await x.bank.import("A"),incoming=await x.send("A","B",false),id=incoming.plan.plan.id;
+      const before={state:await x.rigs.B.read(),journal:await x.rigs.B.readSyncJournal(),receiver:await x.receiver("B")};
+      const original=IDBObjectStore.prototype.put;let failed=false;
+      IDBObjectStore.prototype.put=function(value:any,key?:IDBValidKey){
+        if(this.name==="sync"&&key==="receiver-v1")throw new DOMException("Synthetic CSV quota","QuotaExceededError");
+        return original.call(this,value,key);
+      };
+      try {await x.rigs.B.applySyncPlan(id);}catch{failed=true;}finally{IDBObjectStore.prototype.put=original;}
+      const afterFailure={state:await x.rigs.B.read(),journal:await x.rigs.B.readSyncJournal(),receiver:await x.receiver("B")};
+      const receipt=await x.rigs.B.applySyncPlan(id),retry=await x.rigs.B.applySyncPlan(id),data=await x.data("B");
+      const row=(await x.receiver("B")).receipts.find((r:any)=>r.operation.id===operation.id);
+      await x.close();return{failed,before,afterFailure,receipt,retry,data,row};
+    });
+    expect(result.failed).toBe(true);expect(result.afterFailure).toEqual(result.before);
+    expect(result.retry).toEqual(result.receipt);expect(result.data.expenseImports).toHaveLength(1);expect(result.data.expenses).toHaveLength(1);
+    expect(result.row.stage).toBe("applied");expect(result.data.expenses[0].amountCents).toBe(12345);
   });
 
 });

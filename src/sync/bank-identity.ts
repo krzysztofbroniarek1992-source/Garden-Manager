@@ -21,7 +21,8 @@ export function bankRisk(before:ExpenseData, added:Expense[], imports:ExpenseImp
       // No bank ID: match alone is NOT an identity. It can only hold a doubtful
       // new entry for review. Distinct occurrences within one statement remain
       // distinct. The source UI already has an explicit separate-row decision.
-      if(remote && !a.transactionId && !b.transactionId && a.match===b.match && a.statementKey!==b.statementKey)
+      if((remote || !!a.transactionId) && (!a.transactionId || !b.transactionId) && a.match===b.match &&
+        (a.statementKey!==b.statementKey || !!a.transactionId!==!!b.transactionId))
         return "CSV_AMBIGUOUS_ROW: Podobny wiersz bez ID bankowego w innym wyciągu. Nie utożsamiono ani nie dodano kosztu.";
     }
     seen.push(expense);

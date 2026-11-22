@@ -230,3 +230,11 @@ Konkretna potrzeba zmiany bootstrapu: poprzedni seed rekord-po-rekordzie rozdzie
 Dodano 17 testów trwałych magazynów: relay A→B→C, replay, audit i sumy groszy, niezależne profile/wyciągi, lokalna ochrona po odbiorze, konflikty kategorii/statusów/profili/reguł, braki i kolejność, restart, quota/rollback, utrata potwierdzenia, bootstrap CSV, archiwizacja, occurrences i nieprawidłowe wejścia. Wyniki wymagają CI. Dotychczasowy test 5a blokady każdego CSV zmieniono na pozytywną asercję pełnego atomowego importu i zachowania origin; asercje ochrony finansów pozostają.
 
 Następnie: rzeczywiste E2E CSV w trzech bazach Chromium, dodatkowe próby integralności, pełna regresja i końcowa dokumentacja granicy 5b. Nie uruchomiono natywnego biznesowego LAN ani GM-011C; PR pozostaje Draft.
+
+
+Pierwszy wynik f87764d: TypeScript zaliczony, 105/106 testów synchronizacji, dotychczasowe 15/15 E2E baz zielone. Test archiwizacji używał niezależnie zarchiwizowanej domyślnej kategorii, której korzeń na odbiorcy pozostawał aktywny. Bez wspólnego przodka było to prawidłowo conflict/waiting-records. Test historycznej archiwizacji używa teraz własnej kategorii źródła; dodano osobny test obowiązkowej blokady niezależnego korzenia domyślnej kategorii. Nie zmieniono silnika ani walidacji. Zestaw bankowy ma 18 testów.
+
+Dodano trzy E2E w istniejącym rzeczywistym rig A/B/C: plan CSV zachowany przez reload i relay z lokalną płatnością w B, trwałe blokady niezależnych importów/profili oraz rzeczywisty abort IndexedDB wycofujący oba rekordy i applied. Nie ma połączenia A–C ani natywnego biznesowego transportu. Wyniki nowych testów wymagają CI.
+
+
+Dodatkowy przegląd integralności dodał trzy regresje: różne prawidłowe ID bankowe nie są łączone pomimo identycznego match; nadanie ID wcześniej bez-ID transakcji wymaga review (również lokalnie przy aktywnym dzienniku); occurrence musi odpowiadać liczbie takich samych oryginalnych wierszy w uporządkowanym źródle. Bieżący import nie może twierdzić, że wpływ bankowy zatwierdzono jako koszt. Dla duplicate-only audytu zachowujemy oryginalne occurrence wcześniejszej transakcji, zamiast przeliczać go według nowego pliku. Zestaw CSV ma 21 testów; wyniki wymagają kolejnego CI.

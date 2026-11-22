@@ -89,6 +89,14 @@ function linked(i:ExpenseImport,e:Expense,duplicate=false) {
       rowMatch({line:row.line,date:row.date,signedCents:row.signedCents,counterparty:row.counterparty,
         description:row.description,transactionId:origin.transactionId,occurrence:origin.occurrence})!==origin.match)
       blocked("CSV_LINK: Treść wiersza nie odpowiada oryginalnej transakcji.");
+    if(!duplicate) {
+      if(row.signedCents>0 && row.decision!=="excluded")
+        blocked("CSV_LINK: Wpływ bankowy nie może mieć zatwierdzonego kosztu w historii importu.");
+      const occurrence=i.rows.filter(r=>r.line<=row.line && r.date!==null && r.signedCents!==null && r.signedCents!==0 &&
+        rowMatch({line:r.line,date:r.date!,signedCents:r.signedCents!,counterparty:r.counterparty,description:r.description,
+          transactionId:null,occurrence:1})===origin.match).length;
+      if(origin.occurrence!==occurrence)blocked("CSV_OCCURRENCE: Kolejność wystąpienia nie odpowiada wierszom źródłowego importu.");
+    }
     if(!duplicate && (origin.importId!==i.id || origin.statementKey!==i.statementKey || origin.line!==row.line ||
       !e.history.length || e.createdAt!==i.createdAt || e.history[0].at!==i.createdAt ||
       e.history[0].status!==row.decision || e.history[0].amountCents!==Math.abs(row.signedCents)))
