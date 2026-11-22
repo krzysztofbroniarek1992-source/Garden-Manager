@@ -142,7 +142,7 @@ export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordVie
         alternatives: active.map(x => ({ dot: dot(x.op), value: structuredClone(x.after.value) })) });
     } else if (winner.exists) output[name] = structuredClone(winner.value);
   }
-  return conflicts.length ? conflict("fields", conflicts) : { ...view, status: "value", value: output };
+  return conflicts.length ? { ...conflict("fields", conflicts), value: output } : { ...view, status: "value", value: output };
 }
 /** Every causal frontier must include the dependencies of its own entries.
  * A peer must not construct a snapshot that could never have existed. */
@@ -155,15 +155,14 @@ export function validateCausalContext(op: Operation, lookup: (origin: string, se
 }
 function checkPreconditions(log: ReplicaLog, op: Operation) {
   validateCausalContext(op, (origin, sequence) => log.operations.find(p => p.origin === origin && p.sequence === sequence));
+  let conflicts = 0;
   for (const c of op.changes) {
     const before = recordView(log, c.key, op.context);
-    if (op.resolution) {
-      if (before.status !== "conflict") fail("PRECONDITION", "Nie ma konfliktu wymagającego tej decyzji.");
-    } else {
-      if (before.status === "conflict") fail("CONFLICT", "Najpierw rozstrzygnij konflikt rekordu.");
-      if (!same(before.value, c.before)) fail("PRECONDITION", "Operacja nie wynika ze wskazanej poprzedniej wersji.");
-    }
+    if (op.resolution && before.status === "conflict") { conflicts++; continue; }
+    if (before.status === "conflict") fail("CONFLICT", "Najpierw rozstrzygnij konflikt rekordu.");
+    if (!same(before.value, c.before)) fail("PRECONDITION", "Operacja nie wynika ze wskazanej poprzedniej wersji.");
   }
+  if (op.resolution && !conflicts) fail("PRECONDITION", "Nie ma konfliktu wymagającego tej decyzji.");
 }
 function limits(log: ReplicaLog) {
   if (log.operations.length + log.waiting.length > syncLimits.operations || log.waiting.length > syncLimits.waiting)

@@ -34,7 +34,7 @@ test("GM-011B real IndexedDB activation preserves v12 and exact source records",
   expect(result.version).toBe(12);
 });
 test("GM-011B two real tabs atomically append independent business commands to one journal", async ({ page, context }) => {
-  await open(page); await activate(page);
+  await open(page); const baseline = await activate(page);
   const second = await context.newPage(); await open(second);
   const save = (p: Page, id: string) => p.evaluate(async clientId => {
     const path = "/src/data/atomic.ts", { AtomicRepository } = await import(path);
@@ -53,7 +53,7 @@ test("GM-011B two real tabs atomically append independent business commands to o
       clients: state.data.clients.filter((c: { id: string }) => c.id.startsWith("sync-synthetic-")).map((c: { id: string }) => c.id).sort() };
   });
   expect(result.clients).toEqual(["sync-synthetic-a", "sync-synthetic-b"]);
-  expect(result.sequence).toEqual([1, 2, 3]);
+  expect(result.sequence).toEqual(Array.from({ length: baseline.count + 2 }, (_, i) => i + 1));
   expect(result.journalRevision).toBe(result.revision);
 });
 test("GM-011B native IndexedDB transaction rolls back the business write on synthetic journal quota", async ({ page }) => {
@@ -78,7 +78,7 @@ test("GM-011B native IndexedDB transaction rolls back the business write on synt
   expect(result.afterJournal).toEqual(result.journal); expect(result.mirrorSame).toBe(true);
 });
 test("GM-011B real restart retains source counter and does not accept a legacy writer", async ({ page }) => {
-  await open(page); await activate(page);
+  await open(page); const baseline = await activate(page);
   await page.evaluate(async () => {
     const path = "/src/data/atomic.ts", { AtomicRepository } = await import(path);
     const repo = new AtomicRepository(localStorage); await repo.initialize();
@@ -95,7 +95,7 @@ test("GM-011B real restart retains source counter and does not accept a legacy w
     const repo = new AtomicRepository(localStorage); const state = await repo.initialize(), j = await repo.readSyncJournal();
     await repo.close(); return { legacy, rate: state.data.settings.hourlyRate, origin: j.log.installation, next: j.log.nextSequence };
   });
-  expect(result).toEqual({ legacy: "VersionError", rate: 140, origin: installation, next: 3 });
+  expect(result).toEqual({ legacy: "VersionError", rate: 140, origin: installation, next: baseline.count + 2 });
 });
 test("GM-011B failed activation preserves the current record and can be retried", async ({ page }) => {
   await open(page);
@@ -111,10 +111,11 @@ test("GM-011B failed activation preserves the current record and can be retried"
     try { await repo.enableSyncJournal(id); } catch { rejected = true; } finally { IDBObjectStore.prototype.put = put; }
     const after = await repo.read(), noJournal = (await repo.readSyncJournal()) === null;
     const retried = await repo.enableSyncJournal(id); await repo.close();
-    return { rejected, before, after, noJournal, count: retried.log.operations.length };
+    const recordsPath = "/src/sync/records.ts", { businessRecords } = await import(recordsPath);
+    return { rejected, before, after, noJournal, count: retried.log.operations.length, expectedCount: businessRecords(before.data).size };
   }, installation);
   expect(result.rejected).toBe(true); expect(result.after).toEqual(result.before);
-  expect(result.noJournal).toBe(true); expect(result.count).toBe(1);
+  expect(result.noJournal).toBe(true); expect(result.count).toBe(result.expectedCount);
 });
 test("GM-011B real photo blobs and full ZIP remain separate from journal identity, restore requires review", async ({ page }) => {
   await open(page);

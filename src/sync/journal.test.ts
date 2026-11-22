@@ -65,8 +65,9 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     expect(await raw(f.factory, JOURNAL_STORE, DATABASE_SOURCE)).toEqual(before);
     expect(await raw(f.factory, JOURNAL_STORE, JOURNAL_SOURCE)).toEqual(before);
     expect(journal.log.installation).toBe(INSTALLATION);
-    expect(journal.appliedLocal).toEqual([dotId(journal.log.operations[0])]);
-    expect(journal.log.operations).toHaveLength(1);
+    expect(journal.appliedLocal).toEqual(journal.log.operations.map(dotId));
+    expect(journal.log.operations).toHaveLength(businessRecords(before.data).size);
+    expect(journal.log.operations.every(o => o.changes.length === 1)).toBe(true);
     expect(JSON.parse(f.storage.getItem(STORAGE_KEY)!).version).toBe(12);
     const again = await f.repo.enableSyncJournal();
     expect(again.log.installation).toBe(INSTALLATION);
@@ -84,7 +85,7 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     expect(await f.repo.read()).toEqual(before);
     expect(await f.repo.readSyncJournal()).toBeNull();
     const j = await f.repo.enableSyncJournal(INSTALLATION);
-    expect(j.log.operations).toHaveLength(1);
+    expect(j.log.operations).toHaveLength(businessRecords(before.data).size);
     expect((await f.repo.read()).data).toEqual(before.data);
   });
   it("rejects a GM-011A v1 writer after activation", async () => {
@@ -97,14 +98,14 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
   });
   it("serializes two installations of the repository in one profile with one source counter", async () => {
     const f = await setup(), other = new AtomicRepository(f.storage, f.factory);
-    await other.initialize(); await f.repo.enableSyncJournal(INSTALLATION);
+    await other.initialize(); const baseline = await f.repo.enableSyncJournal(INSTALLATION);
     await Promise.all([
       f.repo.command(s => s.saveClient({ id: "new-a", name: "Synthetic A", phone: "", email: "", notes: "" })),
       other.command(s => s.saveClient({ id: "new-b", name: "Synthetic B", phone: "", email: "", notes: "" })),
     ]);
     const j = (await other.readSyncJournal())!;
-    expect(j.log.operations.map(o => o.sequence)).toEqual([1, 2, 3]);
-    expect(new Set(j.log.operations.map(o => o.id)).size).toBe(3);
+    expect(j.log.operations.map(o => o.sequence)).toEqual(Array.from({ length: baseline.log.operations.length + 2 }, (_, i) => i + 1));
+    expect(new Set(j.log.operations.map(o => o.id)).size).toBe(baseline.log.operations.length + 2);
     expect((await f.repo.read()).data.clients.filter(c => c.id.startsWith("new-"))).toHaveLength(2);
     expect(j.lastRevision).toBe((await f.repo.read()).revision);
     await other.close();
@@ -116,7 +117,7 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     const next = new AtomicRepository(f.storage, f.factory); await next.initialize();
     expect(await next.readSyncJournal()).toEqual(before);
     await next.command(s => s.setRate(140));
-    expect((await next.readSyncJournal())!.log.nextSequence).toBe(4);
+    expect((await next.readSyncJournal())!.log.nextSequence).toBe(before!.log.nextSequence + 1);
     expect((await next.read()).data.settings.hourlyRate).toBe(140);
     await next.close();
   });
@@ -136,13 +137,13 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     expect(await f.repo.readSyncJournal()).toEqual(journal);
     expect(f.storage.getItem(STORAGE_KEY)).toBe(mirror);
     await f.repo.command(s => s.setRate(150));
-    expect((await f.repo.readSyncJournal())!.log.operations.at(-1)!.sequence).toBe(2);
+    expect((await f.repo.readSyncJournal())!.log.operations.at(-1)!.sequence).toBe(journal!.log.nextSequence);
   });
   it("does not undo an authoritative commit when only the compatibility mirror is full", async () => {
     const f = await setup(); await f.repo.enableSyncJournal(INSTALLATION); f.storage.fail = true;
     await f.repo.command(s => s.setRate(155));
     expect((await f.repo.read()).data.settings.hourlyRate).toBe(155);
-    expect((await f.repo.readSyncJournal())!.log.operations).toHaveLength(2);
+    expect((await f.repo.readSyncJournal())!.log.operations).toHaveLength(businessRecords(f.data).size + 1);
     expect(f.repo.warning).toContain("Dane zapisano w IndexedDB");
   });
   it("preserves local photos and strips local photo references from journal records", async () => {
@@ -220,8 +221,8 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     await f.repo.command(s => s.restoreSnapshot(f.data, JSON.stringify(beforeRestore)));
     const j = (await f.repo.readSyncJournal())!;
     expect(j.mode).toBe("restore-review"); expect(j.restoreCount).toBe(1);
-    expect(j.log.operations).toHaveLength(3);
-    expect(j.log.nextSequence).toBe(4);
+    expect(j.log.operations).toHaveLength(businessRecords(f.data).size + 2);
+    expect(j.log.nextSequence).toBe(businessRecords(f.data).size + 3);
     expect(recordView(j.log, "clients/client-1").value).toEqual(f.data.clients[0]);
     await f.repo.command(s => s.setRate(160));
     expect((await f.repo.readSyncJournal())!.mode).toBe("restore-review");

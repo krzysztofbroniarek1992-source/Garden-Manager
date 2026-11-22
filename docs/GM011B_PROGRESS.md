@@ -115,3 +115,13 @@ Ujednolicono kwalifikację raportów zawierających lokalne referencje zdjęć: 
 ### Regresja instalatora Windows — oczekiwanie na zakończenie zdjęcia
 
 Na bab9eac szybkie kontrole przeszły (52/52 nowych, 735/735 pełnych jednostkowych, 6/6 nowych E2E, PWA 20/20, Android web 1/1, TypeScript i build). Windows zaliczył 14/14 rzeczywistych testów Electron oraz budowę instalatora, lecz scenariusz NSIS zatrzymał się przy tworzeniu danych w **starej wersji A**, przed aktualizacją do nowego kodu. Po dodaniu zdjęcia helper widział już miniaturę i natychmiast zmieniał hash na zakupy, nie czekając na koniec PhotoService/formularza. Istniejąca blokada pendingWrite mogła prawidłowo odmówić takiej nawigacji; test potem nie znajdował formularza zakupów. Dodano jawne oczekiwanie na zniknięcie photo-upload oraz aria-busy=false. Nie wyłączono ochrony niezapisanych zmian, nie zmieniono kodu fotografii ani asercji zachowania danych. Nie uznajemy pierwszego przebiegu NSIS za zaliczony; wymaga ponownej kontroli na poprawionym helperze.
+
+## Punkt 4 — trwały odbiór i kontrolowane stosowanie (w realizacji)
+
+Zakres tego punktu: klienci, ogrody/strefy, katalog oraz niezależne notatki/sprawy. Finanse, wizyty/czas, raporty, CSV, zakupy, planowanie i zdjęcia pozostają zablokowane jako całe jednostki. Nie dodajemy natywnego polecenia modyfikacji bazy ani pełnego UI.
+
+Przegląd ujawnił problem bootstrapu: jedna operacja całego snapshotu wiązałaby klientów z nieobsługiwanymi finansami. Nowa jawna aktywacja zapisuje osobne operacje rekordów w tej samej transakcji aktywacji. Nie zmienia ani nie dzieli już istniejących operacji. Dawne wielotypowe operacje pozostają atomowe i mogą wymagać późniejszego onboardingu. Checkpointy oraz v12 / IDB v2 zostają zachowane.
+
+Silnik zachowuje częściową wartość niekonfliktujących pól klienta do świadomej decyzji. Jawne rozstrzygnięcie może zawierać powiązaną, niekonfliktującą zmianę (np. tombstone notatki); każdy taki poprzednik nadal musi się dokładnie zgadzać i operacja musi rzeczywiście rozstrzygać co najmniej jeden konflikt. Dodano regresję. Nie jest to zgoda na automatyczne scalanie finansów.
+
+Dodawany adapter podstawowy ma ścisłą białą listę, pełną walidację Data oraz próby istniejących reguł domenowych na odłączonej kopii. Nie zapisuje efektów pobocznych tych prób, lokalnych zdjęć ani stopera. Trwały odbiór/planowanie i testy trzech magazynów są następnymi podpunktami; nie deklarujemy ich ukończenia na tym commicie.

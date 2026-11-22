@@ -294,3 +294,21 @@ describe("GM-011B causal operations (no business application receipt)", () => {
     }
   });
 });
+
+describe("compound explicit resolutions", () => {
+  it("preserves uncontested fields and checks dependent clean mutations", () => {
+    let [a,b] = shared();
+    a = write(a, key, base, { ...base, phone: "111", notes: "Preserve" });
+    b = write(b, key, base, { ...base, phone: "222" });
+    [a,b] = exchange(a,b);
+    expect(recordView(a,key).value).toEqual({ id: base.id, name: base.name, notes: "Preserve" });
+    const changes = [
+      { key, before: null, after: { ...base, phone: "111", notes: "Preserve" } },
+      { key: "deskTombstones/note%2Fsynthetic", before: null, after: null },
+    ];
+    const decided = appendLocal(a, changes, { resolution: true }).log;
+    expect(recordView(receive(b,missingOperations(decided,b.known)),key).value).toEqual(changes[0].after);
+    errorCode(() => appendLocal(a, [{ ...changes[1], before: { forged: true } }, changes[0]], { resolution:true }), "PRECONDITION");
+    errorCode(() => appendLocal(a, [changes[1]], { resolution:true }), "PRECONDITION");
+  });
+});

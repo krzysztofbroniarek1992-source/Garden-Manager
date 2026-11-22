@@ -44,14 +44,22 @@ export function validateJournal(value: unknown): asserts value is JournalState {
       (known[op.origin] ?? 0) >= op.sequence) throw invalid();
     dots.add(dotId(op)); ids.add(op.id);
   }
-  if (j.appliedLocal.some(id => !l.operations.some(o => dotId(o) === id && o.origin === l.installation)) ||
+  if (j.appliedLocal.some(id => predecessors.get(id)?.origin !== l.installation) ||
+    l.operations.some(o => o.origin === l.installation && !j.appliedLocal.includes(dotId(o))) ||
     new TextEncoder().encode(canonical(j)).byteLength > syncLimits.historyBytes) throw invalid();
 }
 export function activateJournal(data: Data, revision: number, installation: string): JournalState {
   const changes = recordChanges(new Map(), businessRecords(data));
-  const first = appendLocal(newLog(installation), changes);
-  return { version: 1, log: first.log, lastRevision: revision, mode: "active",
-    appliedLocal: first.operation ? [dotId(first.operation)] : [], restoreCount: 0 };
+  // Activation is one IDB transaction, not a business command. Seed independent
+  // records separately so an unsupported financial unit cannot hold clients
+  // hostage. Existing operation identities and old journals are never rewritten.
+  let log = newLog(installation);
+  const appliedLocal: string[] = [];
+  for (const change of changes) {
+    const next = appendLocal(log, [change]); log = next.log;
+    appliedLocal.push(dotId(next.operation!));
+  }
+  return { version: 1, log, lastRevision: revision, mode: "active", appliedLocal, restoreCount: 0 };
 }
 export function captureJournal(journal: JournalState, before: Data, after: Data, beforeRevision: number, afterRevision: number, restored: boolean) {
   validateJournal(journal);
