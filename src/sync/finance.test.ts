@@ -233,8 +233,11 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
       expect((await b.repo.read()).data.jobs).toEqual(b.initial.jobs);
       expect((await b.repo.read()).data.payments).toEqual([]);
     }
-    const a=await replica(0),active=await replica(1,d=>{d.timer={jobId:"job-5",startedAt:1000,paused:false};});
-    await exchange(a,active);await pay(a,"active-received");await send(a,active);
+    const a=await replica(0),active=await replica(1,d=>{
+      const j=d.jobs.find(j=>j.id==="job-5")!;j.status="in-progress";j.settlement=null;
+      d.timer={jobId:"job-5",startedAt:1000,paused:false};
+    });
+    await pay(a,"active-received");await send(a,active);
     expect((await active.repo.read()).data.timer).toEqual(active.initial.timer);
     expect((await active.repo.read()).data.payments).toEqual([]);
     expect((await active.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="blocked"&&r.reason.includes("Aktywny stoper"))).toBe(true);
