@@ -263,7 +263,7 @@ export class AtomicRepository {
   }
   /** Explicit onboarding capability. It does not pair devices or transfer data.
    * DB v2 protects the journal from GM-011A writers that explicitly open v1. */
-  async enableSyncJournal(installation = crypto.randomUUID()): Promise<JournalState> {
+  async enableSyncJournal(installation: string = crypto.randomUUID()): Promise<JournalState> {
     return pendingWrite(async () => {
       await this.initialize();
       const old = await this.open();
