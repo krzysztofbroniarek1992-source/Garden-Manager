@@ -85,3 +85,14 @@ Dodano sześć E2E dla rzeczywistego IndexedDB w Chromium: aktywacja i źródła
 Pierwsze testy dziennika przeszły jednostkowo; Chromium zaliczył 5/6 nowych scenariuszy. Fixture zdjęcia tworzył plik poza blokadą garden-manager-photos, więc istniejące porządkowanie plików osieroconych mogło usunąć go przed zapisem metadanych. Test korzysta teraz z rzeczywistego PhotoService.add i BrowserPhotoProcessor; nie zmieniono modułu fotografii ani nie usunięto asercji eksportu/odczytu ZIP. Wynik ponowienia będzie zapisany po CI.
 
 Dodano także test nieudanego otwarcia DB v2: źródło v12 pozostaje czytelne, a aktywację można ponowić po ustąpieniu błędu. Odrzucona obietnica połączenia nie może trwale blokować tego ponowienia.
+
+
+## Punkt 3 — kodek pakietów, bez podłączenia do LAN
+
+Na head 6dc9878 CI zaliczyło **37/37 nowych jednostkowych, 720/720 pełnych jednostkowych i 6/6 nowych E2E rzeczywistego IndexedDB**. Fixture zdjęcia korzystający z istniejącego PhotoService.add zaliczył JPEG/ZIP i izolację dziennika. TypeScript i git diff --check są zielone na tym punkcie.
+
+Dodano kodek businessProtocol=1 / dataVersion=12: części 64 KiB, limit pakietu 10 MiB, oryginalne operacje, SHA256 WebCrypto, kontrola ofert, kolejności/powtórzeń, niekompletnego i uszkodzonego transferu. Zablokowano przygotowanie transferu dla restore-review bez domyślnego pomijania tego warunku. Dodano 10 testów kodeka; ich wynik wymaga CI bieżącego commitu.
+
+Kodek nie jest podłączony do istniejących natywnych kanałów i nie zapisuje bazy odbiorcy. Nie jest to test natywnej wymiany rekordów ani dowód końcowej synchronizacji trzech replik. docs/GM011B_ARCHITECTURE.md opisuje dokładne granice oraz blokady przed wdrożeniem zatwierdzania biznesowego.
+
+**Nie ukończono GM-011B.** Pozostają: przyjmowanie i atomowe stosowanie operacji odebranych, trwałe rozstrzygnięcia i potwierdzenia, onboarding i kreator restore, zależności i polityki finansów/CSV/czasu/raportów, retencja, natywny transport, interfejs, rzeczywisty test trzech replik i pakiety 0.7.0. PR pozostaje Draft; dotychczasowy ekran Synchronizacja nadal jest testem GM-011A.
