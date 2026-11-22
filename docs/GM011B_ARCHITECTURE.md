@@ -37,9 +37,9 @@ Wektory i pochodzenie są mechanizmem przyczynowości; nie są podpisem kryptogr
 
 | Dane | Reprezentacja dziennika | Granica wymagająca dalszej implementacji |
 | --- | --- | --- |
-| Klient | Rekord z rejestrami pól | UI decyzji, onboarding niezależnych baz i trwałe zastosowanie |
-| Ogród i strefy | Jeden rekord ogrodu, zachowane ID stref | Powiązania, odbiór/usuwanie z ochroną lokalnych zdjęć |
-| Katalog materiałów | Rekord materiału | Walidacja odbioru i zależności |
+| Klient | Rekord z rejestrami pól | Pełne GUI i onboarding niezależnych baz; API zastosowania i decyzji jest w punkcie 4 |
+| Ogród i strefy | Jeden rekord ogrodu, zachowane ID stref | Punkt 4 sprawdza rodzica i blokuje zmiany naruszające lokalne zdjęcia/historię; pełne GUI pozostaje |
+| Katalog materiałów | Rekord materiału | Podstawowe zastosowanie i walidacja w punkcie 4; usunięcie użytego materiału blokowane |
 | Zlecenie, materiały, czynności, status, rozliczenie, czas i płatności | Jednostka visits: pełna wizyta i przypisane płatności | Zatwierdzone finanse, aktywny Timer, konflikty i historia korekt |
 | Raport bez zdjęć | Niezmienny snapshot jako osobna jednostka oraz tożsamość dokumentu w visits | Polityka numeracji wielourządzeniowej i konflikty wydanych numerów |
 | Raport ze zdjęciami/logo | Tylko tożsamość/rezerwacja numeru w visits; pełny raport lokalny | Bez synchronizacji metadanych obrazów; nie deklarować pełnej dostępności takiego dokumentu na odbiorcy |
@@ -73,7 +73,7 @@ restoreSnapshot nie cofa lokalnej tożsamości, licznika ani dziennika; pozostaw
 Limity: do 8 MiB operacji, 64 MiB dziennika, 20000 operacji, 2000 oczekujących luk, 64 źródła, maksymalna głębokość JSON 48. Przekroczenie wycofuje komendę; nie kasuje historii. Obecny backend zapisuje walidowany dokument dziennika; nie ma jeszcze bezpiecznej kompakcji ani optymalizacji długiej historii. Zwykłe operacje po aktywacji mogą zostać zablokowane po dojściu do limitu zamiast zostać zapisane bez dziennika. To jawne ograniczenie wymagające dopracowania przed odbiorem.
 
 Zanim będzie możliwe zatwierdzanie zmian odbieranych:
-- Trzeba odróżnić trwały inbox, konflikt, blokadę zależności i potwierdzenie zastosowania.
+- Punkt 4 odróżnia inbox, konflikt, blokadę zależności i applied dla podstawowych typów; pozostałe typy nadal blokuje.
 - Trzeba zachować granice finansowe i oryginalne ID płatności/CSV oraz wykryć kolizje niezależnych wyciągów.
 - Trzeba chronić historię czasu i korekt również po wyborze wariantu oraz w nowej pełnej kopii.
 - Trzeba zablokować właściwą część planu przy aktywnym stoperze bez jego zatrzymywania.
@@ -83,7 +83,7 @@ Zanim będzie możliwe zatwierdzanie zmian odbieranych:
 
 ## 6. Kryteria dalszego odbioru
 
-Wymagane są rzeczywiste dwie/trzy bazy i natywny transport, pełny scenariusz A ↔ B ↔ C bez połączenia A–C, trwałe konflikty i potwierdzenia, GUI analizy/zatwierdzenia, bezpieczne przywrócenie oraz pełna regresja i pakiety 0.7.0-test.1. Fizyczny odbiór pozostaje po stronie użytkownika. Szczegóły wyników i następnych zadań: GM011B_PROGRESS.md.
+Punkt 4 testuje trzy rzeczywiste bazy dla podstawowych typów. Nadal wymagany jest natywny transport, pełny scenariusz A ↔ B ↔ C bez połączenia A–C, trwałe konflikty i potwierdzenia, GUI analizy/zatwierdzenia, bezpieczne przywrócenie oraz pełna regresja i pakiety 0.7.0-test.1. Fizyczny odbiór pozostaje po stronie użytkownika. Szczegóły wyników i następnych zadań: GM011B_PROGRESS.md.
 
 Nie scalać PR automatycznie. Nie implementować GM-011C, synchronizacji w tle ani internetowej.
 

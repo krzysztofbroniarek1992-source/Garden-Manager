@@ -275,6 +275,43 @@ describe("GM-011B controlled durable receiver, three independent IDB stores",()=
       expect(d.deskTombstones.some(t=>t.kind==="note"&&t.id===note.id)).toBe(false);
     }
   });
+  it("does not attach a garden to an unrelated local client whose ID is in conflict",async()=>{
+    const a=await replica(0),b=await replica(1);
+    await client(a,"owner",{name:"First owner"});await client(b,"owner",{name:"Different owner"});
+    await a.repo.command(s=>s.saveGarden({id:"owned-garden",clientId:"owner",name:"Synthetic garden",address:"",area:0,notes:"",zones:[]},null));
+    await send(a,b);
+    expect((await row(b,"owner"))!.name).toBe("Different owner");
+    expect((await b.repo.read()).data.gardens.some(g=>g.id==="owned-garden")).toBe(false);
+    expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="waiting-records"&&r.operation.changes.some(x=>x.key==="gardens/owned-garden"))).toBe(true);
+  });
+  it("never enables the decision API for financial conflicts",async()=>{
+    const a=await replica(0),b=await replica(1,data=>{
+      data.jobs[0].status="in-progress";data.timer={jobId:data.jobs[0].id,startedAt:1000,paused:false};
+    });
+    await send(a,b);
+    const receiver=(await b.repo.readSyncReceiver())!, conflict=receiver.conflicts.find(c=>c.key==="visits/job-1"&&c.status==="open")!;
+    expect(conflict).toBeDefined();
+    const state=await b.repo.read(), journal=await b.repo.readSyncJournal();
+    await expect(b.repo.resolveSyncConflict({conflictId:conflict.id,token:conflict.token,choice:{kind:"local"}})).rejects.toThrow("Nieobsługiwana");
+    expect(await b.repo.read()).toEqual(state);expect(await b.repo.readSyncJournal()).toEqual(journal);
+    expect(await b.repo.readSyncReceiver()).toEqual(receiver);
+  });
+  it("rejects damaged conflict alternatives instead of accepting them as a remote decision",async()=>{
+    const a=await replica(0),b=await replica(1);
+    await client(a,"damaged");await exchange(a,b);
+    await client(a,"damaged",{phone:"111"});await client(b,"damaged",{phone:"222"});await send(a,b);
+    const metadata=(await b.repo.readSyncReceiver())!, conflict=metadata.conflicts.find(c=>c.key==="clients/damaged"&&c.status==="open")!;
+    const damaged=structuredClone(metadata), changed=damaged.conflicts.find(c=>c.id===conflict.id)!;
+    changed.remote[0].value={...changed.remote[0].value as object,phone:"forged metadata"};
+    const db=await new Promise<IDBDatabase>(ok=>{const q=b.factory.open(b.name);q.onsuccess=()=>ok(q.result);});
+    await new Promise<void>((ok,no)=>{const t=db.transaction("sync","readwrite");t.objectStore("sync").put(damaged,RECEIVER_KEY);
+      t.oncomplete=()=>{db.close();ok();};t.onabort=()=>no(t.error);});
+    const before=await b.repo.read();
+    await expect(b.repo.readSyncReceiver()).rejects.toThrow("niezmiennej historii");
+    await expect(b.repo.resolveSyncConflict({conflictId:conflict.id,token:conflict.token,
+      choice:{kind:"remote",operationId:changed.remote[0].operationId}})).rejects.toThrow();
+    expect(await b.repo.read()).toEqual(before);
+  });
   it("keeps the pre-application checkpoint and rejects malformed client contents without changing Data",async()=>{
     const a=await replica(0),b=await replica(1);const before=await b.repo.read();
     await client(a,"check");await send(a,b);

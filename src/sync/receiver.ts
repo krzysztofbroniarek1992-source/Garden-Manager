@@ -31,7 +31,8 @@ export function validateReceiver(r: ReceiverState, j: JournalState) {
   if (!r || r.version !== 1 || !Number.isSafeInteger(r.revision) || r.revision < 0 ||
     !Array.isArray(r.receipts) || !Array.isArray(r.conflicts) || !Array.isArray(r.rejections) ||
     !Array.isArray(r.commits) || r.receipts.length > syncLimits.operations || r.rejections.length > 128 ||
-    r.commits.length > syncLimits.operations) throw new SyncError("INVALID", "Nieprawidłowy rejestr odbioru.");
+    r.commits.length > syncLimits.operations ||
+    r.receipts.filter(v=>v.stage==="received" || v.stage==="waiting-dependencies").length > syncLimits.waiting) throw new SyncError("INVALID", "Nieprawidłowy rejestr odbioru.");
   const known = opMap(j), byDot = new Map<string, Receipt>(), ids = new Set<string>();
   for (const row of r.receipts) {
     validateOperation(row.operation);
@@ -58,6 +59,16 @@ export function validateReceiver(r: ReceiverState, j: JournalState) {
       typeof v.baseAvailable !== "boolean" || !["open","resolved","superseded"].includes(v.status) ||
       !(v.resolvedBy === null || j.log.operations.some(o => o.id === v.resolvedBy && o.resolution)))
       throw new SyncError("INVALID", "Nieprawidłowy rejestr konfliktów.");
+    const heads=v.operations.map(id=>j.log.operations.find(o=>o.id===id));
+    if(!heads.length || heads.some(o=>!o || !o.changes.some(x=>x.key===v.key)) ||
+      canonical(heads.map(o=>({origin:o!.origin,sequence:o!.sequence})))!==v.token ||
+      v.remote.length!==heads.length || new Set(v.remote.map(x=>x.operationId)).size!==heads.length ||
+      v.remote.some(remote=>{
+        const source=heads.find(o=>o?.id===remote.operationId)?.changes.find(x=>x.key===v.key);
+        return !source || !same(source.after,remote.value);
+      }) || v.status==="resolved" && !j.log.operations.some(o=>o.id===v.resolvedBy && o.resolution &&
+        o.changes.some(x=>x.key===v.key) && heads.every(h=>covers(o.context,h!))))
+      throw new SyncError("INVALID","Konflikt nie odpowiada niezmiennej historii operacji.");
     conflicts.add(v.id);
   }
   if (r.plan && (typeof r.plan.id !== "string" || !Number.isSafeInteger(r.plan.stateRevision) ||
@@ -187,7 +198,7 @@ function pendingAncestors(c: ReceiverContext, o: Operation, ids: Set<string>) {
   return c.journal.log.operations.filter(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>keys.has(x.key)));
 }
 function checkParents(c:ReceiverContext,o:Operation,ids:Set<string>) {
-for (const change of o.changes) {
+  for (const change of o.changes) {
     const {kind}=keyParts(change.key);
     if(kind!=="gardens" || change.after===null) continue;
     const garden=change.after as {[key:string]:Json}, parent="clients/"+encodeURIComponent(garden.clientId as string);
@@ -196,7 +207,7 @@ for (const change of o.changes) {
     if(!inOperation && (source.status!=="value" || present.status!=="value" ||
       c.journal.log.operations.some(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>x.key===parent))))
       throw new ApplyBlocked("dependency","Rodzic ogrodu jest brakujący, usunięty, niezastosowany lub w konflikcie.");
-}
+  }
 }
 function resolutionAncestors(c: ReceiverContext, o: Operation, ids: Set<string>) {
   const ancestors=pendingAncestors(c,o,ids), keys=new Set(o.changes.map(x=>x.key));
@@ -331,7 +342,9 @@ export function decideConflict(c: ReceiverContext, decision:ConflictDecision) {
     } else {
       const remote=conflict.remote.find(v=>v.operationId===choice.operationId);
       if(!remote) fail("Wybrany wariant nie należy do aktualnego konfliktu.");
-      value=structuredClone(remote.value);
+      const source=c.journal.log.operations.find(o=>o.id===remote.operationId)?.changes.find(x=>x.key===conflict.key);
+      if(!source || !same(source.after,remote.value)) throw new SyncError("INVALID","Wariant nie odpowiada oryginalnej operacji.");
+      value=structuredClone(source.after);
     }
     if(view.reason==="fields" && value && typeof value==="object" && !Array.isArray(value)) {
       const merged={...(view.value as {[key:string]:Json})};

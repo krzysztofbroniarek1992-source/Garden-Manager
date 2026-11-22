@@ -24,6 +24,7 @@ export function validateJournal(value: unknown): asserts value is JournalState {
     !["active", "restore-review"].includes(j.mode) || !Number.isSafeInteger(j.restoreCount) || j.restoreCount < 0 ||
     !Array.isArray(j.appliedLocal) || new Set(j.appliedLocal).size !== j.appliedLocal.length ||
     !l || l.protocol !== 1 || !Array.isArray(l.operations) || !Array.isArray(l.waiting)) throw invalid();
+  const localApplied = new Set(j.appliedLocal);
   newLog(l.installation); validateVector(l.known);
   if (l.nextSequence !== (l.known[l.installation] ?? 0) + 1 || !Number.isSafeInteger(l.nextSequence) ||
     l.operations.length + l.waiting.length > syncLimits.operations || l.waiting.length > syncLimits.waiting) throw invalid();
@@ -45,7 +46,7 @@ export function validateJournal(value: unknown): asserts value is JournalState {
     dots.add(dotId(op)); ids.add(op.id);
   }
   if (j.appliedLocal.some(id => predecessors.get(id)?.origin !== l.installation) ||
-    l.operations.some(o => o.origin === l.installation && !j.appliedLocal.includes(dotId(o))) ||
+    l.operations.some(o => o.origin === l.installation && !localApplied.has(dotId(o))) ||
     new TextEncoder().encode(canonical(j)).byteLength > syncLimits.historyBytes) throw invalid();
 }
 export function activateJournal(data: Data, revision: number, installation: string): JournalState {

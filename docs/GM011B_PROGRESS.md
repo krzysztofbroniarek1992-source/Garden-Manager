@@ -147,3 +147,13 @@ Na f4b0250 CI potwierdziło 69/69 jednostkowych synchronizacji, 752/752 pełnych
 Dodano osiem E2E rzeczywistych baz IndexedDB: trzy nazwane, oddzielne bazy A/B/C, wyłącznie przekazanie przez B, integralność kodeka, powtórzenia, rozłączne pola, konflikty po reload, decyzja do C, tombstones, odwrócone luki i klient/ogród/strefa, pełne zamknięcie i ponowny start procesu Chromium na tym samym profilu między odbiorem a zastosowaniem, quota/rollback, fałszywe applied i stale plany. Test lokalnego JPEG sprawdza rzeczywisty plik, zachowanie referencji notatki i aktywnego stopera oraz blokadę finansów. Nie jest to test natywnego LAN ani trzech aplikacji na fizycznych urządzeniach.
 
 Dodatkowe jednostkowe sprawdzają niepodzielność operacji klient+nieobsługiwane ustawienie i zakaz jej obejścia późniejszą edycją oraz wspólną decyzję notatka/tombstone. Kontrola rodzica ogrodu obowiązuje także API rozstrzygnięć. Wyniki tych dodatków wymagają bieżącego CI.
+
+### Punkt 4d — wynik pierwszej kontroli rzeczywistych baz
+
+Na 31c3565 przeszły nowe testy odbiorcy oraz cały szybki workflow: osiem nowych E2E Chromium i sześć wcześniejszych E2E dziennika. Szczegóły API i stanów opisano w docs/GM011B_RECEIVER.md. Dla pewnej izolacji JPEG bazę plików B nazwano osobno od domyślnej aplikacji, aby jej porządkowanie nie traktowało pliku fixture jako osieroconego. Kod produkcyjnego magazynu zdjęć nie został zmieniony.
+
+Dodano jeszcze regresje klienta-rodzica o tym samym ID w konflikcie (ogród nie może trafić do niewłaściwej osoby) oraz zakazu użycia API decyzji dla konfliktu wizyty/finansów. Końcowa pełna regresja będzie wskazana w opisie PR na ostatecznym HEAD; wyniki wcześniejszych podpunktów są historyczne.
+
+Przegląd weryfikacji konfliktu dodał sprawdzenie, że jego głowy, token i warianty rzeczywiście odpowiadają niezmiennym operacjom dziennika. API decyzji pobiera wersję z oryginalnej operacji, zamiast ufać kopii wariantu w metadanych. Test uszkodzonego receiver-v1 potwierdza odrzucenie bez zmiany Data. Nie resetujemy uszkodzonego rejestru.
+
+Doprecyzowano limit surowych luk inbox (2000) oraz walidację lokalnych wyników i wariantów konfliktów. Walidacja kompletności appliedLocal używa zbioru zamiast powtarzanych przeszukań tablicy; rygor sprawdzania pozostaje ten sam. Końcowy punkt zawiera 21 testów odbiorcy i osiem nowych E2E, do potwierdzenia na tym HEAD.

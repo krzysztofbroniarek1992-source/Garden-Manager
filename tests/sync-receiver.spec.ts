@@ -205,7 +205,7 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
         imagePath="/src/photos/images.ts", deskPath="/src/desk/model.ts";
       const {IndexedDbPhotoRepository}=await import(assetsPath),{PhotoService}=await import(servicePath),
         {BrowserPhotoProcessor}=await import(imagePath),{newNote}=await import(deskPath);
-      const assets=new IndexedDbPhotoRepository(), repo=x.rigs.B;
+      const assets=new IndexedDbPhotoRepository(undefined,"gm011b-receiver-B-photos"), repo=x.rigs.B;
       const canvas=document.createElement("canvas");canvas.width=2;canvas.height=2;canvas.getContext("2d")!.fillRect(0,0,2,2);
       const blob=await new Promise<Blob>(ok=>canvas.toBlob(v=>ok(v!),"image/jpeg"));
       const service=new PhotoService({snapshot:async()=>(await repo.read()).data,
