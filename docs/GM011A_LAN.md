@@ -110,9 +110,45 @@ APK jest wersją testową. Każdy przebieg CI bez stałego sekretu podpisująceg
 
 Dane Windows, Androida i przeglądarki są osobnymi zestawami. Pełny ZIP przenosi dane i zdjęcia przez zastąpienie zestawu, bez scalania baz i bez przenoszenia tożsamości LAN. Nie zmieniono formatu JSON/ZIP ani modelu v12.
 
+## Odbiór fizyczny — Windows ↔ Android — 22.11.2026
+
+**Źródło: wyniki rzeczywistych testów wykonanych i zgłoszonych przez użytkownika 22 listopada 2026 r.** Nie są to wyniki CI, emulatora ani testów wykonanych przez agenta. Testowano komunikację aplikacji Windows i Android na danych syntetycznych; nie synchronizowano danych firmowych.
+
+| Test | Sieć | Dane w każdym kierunku | Format | Czas | Wynik |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Domowe Wi-Fi | 1024 B | JSON | 364 ms | OK |
+| 2 | Domowe Wi-Fi | 102400 B | JSON | 421 ms | OK |
+| 3 | Domowe Wi-Fi | 1048576 B | JSON | 4664 ms | OK |
+| 4 | Domowe Wi-Fi | 1048576 B | Binary | 1219 ms | OK |
+| 5 | Domowe Wi-Fi | 10485760 B | Binary | 8857 ms | OK |
+| 6 | Domowe Wi-Fi, po restarcie aplikacji | 1024 B | Binary | 426 ms | OK |
+| 7 | Hotspot telefonu | 10485760 B | Binary | 4126 ms | OK |
+
+**Wynik: 7/7 transmisji zakończonych powodzeniem.** W każdej próbie aplikacja wyświetliła „Test komunikacji zakończony — sumy SHA256 zgodne”, a sumy danych wysłanych i odebranych były identyczne. Dla obu binarnych transferów 10 MB użytkownik zgłosił ten sam SHA256 syntetycznego zestawu:
+8c20c34cc89036501ecebf47131f542290ba98dfecf8256bd7dff5c24e27ef34.
+
+Potwierdzone zachowania:
+- Pierwsze parowanie Windows z Androidem, nawiązanie połączenia i poprawne testy dwukierunkowe.
+- Zakończenie sesji, zamknięcie obu aplikacji i ich ponowne uruchomienie; ponowne połączenie bez nowego parowania, z udanym testem binarnym 1 KB.
+- Android wykrywał komputer. Brak telefonu na liście „Wykryte urządzenia” w Windows jest zgodny z architekturą serwer Windows / klient Android i nie jest zgłoszonym błędem.
+- Połączenie komputera z hotspotem telefonu, wybór nowego interfejsu LAN na Windows i ponowne rozpoczęcie sesji. Zaufanie pozostało ważne bez ponownego parowania; test binarny 10 MB zakończył się poprawnie.
+- Użytkownik nie wykrył błędów podczas wykonanych prób.
+
+Nie podano adresów IP, zaproszeń, kluczy, identyfikatorów instalacji, list zaufania ani danych firmowych. Zgłoszenie nie wyszczególnia metody odczytu pierwszego zaproszenia; nie dopisujemy osobnego wyniku fizycznego testu aparatu QR.
+
+### Scenariusze fizyczne jeszcze niewykonane lub niepotwierdzone
+
+- Drugi komputer Windows i kolejne sesje komputer domowy → telefon → komputer w pracy.
+- Komputer podłączony przez Ethernet z telefonem w Wi-Fi.
+- Pełne fizyczne scenariusze negatywne: izolacja sieci, odrzucenie parowania, przerwanie transferu i odwołanie zaufania.
+- Praca transportu bez dostępu do internetu: **nie została jednoznacznie potwierdzona fizycznie**. Sam udany hotspot tego nie dowodzi. Wyników automatycznych offline nie przenosimy na tę kategorię.
+- Pełna pozostała macierz rozmiarów/formatów i niezależny fizyczny test ochrony niezapisanej nazwy przez Android Back nie zostały zgłoszone jako wykonane.
+
+Brak dostępu użytkownika do drugiego komputera nie jest dowodem błędu implementacji ani blokadą recenzji tego fundamentu. Dwie tożsamości komputerów i kolejne połączenia pokrywa CI; fizyczny odbiór tego wariantu pozostaje jawnym warunkiem późniejszego testu końcowego. W GM-011A chodzi o kolejne sesje i utrzymanie zaufania do dwóch komputerów, nie o przenoszenie rzeczywistych rekordów przez telefon.
+
 ## Odbiór na fizycznym Windows 10/11 i Androidzie
 
-CI nie zastępuje tego odbioru. Zapisz wersje systemów, rodzaj sieci i wynik bez ujawniania zaproszeń, kluczy, listy rzeczywistych zaufanych urządzeń lub danych klientów.
+Poniżej pozostaje pełna lista scenariuszy końcowych. Zgłoszone jako wykonane punkty pierwszego odbioru są wymienione w sekcji „Odbiór fizyczny — Windows ↔ Android — 22.11.2026”; nie uznajemy przez to całej poniższej listy za zaliczoną. Przy dalszych próbach zapisuj wersje systemów, rodzaj sieci i wynik bez ujawniania zaproszeń, kluczy, listy rzeczywistych zaufanych urządzeń lub danych klientów.
 
 1. Wykonaj pełne kopie ZIP istniejących danych przed instalacją testową. Zainstaluj/aktualizuj pakiety; sprawdź klientów, zakup, wydatek CSV, zdjęcie, raport, kalendarz i działający stoper.
 2. Bez internetu uruchom obie aplikacje. Potwierdź brak automatycznej sesji i poprawne działanie zwykłych modułów.
@@ -127,18 +163,26 @@ CI nie zastępuje tego odbioru. Zapisz wersje systemów, rodzaj sieci i wynik be
 11. Na sieci z izolacją/zablokowanym LAN potwierdź czytelny timeout i brak obchodzenia zabezpieczeń.
 12. Wyeksportuj i odtwórz syntetyczny ZIP ze zdjęciem. Tożsamość LAN bieżącej instalacji ma pozostać bez zmian; import na innym urządzeniu nie może skopiować sparowania.
 
-Rzeczywiste sieci firmowe, hotspoty i zasady zapory różnią się. Fizyczne wyniki będą osobnym protokołem odbioru, nie są domyślnie uznane za zaliczone.
+Rzeczywiste sieci firmowe, hotspoty i zasady zapory różnią się. Pierwsze wyniki fizyczne zgłoszone przez użytkownika są zapisane powyżej; pozostałe punkty nie są domyślnie uznane za zaliczone.
 
-## Wyniki automatyczne i artefakty
+## Testy automatyczne CI i artefakty
 
 Bieżące wyniki oraz linki do dokładnych przebiegów są utrzymywane w docs/GM011A_PROGRESS.md i opisie PR #28. Nie utożsamiaj testów Node loopback, rzeczywistego Electron na runnerze Windows i klienta Android w emulatorze z fizycznym połączeniem dwóch urządzeń.
 
 Testy transportu używają rzeczywistego TCP/TLS, standardowych bibliotek kryptograficznych i tożsamości tworzonych podczas przebiegu. Emulator używa prawdziwego AndroidKeyStore/JSSE oraz produkcyjnej implementacji serwera uruchomionej w Node na runnerze. Świadome automatyczne potwierdzenie jest dozwolone wyłącznie w syntetycznym fixture, a test Electron osobno sprawdza rzeczywisty mostek potwierdzenia. Testy nie mają dostępu do danych użytkownika. Klucze i zaproszenia nie są publikowane w artefaktach.
 
-Pełna regresja kodu 9b8143575086ccda2fdb0f7f12e7dd64ee6d0025 została zaliczona. Zweryfikowane EXE/APK, metadane, sumy SHA256, dokładne wyniki i wcześniejszy niestabilny punkt kontrolny Back są zapisane w [GM011A_PROGRESS.md](GM011A_PROGRESS.md). Pakiety służą fizycznemu odbiorowi; zielone CI nie zastępuje testu dwóch docelowych urządzeń.
+Pełna regresja head 7a9b63ef11947076e9b3599c428e387794e85bfe została zaliczona; późniejsza aktualizacja odbioru dotyczy wyłącznie dokumentacji. Zweryfikowane EXE/APK, metadane, sumy SHA256, dokładne wyniki i wcześniejszy niestabilny punkt kontrolny Back są zapisane w [GM011A_PROGRESS.md](GM011A_PROGRESS.md). Pakiety 0.6.0-test.1 z tego head pozostają aktualne po zmianie dokumentacji i nie wymagają ponownej instalacji. Zielone CI i pierwszy fizyczny odbiór użytkownika są osobnymi źródłami wyników; żadne z nich nie potwierdza niewykonanych scenariuszy.
 
 ### Klucz AndroidKeyStore i standardowy stos TLS
 
 Conscrypt przekazuje do klucza nieeksportowalnego skrót obliczony przez TLS i podpisuje go przez NONEwithECDSA. Dlatego klucz uprawnia do DIGEST_NONE oraz SHA256: pierwsze uprawnienie służy standardowemu stosowi TLS, drugie podpisowi parowania SHA256withECDSA. Nie wyłącza to haszowania TLS ani weryfikacji certyfikatów. Zobacz [oficjalne wymagania KeyGenParameterSpec](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setDigests(java.lang.String...)) i [implementację Conscrypt](https://github.com/google/conscrypt/blob/master/common/src/main/java/org/conscrypt/CryptoUpcalls.java).
 
 Klucze utworzone przez nieodebrane robocze APK GM-011A sprzed tej poprawki mogą nie mieć uprawnienia wymaganego przez TLS. Nie zastępujemy ich automatycznie. Taki profil testowy wymaga świadomego ponownego przygotowania po zabezpieczeniu danych pełnym ZIP-em; nowa instalacja oznacza nowe parowanie. Stabilny main v12 nie zawierał jeszcze tych kluczy. Dane firmowe nie są resetowane przez aktualizację.
+
+## Końcowy przegląd i rekomendacja — 22.11.2026
+
+Przejrzano TLS/mTLS i przypięcia, parowanie i odwołanie zaufania, DPAPI/AndroidKeyStore, uprawnienia Androida, granice IPC, cykl sesji, limity i zachowanie po zerwaniu połączenia oraz oddzielenie od danych v12 i JSON/ZIP. Nie stwierdzono błędów blokujących GM-011A ani potrzeby zmiany kodu. Szczegółowa tabela przeglądu i wyniki CI: [GM011A_PROGRESS.md](GM011A_PROGRESS.md).
+
+Wcześniejszy niestabilny test Android Back pozostaje jawny: pierwsza próba nie pokazała potwierdzenia niezapisanej nazwy; kolejne przebiegi zaliczyły niezmienioną asercję, a przyczyna nie została ustalona. Nie zgłoszono osobnego fizycznego odbioru tego scenariusza; nadal monitorować.
+
+Po zielonych wymaganych kontrolach PR może być Ready for review i jest rekomendowany do scalenia po recenzji, z zachowaniem powyższej listy późniejszych testów fizycznych. Drugi komputer pozostaje warunkiem późniejszego testu końcowego, nie automatycznym błędem fundamentu. Nie scalać automatycznie. GM-011B można rozpocząć jako osobno zatwierdzone zadanie po scaleniu; GM-011A nie synchronizuje rzeczywistych danych ani zdjęć.
