@@ -8,9 +8,10 @@ import { same } from "./causal";
 import { businessRecords, validateWireProjection } from "./records";
 import { ApplyBlocked, keyParts } from "./basic";
 import { SyncError, type Json, type Operation } from "./model";
+import { applyBank, bankEligibility, bankParents, csvExpense, validateBankValue } from "./bank";
 
 /** Deliberately bounded checkpoint. Financial records are indivisible; there
- * is no field merge, financial resolution API, CSV adoption or job replacement. */
+ * is no field merge, financial resolution API or job replacement. CSV uses a separate atomic adapter. */
 export const financeKinds = ["expenses","expenseCategories","expenseRules","expenseProfiles","expenseImports","shoppingItems","visits"] as const;
 export const isFinance = (key:string) => (financeKinds as readonly string[]).includes(keyParts(key).kind);
 type Obj = { [key:string]:Json };
@@ -35,6 +36,7 @@ export function validateFinanceValue(data:Data,key:string,value:Json) {
   if(!obj(value) || (kind==="visits" ? !obj(value.job) || value.job.id!==id : value.id!==id))
     throw new SyncError("INVALID","Identyfikator jednostki finansowej nie odpowiada kluczowi.");
   try {
+    validateBankValue(key,value);
     if(kind==="expenseCategories") {
       shape(value,[...stamps,"name","archived"]);
       const v=value as unknown as ExpenseCategory;
@@ -45,8 +47,8 @@ export function validateFinanceValue(data:Data,key:string,value:Json) {
       if(!Array.isArray(value.history)) throw Error("Brak historii wydatku.");
       for(const h of value.history) shape(h,["at","status","categoryId","amountCents","reason"]);
       if(value.origin!==null) shape(value.origin,["profileId","transactionId","statementKey","identity","match","occurrence","importId","line"]);
-      // New/changed CSV records remain unsupported. Their provenance and cyclic
-      // import relations cannot be validated as a manual expense.
+      // CSV origins are intrinsically validated by the bank adapter above;
+      // actual import/profile/row dependencies are checked on the full candidate.
       if(value.source==="manual") {
         const e=value as unknown as Expense;
         const ids=[...new Set([e.categoryId,...e.history.map(h=>h.categoryId)])];
@@ -84,14 +86,14 @@ export function financeEligibility(data:Data,o:Operation) {
     // Identical existing records may acknowledge a foreign baseline, never
     // silently change it or assert a common dataset ancestor.
     if(same(present.get(c.key)??null,c.after)) continue;
-    if(!["expenses","expenseCategories","shoppingItems","visits"].includes(kind))
-      throw new ApplyBlocked("unsupported","Nowe importy CSV, profile i reguły oczekują na uzgodnienie pochodzenia.");
     if(c.after===null) throw new ApplyBlocked("unsupported","Fizyczne usunięcie finansów jest zablokowane; zachowaj historię.");
-    if(kind==="expenses" && [c.before,c.after].some(v=>obj(v) && (v.source!=="manual" || v.origin!==null || v.direction!=="outgoing")))
-      throw new ApplyBlocked("unsupported","Transfer nowych lub zmienionych operacji CSV wymaga obsługi tożsamości bankowej.");
+    if(kind==="expenses" && !csvExpense(c.after) && [c.before,c.after].some(v=>obj(v) &&
+      (v.source!=="manual" || v.origin!==null || v.direction!=="outgoing")))
+      throw new ApplyBlocked("unsupported","Ręczne wydatki muszą zachować pochodzenie outgoing.");
     if(kind==="shoppingItems" && [c.before,c.after].some(v=>obj(v) && v.jobId!==null))
       throw new ApplyBlocked("unsupported","Zakup powiązany ze zleceniem oczekuje na adapter zleceń.");
   }
+  bankEligibility({...o,changes:o.changes.filter(c=>!same(present.get(c.key)??null,c.after))});
 }
 function version(before:Versioned|undefined,after:Versioned) {
   if(before && (after.createdAt!==before.createdAt || after.revision<=before.revision))
@@ -99,7 +101,8 @@ function version(before:Versioned|undefined,after:Versioned) {
 }
 export function applyFinance(data:Data,values:Map<string,Json>,o:Operation):Data {
   financeEligibility(data,o);
-  const next=structuredClone(data), current=businessRecords(data);
+  let next=structuredClone(data);
+  const current=businessRecords(data);
   const changes=o.changes.filter(c=>values.has(c.key) && !same(current.get(c.key)??null,values.get(c.key)));
   const put=<T extends {id:string}>(rows:T[],v:T)=>rows.some(x=>x.id===v.id)?rows.map(x=>x.id===v.id?v:x):[...rows,v];
   for(const c of changes) {
@@ -111,9 +114,10 @@ export function applyFinance(data:Data,values:Map<string,Json>,o:Operation):Data
       version(old??undefined,value); next.expenseCategories=put(next.expenseCategories,value);
     }
   }
+  next=applyBank(next,changes);
   for(const c of changes) {
     const {kind,id}=keyParts(c.key);
-    if(kind==="expenses") {
+    if(kind==="expenses" && !csvExpense(c.after)) {
       const value=c.after as unknown as Expense, old=c.before as unknown as Expense|null;
       version(old??undefined,value);
       if(old && (!same(old.origin,value.origin) || old.source!==value.source || old.direction!==value.direction ||
@@ -154,7 +158,7 @@ export function applyFinance(data:Data,values:Map<string,Json>,o:Operation):Data
   }
   try {validateData(next);} catch(e) {throw new ApplyBlocked("domain",(e as Error).message);}
   for(const k of Object.keys(data) as (keyof Data)[])
-    if(!["expenseCategories","expenses","shoppingItems","payments"].includes(k) && !same(data[k],next[k]))
+    if(!["expenseCategories","expenseProfiles","expenseRules","expenseImports","expenses","shoppingItems","payments"].includes(k) && !same(data[k],next[k]))
       throw new SyncError("INVALID","Adapter finansowy próbował zmienić chronione dane.");
   return next;
 }
@@ -165,6 +169,7 @@ export function financeParents(data:Data,o:Operation):string[] {
   const add=(kind:string,id:string)=>result.add(kind+"/"+encodeURIComponent(id));
   for(const c of o.changes.filter(x=>isFinance(x.key))) {
     if(c.after===null || same(present.get(c.key)??null,c.after)) continue;
+    for(const parent of bankParents(c))result.add(parent);
     const {kind,id}=keyParts(c.key), value=c.after as Obj;
     if(kind==="expenses") {
       add("expenseCategories",value.categoryId as string);

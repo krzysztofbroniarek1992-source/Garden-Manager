@@ -2,6 +2,8 @@ import type { Data } from "../domain";
 import { appendLocal, canonical, newLog, validateOperation, validateVector, dominates, dotId, validateCausalContext } from "./causal";
 import { SyncError, syncLimits, type ReplicaLog, type Vector } from "./model";
 import { businessRecords, recordChanges } from "./records";
+import { bootstrapGroups } from "./bootstrap";
+import { bankRisk } from "./bank-identity";
 
 export const JOURNAL_STORE = "sync";
 export const JOURNAL_DATABASE_VERSION = 2;
@@ -50,14 +52,12 @@ export function validateJournal(value: unknown): asserts value is JournalState {
     new TextEncoder().encode(canonical(j)).byteLength > syncLimits.historyBytes) throw invalid();
 }
 export function activateJournal(data: Data, revision: number, installation: string): JournalState {
-  const changes = recordChanges(new Map(), businessRecords(data));
-  // Activation is one IDB transaction, not a business command. Seed independent
-  // records separately so an unsupported financial unit cannot hold clients
-  // hostage. Existing operation identities and old journals are never rewritten.
+  // Activation remains one transaction. Only CSV cyclic units need a group;
+  // existing log operations/identities are never rewritten.
   let log = newLog(installation);
   const appliedLocal: string[] = [];
-  for (const change of changes) {
-    const next = appendLocal(log, [change]); log = next.log;
+  for (const group of bootstrapGroups(data)) {
+    const next = appendLocal(log, group); log = next.log;
     appliedLocal.push(dotId(next.operation!));
   }
   return { version: 1, log, lastRevision: revision, mode: "active", appliedLocal, restoreCount: 0 };
@@ -67,6 +67,15 @@ export function captureJournal(journal: JournalState, before: Data, after: Data,
   if (journal.lastRevision !== beforeRevision) throw new SyncError("PRECONDITION",
     "Wykryto zapis pomijający dziennik. Dane zachowano; przed synchronizacją trzeba uzgodnić historię.");
   const change = recordChanges(businessRecords(before), businessRecords(after));
+  // A profile received by sync must not enable a second local import of an
+  // unverified account namespace. This preflight is opt-in with the journal;
+  // ordinary v12 import behavior and explicit restore remain unchanged.
+  if(!restored && journal.mode==="active") {
+    const old=new Set(before.expenses.map(e=>e.id));
+    const added=after.expenses.filter(e=>e.source==="csv" && e.origin && !old.has(e.id));
+    const risk=bankRisk(before,added,after.expenseImports,false);
+    if(risk)throw new SyncError("CONFLICT",risk);
+  }
   const result = appendLocal(journal.log, change);
   const next: JournalState = {
     ...journal, log: result.log, lastRevision: afterRevision,

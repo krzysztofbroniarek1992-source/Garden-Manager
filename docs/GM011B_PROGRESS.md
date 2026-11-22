@@ -215,3 +215,18 @@ Wstrzymane: nowe/zmienione CSV i ustawienia importu, zakupy ze zleceniem, nowe/e
 5. Następnie onboarding/restore-review/retencja, natywny negocjowany LAN i trwałe potwierdzenia, GUI planu/konfliktów, pełna regresja i dopiero wtedy pakiety 0.7.0-test.1.
 
 PR pozostaje Draft, bez automatycznej aktywacji dziennika lub sieciowego API zapisu biznesowego. Nie przygotowywać fizycznego odbioru GM-011B na podstawie 5a. Nie jest to natywna synchronizacja Windows ↔ Android; nie wdrożono GM-011C.
+
+
+## Punkt 5b — CSV, pierwszy punkt implementacji (kontynuacja e5462a9)
+
+Potwierdzono aktualny HEAD e5462a9, Draft/niescalony PR #29 oraz komplet pięciu zielonych workflow tego HEAD. Punkty 4 i 5a pozostają zachowane. Nie ma lokalnego środowiska wykonawczego; walidację prowadzi GitHub Actions. Nie zmieniono modelu biznesowego v12 ani technicznego IndexedDB v2.
+
+Nowy adapter bank.ts waliduje pełne kształty profili/mapowań, reguł, historii importów i oryginalnych tożsamości CSV. Import i jego nowe wydatki muszą być tą samą operacją; pełny kandydat sprawdza cykl row.expenseId ↔ expense.origin.importId/line, profileId, statementKey i match oraz początkową i bieżącą historię decyzji. Istniejący audit importu jest niezmienny. Późniejsze kategorie/statusy wydatków dopisują historię, bez przepisywania dawnej decyzji importu. Nie uruchamiamy ponownie klasyfikacji.
+
+Ryzyko bankRisk nie jest deduplikacją po podobieństwie: ta sama identity pod innym ID, to samo źródło plik/wiersz z inną identity, nieuzgodnione różne profile oraz niejednoznaczny match bez ID bankowego skutkują trwałym blocked. Profile nie są rachunkami zweryfikowanymi przez użytkownika; różne profile z wydatkami pozostają konserwatywnie wstrzymane do przyszłego jawnego uzgodnienia, niezależnie od nazw. Sam match nigdy nie uprawnia do utożsamienia transakcji. Różne occurrences w jednym wyciągu pozostają odrębnymi rekordami. Lokalny import przy aktywnym dzienniku również sprawdza nowe wpisy względem nieuzgodnionych profili i źródeł; błąd wycofuje Data + dziennik. Zwykły import bez aktywowanego dziennika i jawny restore zachowują dotychczasowe zachowanie.
+
+Konkretna potrzeba zmiany bootstrapu: poprzedni seed rekord-po-rekordzie rozdzielał cykl import/wydatek i nie dawał się bezpiecznie zastosować. Wyłącznie NOWE aktywacje grupują import z należącymi do niego CSV expenses, po profilach/kategoriach i przed zakupami. Zależne audyty powtórnego importu są porządkowane topologicznie, bez dat. Istniejące UUID i operacje nie są przepisywane; starsze rozdzielone seedy wymagają późniejszego onboardingu. Przekroczenie limitu lub cykl między importami blokuje aktywację, zamiast kasować dane.
+
+Dodano 17 testów trwałych magazynów: relay A→B→C, replay, audit i sumy groszy, niezależne profile/wyciągi, lokalna ochrona po odbiorze, konflikty kategorii/statusów/profili/reguł, braki i kolejność, restart, quota/rollback, utrata potwierdzenia, bootstrap CSV, archiwizacja, occurrences i nieprawidłowe wejścia. Wyniki wymagają CI. Dotychczasowy test 5a blokady każdego CSV zmieniono na pozytywną asercję pełnego atomowego importu i zachowania origin; asercje ochrony finansów pozostają.
+
+Następnie: rzeczywiste E2E CSV w trzech bazach Chromium, dodatkowe próby integralności, pełna regresja i końcowa dokumentacja granicy 5b. Nie uruchomiono natywnego biznesowego LAN ani GM-011C; PR pozostaje Draft.

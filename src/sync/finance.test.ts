@@ -198,7 +198,7 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
     expect((await c.repo.read()).data.expenses.find(e=>e.id==="history")).toBeDefined();
     expect(await row(c,"mixed-money")).toBeUndefined();
   });
-  it("defers new CSV/imports and preserves original bank identity and duplicate evidence locally",async()=>{
+  it("receives an atomic CSV import and preserves original bank identity and duplicate evidence",async()=>{
     const a=await replica(0),b=await replica(1);
     const options=defaultOptions();options.mapping={...options.mapping,date:0,amount:1,counterparty:2,description:3,transactionId:4};
     await a.repo.command(s=>s.saveExpenseProfile({id:"bank-profile",name:"Synthetic bank",headers:[],options,archived:false,
@@ -210,9 +210,11 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
       filename:"synthetic.csv",rows:rows.map(r=>({...r,selected:true,status:"approved" as const})),requestKey:"b".repeat(64)}));
     const original=(await a.repo.read()).data.expenses[0].origin;
     await send(a,b);await restart(b);
-    expect((await b.repo.read()).data.expenses).toEqual([]);expect((await b.repo.read()).data.expenseImports).toEqual([]);
+    expect((await b.repo.read()).data.expenses).toEqual((await a.repo.read()).data.expenses);
+    expect((await b.repo.read()).data.expenseImports).toEqual((await a.repo.read()).data.expenseImports);
+    expect((await b.repo.read()).data.expenses[0].origin).toEqual(original);
     expect((await a.repo.read()).data.expenses[0].origin).toEqual(original);
-    expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="blocked"&&r.operation.changes.some(x=>x.key==="expenses/bank-import-2"))).toBe(true);
+    expect((await b.repo.readSyncReceiver())!.receipts.find(r=>r.operation.changes.some(x=>x.key==="expenses/bank-import-2"))?.stage).toBe("applied");
   });
   it("does not infer a shared payment ancestor from equal but unobserved independent snapshots",async()=>{
     const a=await replica(0),b=await replica(1),c=await replica(2);await exchange(a,b);
