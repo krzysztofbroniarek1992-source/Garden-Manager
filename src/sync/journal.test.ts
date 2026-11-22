@@ -10,6 +10,7 @@ import type { PhotoMetadata } from "../photos/model";
 import { canonical, dotId, recordView } from "./causal";
 import { DATABASE_SOURCE, JOURNAL_KEY, JOURNAL_SOURCE, JOURNAL_STORE, validateJournal } from "./journal";
 import { businessRecords } from "./records";
+import { buildReportSnapshot, defaultReportOptions } from "../reports/model";
 
 const INSTALLATION = "11111111-1111-4111-8111-111111111111";
 class MemoryStorage {
@@ -179,6 +180,24 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     const op = (await f.repo.readSyncJournal())!.log.operations.at(-1)!;
     expect(op.changes.map(c => c.key).sort()).toEqual(["expenses/synthetic-expense", "shoppingItems/synthetic-purchase"]);
     expect((await f.repo.read()).data.shoppingItems[0].expenseId).toBe(expense.id);
+  });
+  it("keeps photo references from hidden report options local and marks the identity as asset-dependent", () => {
+    for (const photoIds of [[], ["synthetic-local-photo"]]) {
+      const data = createDemoData(new Date("2026-11-22T12:00:00Z")), job = data.jobs[0];
+      job.status = "completed"; job.activities = ["Synthetic completed work"];
+      const options = { ...defaultReportOptions(), photoIds };
+      data.reportSequence = 1;
+      job.reports = [{ id: "synthetic-report", number: "BO/2026/000001", version: 1,
+        generatedAt: 1, rendererVersion: 1, fingerprint: "a".repeat(64), options,
+        snapshot: buildReportSnapshot(data, job.id, options) }];
+      validateData(data);
+      const before = canonical(data), records = businessRecords(data);
+      const visit = records.get("visits/" + job.id) as unknown as { reportIdentities: { requiresAssets: boolean }[] };
+      expect(visit.reportIdentities[0].requiresAssets).toBe(photoIds.length > 0);
+      expect(records.has("reports/" + encodeURIComponent(job.id + "/synthetic-report"))).toBe(photoIds.length === 0);
+      expect(canonical([...records])).not.toContain("synthetic-local-photo");
+      expect(canonical(data)).toBe(before);
+    }
   });
   it("keeps the live Timer local while preserving closed time events in the visit aggregate", async () => {
     const f = await setup(); await f.repo.enableSyncJournal(INSTALLATION);

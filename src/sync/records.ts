@@ -1,4 +1,5 @@
 import type { Data } from "../domain";
+import type { VisitReport } from "../reports/model";
 import { canonical, same } from "./causal";
 import type { Json, Mutation } from "./model";
 
@@ -6,6 +7,9 @@ import type { Json, Mutation } from "./model";
  * No photos, thumbnails, Timer, restore ID, native credentials or trust.
  * Assets-dependent issued reports stay local; their immutable identity is
  * reserved in the visit unit so number collisions cannot be silently ignored. */
+const needsLocalAssets = (r: VisitReport) =>
+  r.snapshot.photos.length > 0 || r.snapshot.logo !== null ||
+  r.options.photoIds.length > 0 || r.options.logoPhotoId !== null;
 export function businessRecords(data: Data): Map<string, Json> {
   const result = new Map<string, Json>();
   const json = (v: unknown): Json => JSON.parse(JSON.stringify(v)) as Json;
@@ -24,11 +28,11 @@ export function businessRecords(data: Data): Map<string, Json> {
       payments: data.payments.filter(p => p.jobId === item.id).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
       reportIdentities: (reports ?? []).map(r => ({
         id: r.id, number: r.number, version: r.version, generatedAt: r.generatedAt, fingerprint: r.fingerprint,
-        requiresAssets: !!r.snapshot.photos.length || r.snapshot.logo !== null,
+        requiresAssets: needsLocalAssets(r),
       })),
     });
     for (const report of reports ?? []) {
-      if (report.snapshot.photos.length || report.snapshot.logo !== null || report.options.photoIds.length || report.options.logoPhotoId !== null) continue;
+      if (needsLocalAssets(report)) continue;
       put("reports", item.id + "/" + report.id, { jobId: item.id, report });
     }
   }

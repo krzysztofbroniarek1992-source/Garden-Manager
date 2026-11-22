@@ -107,3 +107,7 @@ Końcowe wyniki automatycznych kontroli bieżącego HEAD są aktualizowane w opi
 ### Dodatkowa kontrola przyczynowości i ponownego utworzenia
 
 Przegląd dodał odrzucanie wektora, który wskazuje poprzednika, ale pomija jego zależności. Taki kontekst nie reprezentowałby poprawnego stanu repliki. Walidacja trwałego dziennika sprawdza tę samą regułę. Dodano test regresyjny oraz test ponownego utworzenia klienta po usunięciu: scalanie późniejszych niezależnych pól nie może przywrócić telefonu ze starego, usuniętego wcielenia rekordu. Utworzenie resetuje także nieobecne pola w rejestrach. Wyniki wymagają ponownego CI.
+
+### Granica raportów z lokalnymi zdjęciami
+
+Ujednolicono kwalifikację raportów zawierających lokalne referencje zdjęć: także niewidoczne, zapamiętane photoIds w opcjach wymagają pozostawienia pełnego dokumentu lokalnie. Flaga tożsamości requiresAssets używa teraz tej samej reguły co wykluczanie pełnego raportu. Test sprawdza oba warianty, brak ID zdjęcia w projekcji oraz brak zmiany historycznego raportu w Data. Nie zmieniono numeracji ani generatora PDF.
