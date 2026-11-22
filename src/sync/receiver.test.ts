@@ -312,6 +312,24 @@ describe("GM-011B controlled durable receiver, three independent IDB stores",()=
       choice:{kind:"remote",operationId:changed.remote[0].operationId}})).rejects.toThrow();
     expect(await b.repo.read()).toEqual(before);
   });
+  it("rejects local-only and unknown kinds or photo-bearing opaque payloads before journaling or forwarding",async()=>{
+    const b=await replica(1), before=await b.repo.read();
+    const payloads=[
+      {key:"photos/local",after:{id:"local",assetId:"must-not-be-relayed"}},
+      {key:"timer/local",after:{jobId:"job-1",startedAt:1,paused:false}},
+      {key:"credentials/local",after:{privateKey:"synthetic-rejected-text"}},
+      {key:"checklists/list",after:{items:[{photoId:"local",photoName:"local.jpg"}]}},
+      {key:"reports/report",after:{report:{snapshot:{photos:[{photoId:"local"}],logo:null},options:{photoIds:["local"],logoPhotoId:null}}}},
+    ];
+    for(const item of payloads) {
+      const operation={protocol:1,id:crypto.randomUUID(),origin:crypto.randomUUID(),sequence:1,context:{},resolution:false,
+        changes:[{...item,before:null}]};
+      expect((await b.repo.receiveSyncOperations([operation])).rejected).toHaveLength(1);
+      expect((await b.repo.readSyncJournal())!.log.operations.some(o=>o.id===operation.id)).toBe(false);
+      expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.operation.id===operation.id)).toBe(false);
+    }
+    expect(await b.repo.read()).toEqual(before);
+  });
   it("keeps the pre-application checkpoint and rejects malformed client contents without changing Data",async()=>{
     const a=await replica(0),b=await replica(1);const before=await b.repo.read();
     await client(a,"check");await send(a,b);

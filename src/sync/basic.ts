@@ -3,7 +3,7 @@ import { materialUnits, toCents } from "../domain";
 import { validateData } from "../data/repository";
 import { GardenStore } from "../data/store";
 import { validateDeskData, type Note, type Todo, type DeskTombstone } from "../desk/model";
-import { businessRecords, recordChanges } from "./records";
+import { businessRecords, recordChanges, validateWireProjection } from "./records";
 import { SyncError, type Json, type Mutation } from "./model";
 
 export class ApplyBlocked extends Error {
@@ -33,6 +33,7 @@ const common = ["id","title","createdAt","updatedAt","revision","priority","clie
  * business types are opaque and blocked as WHOLE operations, never cast to Data. */
 export function validateBasicValue(data: Data, key: string, value: Json) {
   const { kind, id } = keyParts(key);
+  validateWireProjection(key,value);
   if (!(basicKinds as readonly string[]).includes(kind) || value === null) return;
   if (!object(value)) throw new SyncError("INVALID", "Rekord musi być obiektem.");
   if (kind !== "deskTombstones" && value.id !== id) throw new SyncError("INVALID", "ID rekordu nie odpowiada kluczowi.");

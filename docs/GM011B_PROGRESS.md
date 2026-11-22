@@ -157,3 +157,7 @@ Dodano jeszcze regresje klienta-rodzica o tym samym ID w konflikcie (ogród nie 
 Przegląd weryfikacji konfliktu dodał sprawdzenie, że jego głowy, token i warianty rzeczywiście odpowiadają niezmiennym operacjom dziennika. API decyzji pobiera wersję z oryginalnej operacji, zamiast ufać kopii wariantu w metadanych. Test uszkodzonego receiver-v1 potwierdza odrzucenie bez zmiany Data. Nie resetujemy uszkodzonego rejestru.
 
 Doprecyzowano limit surowych luk inbox (2000) oraz walidację lokalnych wyników i wariantów konfliktów. Walidacja kompletności appliedLocal używa zbioru zamiast powtarzanych przeszukań tablicy; rygor sprawdzania pozostaje ten sam. Końcowy punkt zawiera 21 testów odbiorcy i osiem nowych E2E, do potwierdzenia na tym HEAD.
+
+### Dodatkowa granica prywatności projekcji
+
+Przegląd wykrył, że traktowanie każdego nieobsługiwanego prefiksu jako opaque/blocked pozwalałoby umieścić niedozwolone photos/timer/tożsamości w log i przekazać je dalej kodekiem. Dodano białą listę rodzajów biznesowych v12 oraz odrzucanie lokalnych referencji w notes/checklists i zależnych od plików snapshotów raportów. Takie wejścia trafiają wyłącznie do ograniczonego audytu odrzucenia, bez zachowania ich payloadu w inbox/log i bez forwarding. Legalne jednostki finansowe v12 nadal pozostają blocked, zamiast być ryzykownie zastosowane. Dodano test pięciu wariantów; nie wykorzystuje prawdziwych sekretów ani urządzeń.

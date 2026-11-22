@@ -4,7 +4,7 @@ import {
 } from "./causal";
 import { type JournalState, validateJournal } from "./journal";
 import { SyncError, syncLimits, type Json, type Operation, type ReplicaLog, type Vector } from "./model";
-import { businessRecords } from "./records";
+import { businessRecords, validateWireProjection } from "./records";
 import { ApplyBlocked, applyBasic, eligibility, keyParts, validateBasicValue } from "./basic";
 import {
   newReceiver, type ReceiverState, type Receipt,
@@ -113,7 +113,9 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
   for (const input of incoming) {
     try {
       validateOperation(input);
-      const o = input, key = dotId(o), previous = known.get(key) ?? dots.get(key)?.operation;
+      const o = input;
+      for(const change of o.changes) { validateWireProjection(change.key,change.before); validateWireProjection(change.key,change.after); }
+      const key = dotId(o), previous = known.get(key) ?? dots.get(key)?.operation;
       if (previous) {
         if (!same(previous,o)) throw new SyncError("EQUIVOCATION","Ta sama tożsamość operacji ma różną treść.");
         duplicates.push(key); continue;

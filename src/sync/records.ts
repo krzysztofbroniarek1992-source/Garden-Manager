@@ -1,7 +1,7 @@
 import type { Data } from "../domain";
 import type { VisitReport } from "../reports/model";
 import { canonical, same } from "./causal";
-import type { Json, Mutation } from "./model";
+import { SyncError, type Json, type Mutation } from "./model";
 
 /** Wire-eligible projection only. Does NOT apply received records to Data.
  * No photos, thumbnails, Timer, restore ID, native credentials or trust.
@@ -57,4 +57,36 @@ export function recordChanges(before: Map<string, Json>, after: Map<string, Json
     const a = before.get(key) ?? null, b = after.get(key) ?? null;
     return same(a, b) ? [] : [{ key, before: a, after: b }];
   });
+}
+
+/** Receiver boundary for the v12 portable projection. Unknown/local-only kinds
+ * are not opaque future business records and must never be relayed. */
+export function validateWireProjection(key:string,value:Json) {
+  const kind=key.slice(0,key.indexOf("/"));
+  const kinds=["clients","gardens","materialCatalog","visits","reports","expenses","expenseCategories",
+    "expenseRules","expenseProfiles","expenseImports","shoppingItems","workTemplates","taskSchedules","taskOccurrences",
+    "todos","notes","checklists","deskTombstones","checklistTombstones","availability","settings","counters"];
+  function reject():never {throw new SyncError("INVALID","Niedozwolony typ lub lokalne referencje w projekcji v12.");}
+  if(!kinds.includes(kind))reject();
+  if(value===null)return;
+  const obj=(v:Json|undefined):v is {[key:string]:Json}=>!!v&&typeof v==="object"&&!Array.isArray(v);
+  if(kind==="notes" && (!obj(value)||value.photoId!==null||value.photoName!==null))reject();
+  if(kind==="checklists") {
+    if(!obj(value)||!Array.isArray(value.items)||value.items.some(i=>!obj(i)||i.photoId!==null||i.photoName!==null))reject();
+  }
+  if(kind==="visits") {
+    if(!obj(value)||!obj(value.job))reject();
+    const job=value.job;
+    if(Object.keys(value).sort().join("|")!=="job|payments|reportIdentities" ||
+      ["reports","photos","timer","photoRestoreId"].some(k=>Object.hasOwn(job,k)) ||
+      !Array.isArray(value.reportIdentities)||value.reportIdentities.some(r=>!obj(r)||
+        Object.keys(r).sort().join("|")!=="fingerprint|generatedAt|id|number|requiresAssets|version"))reject();
+  }
+  if(kind==="reports") {
+    if(!obj(value)||!obj(value.report)||!obj(value.report.snapshot)||!obj(value.report.options))reject();
+    const report=(value as {[key:string]:Json}).report as {[key:string]:Json};
+    const snapshot=report.snapshot as {[key:string]:Json}, options=report.options as {[key:string]:Json};
+    if(!Array.isArray(snapshot.photos)||snapshot.photos.length||snapshot.logo!==null||
+      !Array.isArray(options.photoIds)||options.photoIds.length||options.logoPhotoId!==null)reject();
+  }
 }

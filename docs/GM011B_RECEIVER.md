@@ -34,7 +34,7 @@ Surowe luki pozostają w inbox. Walidacja opóźnionego błędnego rekordu nie w
 
 Kod przyszłego UI powinien po planowaniu wyświetlić również blocked, dependencies i conflicts. Brak bezpiecznych operacji daje plan=null. Nie wolno prezentować tego jako pełnego sukcesu. Zatwierdzenie wyniku na jednym urządzeniu nie oznacza rozproszonej transakcji ani synchronizacji komputera pozostającego offline.
 
-API nie zostało dodane do IPC, Capacitor ani GM-011A. Przyszły transport musi uwierzytelnić partnera, uzgodnić funkcjonalność biznesową/model, sprawdzić kodek pakietu i powiązać tożsamość repliki. Nie należy wystawiać tych metod jako dowolnego RPC.
+API nie zostało dodane do IPC, Capacitor ani GM-011A. Przyszły transport musi uwierzytelnić partnera, uzgodnić funkcjonalność biznesową/model, sprawdzić kodek pakietu i powiązać tożsamość repliki. Nie należy wystawiać tych metod jako dowolnego RPC. Prefiksy spoza jawnej listy jednostek v12 (w szczególności photos, timer i tożsamości/klucze) oraz payloady zawierające zabronione referencje zdjęć są odrzucane przed zapisem do dziennika/inbox, aby nie mogły być przekazywane dalej.
 
 ## Granice obsługiwanych danych
 
