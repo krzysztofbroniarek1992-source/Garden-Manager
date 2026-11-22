@@ -39,10 +39,16 @@
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/garden_file_paths"/>
         </provider>
+        <provider android:name=".GardenLanFileProvider" android:authorities="${applicationId}.lan.qr" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/lan_qr_paths"/>
+        </provider>
     </application>
     <queries><intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent><intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="application/pdf"/></intent></queries>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 </manifest>

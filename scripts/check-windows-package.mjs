@@ -8,6 +8,9 @@ const files = listPackage(archive).map((s) => s.replaceAll("\\", "/"));
 for (const file of [
   "/desktop/build/main.cjs",
   "/desktop/build/preload.cjs",
+  "/desktop/build/lan-ipc.cjs",
+  "/node_modules/@peculiar/asn1-schema/package.json",
+  "/node_modules/asn1js/package.json",
   "/dist-windows/index.html",
   "/dist-windows/fonts/DejaVuSans.ttf",
   "/desktop/assets/icon.ico",
@@ -18,7 +21,7 @@ if (files.some((f) => /\/sw\.js$|\/registerSW\.js$|\/workbox-/.test(f)))
 const pkg = JSON.parse(extractFile(archive, "package.json").toString());
 if (
   pkg.main !== "desktop/build/main.cjs" ||
-  pkg.version !== (process.env.GM_WINDOWS_VERSION || "0.5.1-test.1")
+  pkg.version !== (process.env.GM_WINDOWS_VERSION || "0.6.0-test.1")
 )
   throw Error("Wrong application metadata");
 const installer = (await readdir(output)).find((f) => f.endsWith(".exe"));

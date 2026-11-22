@@ -1,7 +1,7 @@
 module.exports={
  appId:'pl.broniarek.gardenmanager.windows',productName:'Garden Manager',
- extraMetadata:{version:process.env.GM_WINDOWS_VERSION||'0.5.1-test.1'},
- buildVersion:process.env.GM_WINDOWS_BUILD_VERSION||'0.5.1.1',
+ extraMetadata:{version:process.env.GM_WINDOWS_VERSION||'0.6.0-test.1'},
+ buildVersion:process.env.GM_WINDOWS_BUILD_VERSION||'0.6.0.1',
  directories:{output:process.env.GM_WINDOWS_OUTPUT||'release-windows'},
  files:['dist-windows/**/*','desktop/build/**/*','desktop/assets/**/*','package.json'],
  asar:true,npmRebuild:false,

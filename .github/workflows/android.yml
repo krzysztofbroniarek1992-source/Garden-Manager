@@ -67,16 +67,24 @@ jobs:
       - name: Build B, native tests and external camera fixture
         working-directory: android
         run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :camera-fixture:assembleDebug --no-daemon
+      - name: JVM test totals
+        run: |
+          python3 - <<'PY'
+          import pathlib, xml.etree.ElementTree as ET
+          for path in pathlib.Path('android/app/build/test-results').glob('**/TEST-*.xml'):
+              root = ET.parse(path).getroot()
+              print({k: root.attrib.get(k) for k in ('name', 'tests', 'failures', 'errors', 'skipped')})
+          PY
       - name: Preserve B and test runner
         run: |
           mkdir -p artifacts
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-Android-debug.apk
           cp android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk artifacts/GardenManager-test.apk
           cp android/camera-fixture/build/outputs/apk/debug/camera-fixture-debug.apk artifacts/Camera-fixture-test-only.apk
-      - name: Checkout the actual GM-010 v11 baseline for upgrade A
+      - name: Checkout the actual GM-010A v12 baseline for upgrade A
         uses: actions/checkout@v4
         with:
-          ref: 4fcb792be7881b50a35f1ba3105403764ce738a1
+          ref: 607baeabac46c593a1780591181763c303e79353
           path: baseline
       - name: Build previous source A with the same signing key
         working-directory: baseline
@@ -84,7 +92,7 @@ jobs:
           npm ci
           npm run android:sync
           cd android
-          ./gradlew :app:assembleDebug -PgmVersionCode=4 -PgmVersionName=0.4.2-test.1 --no-daemon
+          ./gradlew :app:assembleDebug -PgmVersionCode=5 -PgmVersionName=0.5.1-test.1 --no-daemon
       - name: Preserve baseline A
         run: cp baseline/android/app/build/outputs/apk/debug/app-debug.apk artifacts/GardenManager-A.apk
       - name: Verify standalone package
@@ -92,7 +100,7 @@ jobs:
           python3 scripts/check-android-package.py artifacts/GardenManager-Android-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs artifacts/GardenManager-Android-debug.apk
           python3 scripts/android-artifact-metadata.py
-          sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt
+          (cd artifacts && sha256sum GardenManager-Android-debug.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: GardenManager-Android-debug
@@ -120,6 +128,7 @@ jobs:
             adb shell am instrument -w -r -e class pl.broniarek.gardenmanager.CameraFlowSetupTest pl.broniarek.gardenmanager.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/android-camera-setup.txt
             grep -q 'OK (1 test)' artifacts/android-camera-setup.txt
             node scripts/android-camera-check.mjs
+            bash scripts/android-lan-check.sh
       - name: Collect device log
         if: always()
         run: |

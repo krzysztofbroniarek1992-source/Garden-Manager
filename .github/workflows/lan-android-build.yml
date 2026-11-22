@@ -1,0 +1,65 @@
+name: LAN Android native checkpoint
+on:
+  push:
+    branches: [codex/gm011a-secure-lan]
+    paths: ['android/**','desktop/lan-*','lan-tests/**','src/lan/**','scripts/android-lan-check.sh','.github/workflows/lan-android-build.yml']
+permissions:
+  contents: read
+concurrency:
+  group: lan-android-compile
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm run android:sync
+      - run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest --no-daemon
+        working-directory: android
+
+      - name: Enable emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android Keystore and LAN transport
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            bash scripts/android-lan-check.sh
+      - name: Safe synthetic LAN reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAN-Android-checkpoint
+          path: |
+            artifacts/android-lan-test.txt
+            artifacts/android-lan-restart-test.txt
+            artifacts/android-lan-metrics.jsonl
+          if-no-files-found: ignore

@@ -10,6 +10,7 @@ import {
   shell,
   type IpcMainInvokeEvent,
 } from "electron";
+import { LanCapability } from "./lan-ipc.cjs";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -66,6 +67,7 @@ if (!app.requestSingleInstanceLock()) {
   let win: BrowserWindow | null = null,
     approved = false,
     request: { id: string; action: "close" | "reload" } | null = null;
+  const lan = new LanCapability(profileDirectory, () => win);
   const uiFile = path.join(app.getPath("userData"), "desktop-window.json");
   let ui: { bounds?: Rect; maximized?: boolean; address?: string } = {};
   try {
@@ -165,6 +167,7 @@ if (!app.requestSingleInstanceLock()) {
       if (request?.id === id) request = null;
     }, 15000).unref();
   }
+  ipc("gm:lan", arg => lan.command(arg));
   ipc("gm:save-begin", async (arg) => {
     const o = saveOptions(arg);
     return nativeDialog(async () => {
@@ -486,6 +489,8 @@ if (!app.requestSingleInstanceLock()) {
       win.webContents.on("will-prevent-unload", (event) => {
         if (approved) event.preventDefault();
       });
+      win.webContents.on("did-start-loading", () => { void lan.stop(); });
+      win.webContents.on("render-process-gone", () => { void lan.stop(); });
       win.webContents.on("did-finish-load", () => {
         approved = false;
       });
@@ -510,6 +515,7 @@ if (!app.requestSingleInstanceLock()) {
         requestExit("close");
       });
       win.on("closed", () => {
+        void lan.stop();
         win = null;
         for (const token of writes.keys()) void abort(token);
         for (const token of reads.keys()) void release(token);

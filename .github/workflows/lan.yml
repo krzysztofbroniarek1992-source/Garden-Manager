@@ -1,0 +1,32 @@
+name: LAN transport and regression
+on:
+  push:
+    branches: [codex/gm011a-secure-lan]
+    paths-ignore: [docs/**]
+  pull_request:
+    paths: ['src/**','desktop/**','lan-tests/**','package*.json','tests/**','pwa-tests/**','.github/workflows/lan.yml']
+permissions:
+  contents: read
+concurrency:
+  group: lan-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:lan
+      - run: npx tsc -b
+      - run: npm test
+      - run: npm run test:desktop:unit
+      - run: git diff --check origin/main...HEAD
