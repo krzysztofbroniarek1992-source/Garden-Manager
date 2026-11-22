@@ -71,6 +71,21 @@ describe("atomically enabled GM-011B journal, business v12 unchanged", () => {
     expect(again.log.installation).toBe(INSTALLATION);
     expect(await raw(f.factory, JOURNAL_STORE, JOURNAL_SOURCE)).toEqual(before);
   });
+  it("keeps the v12 source readable and upgrade retryable after an IDB open failure", async () => {
+    const f = await setup(), before = await f.repo.read();
+    const open = f.factory.open.bind(f.factory);
+    const failure = vi.spyOn(f.factory, "open").mockImplementation((name, version) => {
+      if (version === 2) throw new DOMException("Synthetic upgrade denied", "SecurityError");
+      return open(name, version);
+    });
+    await expect(f.repo.enableSyncJournal(INSTALLATION)).rejects.toThrow("Synthetic upgrade denied");
+    failure.mockRestore();
+    expect(await f.repo.read()).toEqual(before);
+    expect(await f.repo.readSyncJournal()).toBeNull();
+    const j = await f.repo.enableSyncJournal(INSTALLATION);
+    expect(j.log.operations).toHaveLength(1);
+    expect((await f.repo.read()).data).toEqual(before.data);
+  });
   it("rejects a GM-011A v1 writer after activation", async () => {
     const f = await setup(); await f.repo.enableSyncJournal(INSTALLATION);
     await expect(new Promise((resolve, reject) => {

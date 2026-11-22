@@ -286,7 +286,7 @@ export class AtomicRepository {
             resolve(db);
           };
         });
-        await this.connection;
+        try { await this.connection; } catch (error) { this.connection = undefined; throw error; }
       }
       await this.transaction("readwrite", (state, _store, abort, sync) => {
         if (!sync) throw unavailable();

@@ -120,30 +120,32 @@ test("GM-011B real photo blobs and full ZIP remain separate from journal identit
   await open(page);
   const result = await page.evaluate(async id => {
     const a = "/src/data/atomic.ts", p = "/src/photos/assets.ts", b = "/src/photos/backup.ts";
+    const servicePath = "/src/photos/service.ts", imagePath = "/src/photos/images.ts";
     const { AtomicRepository } = await import(a), { IndexedDbPhotoRepository } = await import(p);
     const { makeFullBackup, readFullBackup } = await import(b);
+    const { PhotoService } = await import(servicePath), { BrowserPhotoProcessor } = await import(imagePath);
     const repo = new AtomicRepository(localStorage), state = await repo.initialize(), assets = new IndexedDbPhotoRepository();
     const canvas = document.createElement("canvas"); canvas.width = 1; canvas.height = 1;
     canvas.getContext("2d")!.fillRect(0, 0, 1, 1);
     const image = await new Promise<Blob>(ok => canvas.toBlob(v => ok(v!), "image/jpeg"));
     const hash = async (blob: Blob) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())))
       .map(n => n.toString(16).padStart(2, "0")).join("");
-    const sha = await hash(image), now = Date.now();
-    await assets.putMany([{ id: "sync-synthetic-asset", image, thumbnail: image, createdAt: now }]);
-    const photo = { id: "sync-synthetic-photo", assetId: "sync-synthetic-asset", filename: "synthetic.jpg",
+    const service = new PhotoService({
+      snapshot: async () => (await repo.read()).data,
+      appendPhotos: async (metadata: unknown[]) => { await repo.command((s: { appendPhotos(p: unknown[]): void }) => s.appendPhotos(metadata)); },
+    }, assets, new BrowserPhotoProcessor());
+    const [photo] = await service.add([{ id: "sync-synthetic-photo", blob: image, name: "synthetic.jpg" }], {
       clientId: state.data.clients[0].id, gardenId: null, zoneId: null, jobId: null,
-      clientName: state.data.clients[0].name, gardenName: null, zoneName: null, jobTitle: null,
-      category: "before", description: "Synthetic pixel", capturedDate: null, addedAt: now, updatedAt: now,
-      deletedAt: null, revision: 1, mimeType: "image/jpeg", width: 1, height: 1, thumbnailWidth: 1, thumbnailHeight: 1,
-      size: image.size, thumbnailSize: image.size, sha256: sha, thumbnailSha256: sha };
-    await repo.command((s: { appendPhotos(p: unknown[]): void }) => s.appendPhotos([photo]));
+      category: "before", description: "Synthetic pixel", capturedDate: null,
+    });
+    const sha = photo.sha256;
     const before = (await repo.read()).data;
     await repo.enableSyncJournal(id);
     const zip = await makeFullBackup(before, assets), restored = await readFullBackup(zip);
     await repo.command((s: { setRate(v: number): void }) => s.setRate(199));
     const expected = JSON.stringify((await repo.read()).data);
     await repo.command((s: { restoreSnapshot(d: unknown, expected: string): void }) => s.restoreSnapshot(restored.data, expected));
-    const after = (await repo.read()).data, journal = await repo.readSyncJournal(), asset = await assets.get("sync-synthetic-asset");
+    const after = (await repo.read()).data, journal = await repo.readSyncJournal(), asset = await assets.get(photo.assetId);
     await repo.close();
     return { photosSame: JSON.stringify(after.photos) === JSON.stringify(before.photos), imageSame: await hash(asset.image) === sha,
       restoredPhotos: restored.assets.length, businessCopyHasIdentity: JSON.stringify(restored.data).includes(id),

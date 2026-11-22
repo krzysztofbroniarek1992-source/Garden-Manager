@@ -78,3 +78,10 @@ To nadal punkt kontrolny Draft, nie wersja 0.7.0 gotowa do instalacji ani odbior
 ### Punkt 2a — rzeczywisty Chromium
 
 Dodano sześć E2E dla rzeczywistego IndexedDB w Chromium: aktywacja i źródła v12, dwie karty, wymuszony błąd quota i rollback obu zapisów, restart/blokada writera v1, nieudana aktywacja i ponowienie oraz prawdziwy syntetyczny JPEG w magazynie zdjęć z eksportem/odczytem ZIP i restore-review. To nie jest jeszcze test natywnego LAN ani przekazania danych biznesowych między replikami. Nowy workflow uruchamia je jako osobny szybki punkt kontrolny; pełne dotychczasowe workflow pozostają włączone.
+
+
+### Poprawki punktu kontrolnego
+
+Pierwsze testy dziennika przeszły jednostkowo; Chromium zaliczył 5/6 nowych scenariuszy. Fixture zdjęcia tworzył plik poza blokadą garden-manager-photos, więc istniejące porządkowanie plików osieroconych mogło usunąć go przed zapisem metadanych. Test korzysta teraz z rzeczywistego PhotoService.add i BrowserPhotoProcessor; nie zmieniono modułu fotografii ani nie usunięto asercji eksportu/odczytu ZIP. Wynik ponowienia będzie zapisany po CI.
+
+Dodano także test nieudanego otwarcia DB v2: źródło v12 pozostaje czytelne, a aktywację można ponowić po ustąpieniu błędu. Odrzucona obietnica połączenia nie może trwale blokować tego ponowienia.
