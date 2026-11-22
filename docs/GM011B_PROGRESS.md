@@ -188,3 +188,30 @@ Pierwszy przebieg 5a: TypeScript przeszedł; jednostkowe 85/87. Dwie asercje zak
 
 
 Drugi przebieg 5a: 88/89 szybkich testów; scenariusze kwot, historii, konfliktów i losowej idempotencji przeszły. Ostatnia próba stopera miała nieprawidłowy fixture: aktywny timer wskazywał zakończoną wizytę z zatwierdzonym rozliczeniem. Istniejąca walidacja słusznie odrzuciła bazę przed aktywacją. Fixture odwzorowuje teraz poprawny stan in-progress/settlement=null na odbiorcy i zakończoną wizytę na nadawcy; przychodząca płatność ma zostać blocked bez zmiany pomiaru. Kod produkcyjny i walidacja pozostają bez zmian.
+
+
+## Punkt kontrolny 5a — zapisany, wynik kodu 630ecab
+
+Potwierdzone na 630ecab9c5caea92da469132969057af2619c3dc:
+- 772/772 pełnych testów jednostkowych; 89/89 synchronizacji, w tym 13/13 nowych finansowych i 23/23 wcześniejszych odbiorcy.
+- 15/15 E2E dziennika/odbiorcy w rzeczywistym Chromium, w tym dziewięć E2E receiver.
+- TypeScript i git diff --check w workflow fundamentów zaliczone.
+- [Przebieg pull_request](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/45074561021) oraz [przebieg push](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/45074556478).
+
+Najnowszy commit dokumentacji nie zmienia kodu. Wynik pełnych Chromium/PWA, Windows, Androida i TLS dla końcowego HEAD należy odczytać w [aktualnych checks PR #29](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/pull/29/checks) i opisie PR. W chwili zapisu tego checkpointu te workflow nadal pracowały; nie utożsamiamy zakończenia szybkich testów z zakończeniem całej regresji.
+
+### Stan gotowych i wstrzymanych podmodułów
+
+Gotowe w wewnętrznym kontrolowanym API: punkt 4 i ograniczony 5a opisany w ARCHITECTURE, sekcja 8. Bezpieczne ręczne wydatki i kategorie, niezależne zakupy i link wydatku, append-only płatności niezmienionej zatwierdzonej wizyty. Cała grupa podlega walidacji i jednej transakcji. Konflikty finansowe przetrwają restart, ale ich decyzje pozostają niedostępne. Model v12, techniczna baza v2 i kopie JSON/ZIP nie zostały zmienione.
+
+Wstrzymane: nowe/zmienione CSV i ustawienia importu, zakupy ze zleceniem, nowe/edytowane zlecenia, czas/korekty/rozliczenia, zmiany płatności, raporty/numery, pozostałe planowanie/checklisty/ustawienia. Dla niektórych identycznych istniejących jednostek finansowych wolno wyłącznie potwierdzić oryginalny wpis bez zmiany Data. Nie jest to obejście onboardingu ani decyzja finansowego konfliktu.
+
+### Dokładne wznowienie — punkt 5b
+
+1. Najpierw potwierdzić HEAD i zakończenie wszystkich checks tego checkpointu; ewentualne regresje usunąć przed dalszym adapterem.
+2. Zaprojektować i przetestować tożsamość profili/rachunków CSV przy niezależnych instalacjach. Obecne origin.identity zależy od profileId; nie wolno zakładać, że dwa podobne profile to ten sam rachunek. Zachować oryginalne transactionId, statementKey, match, importId, line i occurrence.
+3. Zastosować import i nowe wydatki jako nierozdzielną walidowaną grupę (cykl import.rows.expenseId ↔ expense.origin.importId); wykryć tę samą bankową operację pod innymi lokalnymi ID bez automatycznego podwojenia kosztu i bez nadpisania historii. Przewidzieć jawne decyzje oraz audit, nie utożsamiać po opisach.
+4. Dopiero po tych testach dokończyć adaptery pełnej wizyty, historii czasu, zatwierdzonych rozliczeń i decyzji finansowych oraz bezpieczną politykę numerów raportów offline. Nie rozstrzygać ich ogólnym wyborem wariantu, który gubi drugi audyt.
+5. Następnie onboarding/restore-review/retencja, natywny negocjowany LAN i trwałe potwierdzenia, GUI planu/konfliktów, pełna regresja i dopiero wtedy pakiety 0.7.0-test.1.
+
+PR pozostaje Draft, bez automatycznej aktywacji dziennika lub sieciowego API zapisu biznesowego. Nie przygotowywać fizycznego odbioru GM-011B na podstawie 5a. Nie jest to natywna synchronizacja Windows ↔ Android; nie wdrożono GM-011C.
