@@ -139,3 +139,11 @@ Konflikty zawierają wspólną bazę wyłącznie z dowodem przyczynowym, wariant
 Dodano 16 testów integracyjnych na trzech oddzielnych instancjach fake-indexeddb, w tym forwarding, restart, jawny plan, konflikty i decyzje, tombstones, odwrócona kolejność, wadliwy opóźniony poprzednik, quota/rollback, powtórzone potwierdzenie, zakazane metadane applied oraz ochrona stopera/finansów. To jeszcze nie test trzech rzeczywistych magazynów Chromium ani natywnego LAN; taki test przeglądarkowy jest kolejnym podpunktem. Wyniki tego commitu wymagają CI.
 
 Walidacja pierwszego commitu inbox zatrzymała się na typie parametru enableSyncJournal: TypeScript wywnioskował typ szablonowy UUID z domyślnego crypto.randomUUID, a tabela syntetycznych originów miała typ string[]. Parametr otrzymuje teraz jawny typ string; nie zmienia to runtime walidacji UUID przez newLog. Nowe testy odbiorcy nie zostały jeszcze uznane za zaliczone.
+
+### Punkt 4c — rzeczywisty Chromium i dodatkowe granice
+
+Na f4b0250 CI potwierdziło 69/69 jednostkowych synchronizacji, 752/752 pełnych jednostkowych oraz 6/6 dotychczasowych E2E dziennika. Nowe 16 scenariuszy odbiorcy przeszło na trzech oddzielnych instancjach fake-indexeddb. To wynik poprzedniego punktu, nie potwierdzenie testów dodanych poniżej.
+
+Dodano osiem E2E rzeczywistych baz IndexedDB: trzy nazwane, oddzielne bazy A/B/C, wyłącznie przekazanie przez B, integralność kodeka, powtórzenia, rozłączne pola, konflikty po reload, decyzja do C, tombstones, odwrócone luki i klient/ogród/strefa, pełne zamknięcie i ponowny start procesu Chromium na tym samym profilu między odbiorem a zastosowaniem, quota/rollback, fałszywe applied i stale plany. Test lokalnego JPEG sprawdza rzeczywisty plik, zachowanie referencji notatki i aktywnego stopera oraz blokadę finansów. Nie jest to test natywnego LAN ani trzech aplikacji na fizycznych urządzeniach.
+
+Dodatkowe jednostkowe sprawdzają niepodzielność operacji klient+nieobsługiwane ustawienie i zakaz jej obejścia późniejszą edycją oraz wspólną decyzję notatka/tombstone. Kontrola rodzica ogrodu obowiązuje także API rozstrzygnięć. Wyniki tych dodatków wymagają bieżącego CI.

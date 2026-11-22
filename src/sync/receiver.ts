@@ -186,6 +186,18 @@ function pendingAncestors(c: ReceiverContext, o: Operation, ids: Set<string>) {
   const keys=new Set(o.changes.map(x=>x.key));
   return c.journal.log.operations.filter(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>keys.has(x.key)));
 }
+function checkParents(c:ReceiverContext,o:Operation,ids:Set<string>) {
+for (const change of o.changes) {
+    const {kind}=keyParts(change.key);
+    if(kind!=="gardens" || change.after===null) continue;
+    const garden=change.after as {[key:string]:Json}, parent="clients/"+encodeURIComponent(garden.clientId as string);
+    const inOperation=o.changes.find(x=>x.key===parent && x.after!==null);
+    const source=recordView(c.journal.log,parent,o.context), present=recordView(c.journal.log,parent);
+    if(!inOperation && (source.status!=="value" || present.status!=="value" ||
+      c.journal.log.operations.some(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>x.key===parent))))
+      throw new ApplyBlocked("dependency","Rodzic ogrodu jest brakujący, usunięty, niezastosowany lub w konflikcie.");
+}
+}
 function resolutionAncestors(c: ReceiverContext, o: Operation, ids: Set<string>) {
   const ancestors=pendingAncestors(c,o,ids), keys=new Set(o.changes.map(x=>x.key));
   for (const p of ancestors) {
@@ -225,16 +237,7 @@ function simulate(c: ReceiverContext) {
           p.changes.some(x=>o.changes.some(y=>y.key===x.key)))) {
           row.stage="conflict"; row.reason="Oczekuje na zastosowanie odebranego rozstrzygnięcia."; continue;
         }
-        for (const change of o.changes) {
-          const {kind}=keyParts(change.key);
-          if(kind!=="gardens" || change.after===null) continue;
-          const garden=change.after as {[key:string]:Json}, parent="clients/"+encodeURIComponent(garden.clientId as string);
-          const inOperation=o.changes.find(x=>x.key===parent && x.after!==null);
-          const source=recordView(c.journal.log,parent,o.context), present=recordView(c.journal.log,parent);
-          if(!inOperation && (source.status!=="value" || present.status!=="value" ||
-            c.journal.log.operations.some(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>x.key===parent))))
-            throw new ApplyBlocked("dependency","Rodzic ogrodu jest brakujący, usunięty, niezastosowany lub w konflikcie.");
-        }
+        checkParents(c,o,ids);
         const ancestors=pendingAncestors(c,o,ids);
         if (!o.resolution && ancestors.length) {
           row.stage="waiting-records"; row.reason="Poprzednia wersja tego rekordu nie została zastosowana."; continue;
@@ -356,6 +359,7 @@ export function decideConflict(c: ReceiverContext, decision:ConflictDecision) {
   }
   eligibility(c.data,changes);
   const appended=appendLocal(c.journal.log,changes,{resolution:true}), o=appended.operation!;
+  checkParents(c,o,applied(c));
   const ancestors=resolutionAncestors(c,o,applied(c));
   const next=applyBasic(c.data,new Map(changes.map(x=>[x.key,x.after])));
   c.journal.log=appended.log; c.journal.appliedLocal.push(dotId(o));

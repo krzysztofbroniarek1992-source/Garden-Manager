@@ -245,6 +245,36 @@ describe("GM-011B controlled durable receiver, three independent IDB stores",()=
     await expect(b.repo.planSyncOperations()).rejects.toThrow("przywróceniu");
     expect(await b.repo.readSyncReceiver()).toEqual(receiver);
   });
+  it("never splits unsupported atomic groups or smuggles their writes through a later supported edit",async()=>{
+    const a=await replica(0),b=await replica(1);
+    await a.repo.command(s=>{
+      s.saveClient({id:"mixed",name:"Synthetic mixed",phone:"",email:"",notes:""},null);
+      s.setRate(999);
+    });
+    const mixed=(await a.repo.readSyncJournal())!.log.operations.at(-1)!;
+    await client(a,"mixed",{phone:"later"});
+    await client(a,"unrelated");
+    await send(a,b);
+    expect(await row(b,"mixed")).toBeUndefined();expect(await row(b,"unrelated")).toBeDefined();
+    expect((await b.repo.read()).data.settings).toEqual(b.initial.settings);
+    expect((await b.repo.readSyncReceiver())!.receipts.find(r=>r.operation.id===mixed.id)?.stage).toBe("blocked");
+    expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="waiting-records"&&r.operation.changes.some(x=>x.key==="clients/mixed"))).toBe(true);
+  });
+  it("resolves note edit/deletion together with the native tombstone and forwards the decision",async()=>{
+    const a=await replica(0),b=await replica(1),note={...newNote(a.initial),id:"note-decision",title:"Synthetic note"};
+    await a.repo.command(s=>s.saveNote(note));await exchange(a,b);
+    const local=(await b.repo.read()).data.notes.find(n=>n.id===note.id)!;
+    await b.repo.command(s=>s.saveNote({...local,body:"Keep this edit"}));
+    await a.repo.command(s=>s.deleteDeskRecord("note",note.id,1));await send(a,b);
+    const conflict=(await b.repo.readSyncReceiver())!.conflicts.find(c=>c.key==="notes/note-decision"&&c.status==="open")!;
+    await b.repo.resolveSyncConflict({conflictId:conflict.id,token:conflict.token,choice:{kind:"local"}});
+    await send(b,a);await restart(a);
+    for(const r of [a,b]) {
+      const d=(await r.repo.read()).data;
+      expect(d.notes.find(n=>n.id===note.id)).toMatchObject({body:"Keep this edit"});
+      expect(d.deskTombstones.some(t=>t.kind==="note"&&t.id===note.id)).toBe(false);
+    }
+  });
   it("keeps the pre-application checkpoint and rejects malformed client contents without changing Data",async()=>{
     const a=await replica(0),b=await replica(1);const before=await b.repo.read();
     await client(a,"check");await send(a,b);
