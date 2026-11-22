@@ -265,3 +265,12 @@ Blokowane do świadomego uzgodnienia: różne niezweryfikowane profile z kosztam
 Dokładne następne zadanie po potwierdzeniu kompletu końcowych checks: osobny punkt ochrony pełnych wizyt/rozliczeń, historii czasu i korekt oraz polityki numeracji raportów offline. Zachować aktywny Timer lokalny i zatwierdzone kwoty; nie rozszerzać ogólnego wyboru wariantu finansowego bez audytu obu stron. Potem onboarding i jawne uzgadnianie profili/duplikatów, restore/retencja, native LAN i GUI. Nie rozpoczynać ich w ramach odbioru 5b.
 
 PR #29 pozostaje Draft. Nie scalać. Nie przygotowywać fizycznego odbioru na rzeczywistych danych; nie wdrożono natywnego biznesowego przepływu ani GM-011C.
+
+
+### Końcowa regresja 7817b01 — dwa niezwiązane z adapterem zatrzymania
+
+798/798 jednostkowych (115 synchronizacji, 26 CSV), 18/18 E2E baz, PWA 20/20, Android web 1/1, TLS 21/21, polityki 6/6 oraz rzeczywisty Electron 14/14 i NSIS 1/1+1/1 przeszły. Windows potwierdził zachowanie profilu, klienta, pliku zdjęcia, wydatku i stopera przy A→B.
+
+Android przerwał instalację kontrolnego aparatu na adb root: unable to connect for root: closed, po 20/20 JVM i sześciu zielonych instrumentacjach. To błąd połączenia z emulatorem w przygotowaniu fixture, nie niezaliczona asercja aplikacji ani historyczny Android Back. Ponowiono cały nieudany job 45080706393 na tym samym HEAD, bez pomijania testów.
+
+Pełny Chromium miał 383/384: tests/reports.spec.ts:751 próbował zamknąć Podsumowanie wizyty natychmiast po kliknięciu zapisu. Modal/requestLeave prawidłowo odmawia zamknięcia podczas pendingWrite; helper nie sprawdzał zamknięcia i następny klik w kartę pod spodem był zasłaniany. Dodano oczekiwanie na komunikat zapisanego podsumowania, settled przed zamknięciem oraz asercję hidden dokładnie tego okna. Nie użyto force click, nie usunięto asercji ZIP/PDF i nie zmieniono kodu nawigacji, raportów ani stopera. Końcowy HEAD z poprawką testu wymaga pełnej regresji.

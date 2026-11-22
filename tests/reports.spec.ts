@@ -180,9 +180,13 @@ async function pdfText(bytes: Buffer) {
   return result;
 }
 async function close(dialog: Locator) {
+  // A click can be intentionally rejected while an atomic save is pending.
+  // Wait for that save, then verify this exact modal closed before its parent.
+  await settled(dialog.page());
   await dialog
     .getByRole('button', { name: 'Zamknij okno', exact: true })
     .click();
+  await expect(dialog).toBeHidden();
 }
 async function image(page: Page, name: string) {
   const bytes = await page.evaluate(async () => {
@@ -794,6 +798,9 @@ test('pełna kopia ZIP odtwarza podsumowanie, raporty i zdjęcia oraz ponowną g
       exact: true,
     })
     .click();
+  await expect(
+    changed.getByText('Podsumowanie dla klienta zapisane.', { exact: true }),
+  ).toBeVisible();
   await close(changed);
   await close(
     page.getByRole('dialog', { name: 'Szczegóły zlecenia', exact: true }),
