@@ -111,3 +111,7 @@ Przegląd dodał odrzucanie wektora, który wskazuje poprzednika, ale pomija jeg
 ### Granica raportów z lokalnymi zdjęciami
 
 Ujednolicono kwalifikację raportów zawierających lokalne referencje zdjęć: także niewidoczne, zapamiętane photoIds w opcjach wymagają pozostawienia pełnego dokumentu lokalnie. Flaga tożsamości requiresAssets używa teraz tej samej reguły co wykluczanie pełnego raportu. Test sprawdza oba warianty, brak ID zdjęcia w projekcji oraz brak zmiany historycznego raportu w Data. Nie zmieniono numeracji ani generatora PDF.
+
+### Regresja instalatora Windows — oczekiwanie na zakończenie zdjęcia
+
+Na bab9eac szybkie kontrole przeszły (52/52 nowych, 735/735 pełnych jednostkowych, 6/6 nowych E2E, PWA 20/20, Android web 1/1, TypeScript i build). Windows zaliczył 14/14 rzeczywistych testów Electron oraz budowę instalatora, lecz scenariusz NSIS zatrzymał się przy tworzeniu danych w **starej wersji A**, przed aktualizacją do nowego kodu. Po dodaniu zdjęcia helper widział już miniaturę i natychmiast zmieniał hash na zakupy, nie czekając na koniec PhotoService/formularza. Istniejąca blokada pendingWrite mogła prawidłowo odmówić takiej nawigacji; test potem nie znajdował formularza zakupów. Dodano jawne oczekiwanie na zniknięcie photo-upload oraz aria-busy=false. Nie wyłączono ochrony niezapisanych zmian, nie zmieniono kodu fotografii ani asercji zachowania danych. Nie uznajemy pierwszego przebiegu NSIS za zaliczony; wymaga ponownej kontroli na poprawionym helperze.

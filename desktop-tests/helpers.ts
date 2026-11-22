@@ -145,6 +145,10 @@ export async function addPhoto(page: Page) {
     .getByRole("button", { name: "Zapisz zdjęcia", exact: true })
     .click();
   await expect(gallery.locator(".photo-card")).toHaveCount(1);
+  // The metadata update can render a thumbnail before PhotoService and the
+  // guarded form finish saving. Navigation correctly refuses that interval.
+  await expect(gallery.locator(".photo-upload")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveAttribute("aria-busy", "true");
 }
 export async function exportButton(page: Page, name: string) {
   await page
