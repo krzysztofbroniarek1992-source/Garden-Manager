@@ -4,7 +4,7 @@ import {
 } from "./model";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const fail = (code: ConstructorParameters<typeof SyncError>[0], text: string): never => { throw new SyncError(code, text); };
+function fail(code: ConstructorParameters<typeof SyncError>[0], text: string): never { throw new SyncError(code, text); }
 const plain = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v) &&
   [Object.prototype, null].includes(Object.getPrototypeOf(v));
