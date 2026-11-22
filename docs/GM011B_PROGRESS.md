@@ -73,3 +73,8 @@ Przy restoreSnapshot oryginalny dziennik i liczniki nie są cofane; nowe lokalne
 Dodano 14 testów jednostkowych dziennika: źródła v12, blokada starego writera, dwie karty, restart, quota/rollback, pełny mirror, zakupy+wydatki, płatności, wykluczenie zdjęć, stoper, przywrócenie i niespójny dziennik. Ich wynik pozostaje do potwierdzenia w CI. Następnie wymagane są testy rzeczywistego IndexedDB w Chromium oraz dopracowanie ograniczeń i retencji. Dziennik w obecnej implementacji zachowuje historię do jawnego limitu; nie wdrożono jeszcze bezpiecznej kompakcji.
 
 To nadal punkt kontrolny Draft, nie wersja 0.7.0 gotowa do instalacji ani odbioru.
+
+
+### Punkt 2a — rzeczywisty Chromium
+
+Dodano sześć E2E dla rzeczywistego IndexedDB w Chromium: aktywacja i źródła v12, dwie karty, wymuszony błąd quota i rollback obu zapisów, restart/blokada writera v1, nieudana aktywacja i ponowienie oraz prawdziwy syntetyczny JPEG w magazynie zdjęć z eksportem/odczytem ZIP i restore-review. To nie jest jeszcze test natywnego LAN ani przekazania danych biznesowych między replikami. Nowy workflow uruchamia je jako osobny szybki punkt kontrolny; pełne dotychczasowe workflow pozostają włączone.

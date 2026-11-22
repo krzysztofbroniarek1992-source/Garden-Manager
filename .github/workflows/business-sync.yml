@@ -26,3 +26,27 @@ jobs:
       - run: npx vitest run src/sync
       - run: npm test
       - run: git diff --check origin/main...HEAD
+
+  indexeddb-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/sync-journal.spec.ts
+      - name: Failure context
+        if: failure()
+        run: find test-results -name error-context.md -print -exec cat {} \;
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GM011B-journal-browser-reports
+          path: test-results/
+          if-no-files-found: ignore
