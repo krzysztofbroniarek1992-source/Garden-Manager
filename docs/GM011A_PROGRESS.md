@@ -1,69 +1,107 @@
-# GM-011A — bieżący stan
+# GM-011A — stan weryfikacji
 
-Baza: main 607baeabac46c593a1780591181763c303e79353, scalony PR #27, model biznesowy v12.
+Baza: main 607baeabac46c593a1780591181763c303e79353 (scalony PR #27). Gałąź: codex/gm011a-secure-lan; jedyny PR: [#28](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/pull/28). Wersja testowa: **0.6.0-test.1**. Model biznesowy pozostaje **v12**.
 
-Użytkownik zatwierdził publikację kodu i PR w tym publicznym repozytorium. Klucze i dane rzeczywistych urządzeń nigdy nie są częścią kodu, testów ani artefaktów. Testy używają wyłącznie tożsamości tworzonych podczas przebiegu i danych syntetycznych.
+Użytkownik zatwierdził publikację w tym publicznym repozytorium. Wszystkie testy korzystają z danych syntetycznych i tożsamości tworzonych podczas przebiegu. Prywatne klucze, zaproszenia oraz rzeczywiste dane firmowe i zaufane urządzenia nie są publikowane.
 
-## Granice
+## Stan po wznowieniu — 22 listopada 2026
 
-Tylko warstwa komunikacji LAN. Bez synchronizacji rekordów, zdjęć, scalania baz, dziennika biznesowego ani zmian w danych v12, kopiach, rozliczeniach i stoperze. Pełna zwykła praca offline pozostaje niezależna od innych urządzeń.
+Implementacja i poprawki natywne były już zapisane przed wznowieniem, na commicie **9b8143575086ccda2fdb0f7f12e7dd64ee6d0025**. Zweryfikowano zakończone przebiegi, ponowiono jeden niezaliczony kontrolny przebieg Androida i uzupełniono wyniki. Nie dodano kolejnego modułu ani synchronizacji danych biznesowych.
 
-## Projekt transportu
+| Kontrola | Rzeczywisty wynik | Przebieg GitHub Actions |
+| --- | --- | --- |
+| Aplikacja — jednostkowe | **683/683**, 26 plików | [44953965631](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965631) |
+| TCP/TLS, protokół, mDNS, magazyn | **21/21**, rzeczywiste gniazda i kryptografia | [44953965631](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965631) |
+| Polityki Electron | **6/6** | [44953965631](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965631) |
+| Pełne Chromium E2E | **366/366**, bez pomijania testów | [44953965625](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965625) |
+| PWA offline | **20/20** | [44953965625](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965625) |
+| Android web | **1/1** zbiorczy scenariusz | [44953965625](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965625) |
+| Rzeczywisty Electron / Windows | **14/14**, w tym DPAPI, mTLS, restart, ZIP ze zdjęciem, 360/390/430 px | [44953965647](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965647) |
+| Zainstalowany NSIS A → B | **2/2** fazy, rzeczywisty main v12 → GM-011A, ten sam profil | [44953965647](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965647) |
+| Android JVM | **20/20**, bez błędów i pominięć | [44953965620](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965620) |
+| Instrumentacja Androida | **9 udanych wywołań**; aktualizacja A → B, pliki, wydatki, zakupy, LAN, restart procesu | [44953965620](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965620) |
+| Aparat i galeria | **5 scenariuszy** natywnych, z syntetycznym zewnętrznym aparatem | [44953965620](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965620) |
+| Osobny kontrolny Android LAN | **2/2**: LanTest i LanRestartTest po am force-stop, ponowienie nr 2 | [44953961314](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953961314) |
+| TypeScript, build produkcyjny, Windows i Android, git diff --check | **Zaliczone** | powyższe przebiegi |
 
-- Tymczasowy serwer TLS w głównym procesie Electron, wybrany prywatny interfejs IPv4. Android inicjuje połączenie natywnie.
-- Stały UUID i certyfikat P-256 instalacji; Windows chroni magazyn DPAPI, Android używa AndroidKeyStore. Magazyn oddzielony od danych firmowych i eksportów.
-- Zaproszenie o krótkiej ważności z przypiętym publicznym certyfikatem serwera, jednorazowym losowym uprawnieniem i potwierdzeniem tożsamości na obu ekranach. Osobny kanał parowania nie udostępnia testów ani danych. Ponowne połączenie wymaga wzajemnego TLS i zapisanych przypięć.
-- Standardowe mDNS i ręczny adres IP/port. Rozgłaszany tylko identyfikator, wersja protokołu i port.
-- Wersjonowane, ograniczone ramki i ścisła walidacja, numery sesji/kolejności/wiadomości. Testy JSON/binarne 1 KB, 100 KB, 1 MB i 10 MB z SHA256; brak wejścia przyjmującego dane biznesowe.
-- Zakończenie sesji, wyjście z modułu, zamknięcie/reload/crash aplikacji i wygaśnięcie zamykają transport. Brak automatycznego uruchamiania.
+W workflow Shopping regression zadanie shopping-ui jest pomijane warunkiem zdarzenia push; nie jest to pominięcie testów w pełnym przebiegu E2E. Wszystkie 366 testów Chromium wykonano.
 
-## Kolejne punkty kontrolne
+### Wcześniejszy niezaliczony punkt kontrolny
 
-1. Implementacja i rzeczywiste testy TLS/protokołu, ograniczeń, parowania i odwołania zaufania.
-2. Chronione magazyny, ograniczony IPC i mostek Capacitor.
-3. Wspólny ekran Synchronizacja, wykrywanie i diagnostyka.
-4. Testy emulatora do tej samej implementacji serwera, rzeczywisty Electron i aktualizacje pakietów.
-5. Pełna regresja, EXE/APK 0.6.0-test.1, metadane i SHA256, instrukcja fizycznego odbioru.
+Pierwsza próba osobnego przebiegu Android LAN na tym samym kodzie nie pokazała oczekiwanego potwierdzenia niezapisanej nazwy po Wstecz. Pełny przebieg Androida zaliczył tę asercję, a ponowienie osobnego przebiegu również ją zaliczyło, **bez zmiany kodu i bez usunięcia asercji**. Nie potwierdzono przyczyny tej niestabilności. Zachowano oba wyniki; nie przedstawiamy pierwszej próby jako zaliczonej. Wymaga obserwacji przy kolejnych przebiegach i odbiorze fizycznym.
 
-Na tym punkcie nie zadeklarowano żadnych zaliczonych testów nowej funkcji. Dokument będzie aktualizowany w kolejnych commitach.
+## Zakres zaimplementowany
 
-## Źródła zasad platform
+- Ręcznie uruchamiany serwer TLS w głównym procesie Electron; natywny klient Android JSSE/Capacitor.
+- Wspólny ekran Synchronizacja, nazwa instalacji, sesja, wykrywanie, zaufane urządzenia, ręczny prywatny IPv4/port, testy i diagnostyka. Web/PWA wyjaśnia brak transportu natywnego.
+- Losowy stały UUID i P-256, niezależne od adresu IP; Windows DPAPI i AndroidKeyStore. Magazyn oddzielony od IndexedDB, klientów i kopii JSON/ZIP.
+- Pierwsze parowanie przez zaproszenie QR lub lokalne przekazanie zaproszenia, przypięty certyfikat, krótki jednorazowy token i oba potwierdzenia tożsamości.
+- Ponowne połączenie przez wzajemny TLS, dokładne przypięcia certyfikatów, usuwanie zaufania i zamknięcie połączenia.
+- mDNS/DNS-SD oraz ręczne połączenie awaryjne. Rozgłoszenie zawiera wyłącznie UUID, protokół, adres i port.
+- Protokół v1 niezależny od v12: ścisłe ramki i walidacja, identyfikatory, kolejność, limity rozmiaru/czasu/prób, ochrona przed powtórzeniami.
+- Dwukierunkowe testy syntetycznego JSON i danych binarnych 1 KB, 100 KB, 1 MB, 10 MB, z SHA256 i pomiarem czasu.
+- Zamknięcie sesji i unieważnienie zaproszenia po stop, wyjściu, zamknięciu/reload/crash; Android także po przejściu w tło. Brak automatycznego nasłuchiwania.
 
-- https://nodejs.org/docs/latest-v24.x/api/tls.html
-- https://www.electronjs.org/docs/latest/api/safe-storage
-- https://developer.android.com/privacy-and-security/local-network-permission
-- https://developer.android.com/reference/android/net/nsd/NsdManager
+Bez wymiany danych biznesowych, zdjęć, zastępowania baz, dziennika zmian, rozwiązywania konfliktów, chmury, kont lub GM-011B/C. Nie zmieniono rozliczeń, stopera, zakupów, wydatków, backupów, identyfikatorów aplikacji, originów i lokalizacji profili.
 
-Target Android pozostaje 36. Zgodnie z dokumentacją platformy nie dodajemy ACCESS_LOCAL_NETWORK przed podniesieniem target do 37. Odmowa dostępu do LAN ma być obsłużona diagnostycznie; nie obchodzimy zabezpieczeń systemu.
+## Co sprawdzono natywnie
 
-## Checkpoint transportu i aplikacji
+Windows: rzeczywisty Electron na windows-2022, sandbox/izolacja, ograniczony IPC, natywne potwierdzenie, DPAPI i bezpieczny błąd uszkodzenia magazynu, TLS 1.2/1.3 z początkowym i nowym zaufaniem. Aktualizacja rzeczywiście zainstalowanego A → B zachowuje dane, zdjęcia, wydatki, zakupy i działający stoper; zainstalowany B potrafi uruchomić LAN i wygenerować QR. Sprawdzono kompletność ASAR oraz uruchomienie bez deweloperskiego Node.js/serwera.
 
-- Gałąź codex/gm011a-secure-lan; roboczy PR #28.
-- Rzeczywiste testy Node/TLS: 9/9, w tym wzajemny TLS, parowanie, ataki na ramki, zmiana adresu, dwa serwery i testy 1 KB–10 MB w obu kierunkach. Nie są to fizyczne testy Windows/Android.
-- TypeScript, dotychczasowe jednostkowe i kompilacja Android JVM/APK na punktach kontrolnych zaliczone.
-- Dodano natywne magazyny, ścisły IPC, mostek Capacitor i wspólny ekran. Format danych firmowych pozostaje v12.
-- Trwa integracja testu rzeczywistego klienta AndroidKeyStore/JSSE z tą samą implementacją serwera na runnerze. Nie zadeklarowano jeszcze wyniku tej integracji ani fizycznego odbioru.
-- Pozostałe zadania: rozszerzone testy transportu, rzeczywisty Electron/DPAPI i NSIS z v12, testy emulatora, pełne E2E/PWA/regresja aparatu, końcowa dokumentacja, artefakty i SHA256.
+Android: emulator API 35, rzeczywisty spakowany WebView, nieeksportowalne klucze AndroidKeyStore i JSSE. Partnerem jest produkcyjna implementacja serwera w Node na runnerze. Zaliczone parowanie dwóch tożsamości komputerów, oba kierunki inicjowania testu, wszystkie rozmiary/formaty, błędny certyfikat, ponowne połączenie, odwołanie zaufania i odmowa, Back z niezapisaną nazwą. Oddzielna instrumentacja po am force-stop sprawdza zachowanie UUID/odcisku/nazwy/zaufania, wyłączoną sesję i ten sam skrót danych firmowych. Dostęp aplikacji do internetu jest blokowany w teście.
 
-## Weryfikacja po uruchomieniu natywnym
+Testy transportu dodatkowo pokrywają replay, niezgodny protokół, uszkodzone/przerośnięte ramki, przerwany transfer, zmianę rzeczywistego adresu loopback, ograniczenia prób, wyścig start/stop i połączenie nadchodzące podczas asynchronicznego usuwania zaufania. Wyniki nie są dowodem fizycznego połączenia Windows ↔ Android.
 
-- Head fd80bb1: rzeczywiste testy transportu 19/19, aplikacja 683/683, polityki Electron 6/6, TypeScript i JVM zaliczone.
-- Poprawiono odbiór multicastu mDNS: wildcard UDP z członkostwem i wysyłaniem na wybranym interfejsie; rzeczywisty test sieciowy przechodzi.
-- Usunięto możliwość ponownego użycia przyjętego zaproszenia, wyścig równoległych zaproszeń i wyścigi zamykania starych połączeń Androida. Magazyn chroniony pozostaje poza modelem danych.
-- Rzeczywisty Electron: 12 dotychczasowych testów zaliczonych. Nowe parowanie zapisuje zaufanie, ale ponowne połączenie mTLS nie kończy się poprawnie; trwa odrębna macierz TLS 1.2/1.3 i początkowe/dodane zaufanie. Bez wyłączania walidacji certyfikatów.
-- Emulator: aktualizacja rzeczywistego A (main v12) → B, odczyt po restarcie, wydatki, zakupy i dotychczasowy aparat zaliczone. Nowy test LAN zatrzymał się przy pierwszym parowaniu; dodano bezpieczną diagnostykę publicznego błędu i osobny szybki przebieg natywny.
-- Nie uznajemy tych dwóch nowych testów za zaliczone. PR #28 pozostaje draft. Pakiety z niezaliczonego przebiegu nie są odbiorem GM-011A.
-- Pełna instrukcja architektury, protokołu, parowania, sieci i odbioru fizycznego: GM011A_LAN.md.
+### Przykładowe rzeczywiste pomiary kontrolne
 
-## Potwierdzone poprawki integracyjne
+Node/TLS, runner CI, każdy test przesyła zestaw w obu kierunkach. Czasy nie są prognozą szybkości Wi-Fi ani hotspotu. SHA256 wysłanych i odebranych danych zgadza się we wszystkich wierszach.
 
-- Macierz rzeczywistego Electron: TLS 1.2 i TLS 1.3, początkowe i dodane zaufanie, wszystkie 4 warianty zaliczone; obcy certyfikat odrzucany. Wymagane jawne kotwice przypiętych certyfikatów oraz standardowy SecureContext przez SNI. Szczegóły w GM011A_LAN.md.
-- Rzeczywisty test Electron/DPAPI z transferem, ZIP ze zdjęciem, restartem i widokami 360/390/430 px zaliczony.
-- Test zainstalowanego EXE znalazł pomijanie peerDependencies biblioteki X509. asn1-schema i asn1js są teraz jawnymi zależnościami produkcyjnymi, a kontrola ASAR sprawdza ich obecność.
-- Android przeszedł pierwsze parowanie i oba potwierdzenia. Test mTLS został zatrzymany na uwierzytelnianiu klienta; weryfikujemy obsługę wyboru aliasu dla SSLEngine/Conscrypt. Dodano standardowy chooseEngineClientAlias i jawny SNI, bez wyłączania walidacji TLS.
-- Dodano test połączenia podczas zapisu odwołania zaufania oraz kontrolę świeżego zaufania przy zatwierdzaniu połączenia Androida.
-- Ostateczna pełna regresja i odbiór pakietów nadal wymagają zielonego przebiegu. Nie wykonano fizycznego testu dwóch urządzeń.
+| Bajty w każdym kierunku | Format | Inicjuje klient — ms | Inicjuje serwer — ms |
+| --- | --- | --- | --- |
+| 1024 | JSON | 155 | 124 |
+| 1024 | binary | 125 | 125 |
+| 102400 | JSON | 44 | 43 |
+| 102400 | binary | 45 | 43 |
+| 1048576 | JSON | 55 | 52 |
+| 1048576 | binary | 60 | 54 |
+| 10485760 | JSON | 164 | 144 |
+| 10485760 | binary | 168 | 169 |
 
-## Wymaganie platformy Android potwierdzone w źródłach
+Emulator osobno wykonał wszystkie osiem kombinacji rozmiaru/formatu z telefonu i test inicjowany przez serwer. Szczegółowe wyniki i czasy są w Android-test-reports (android-lan-test.txt, android-lan-metrics.jsonl); nie publikujemy zaproszeń ani prywatnych kluczy.
 
-Conscrypt używa NONEwithECDSA do podpisania skrótu obliczonego przez TLS. Klucz był uprawniony tylko do SHA256withECDSA dla parowania, co nie wystarczało dla stosu TLS. Dodano DIGEST_NONE zgodnie z dokumentacją Android KeyGenParameterSpec. Test czyta rzeczywiste uprawnienia KeyInfo, a osobne wywołanie instrumentacji po am force-stop sprawdza tożsamość, zaufanie, brak automatycznej sesji i skrót danych biznesowych. Wynik uruchomienia tej poprawki pozostaje do potwierdzenia w CI.
+## Pakiety do fizycznego odbioru
+
+Kod aplikacji: 9b8143575086ccda2fdb0f7f12e7dd64ee6d0025. Pakiety workflow PR mają w metadanych commit scalający testowy ref GitHub c860d65baf54d7cde377cc40a316f04a901f4a5a. Poniższe sumy dotyczą **samego EXE/APK**, nie archiwum artefaktu.
+
+- [Windows EXE, metadane i SHA256SUMS](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965647/artifacts/14726922610)
+  - GardenManager-Windows-0.6.0-test.1-x64-test.exe
+  - SHA256: 1116bbaf9b286137cb28b513e7f984a0c75bde9f12700350451a2feadace2b27
+  - Windows 10/11 x64, per-user NSIS, testowy instalator bez Authenticode.
+- [Android APK, metadane i SHA256SUMS](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/44953965620/artifacts/14726672079)
+  - GardenManager-Android-debug.apk
+  - SHA256: eaab8e63e8fd44fe31eb9629d70e183bd6b6b97e699addb86c2587fea3e92b1f
+  - Certyfikat podpisu SHA256: e555b26b52757aa15797b3c025a0bf407a9ebb08f6ab72b8c49bff70bc6cfd58
+  - Podpis ephemeral-debug; **nie jest zgodny z potwierdzonym poprzednim artefaktem GM-010A**. Przed ewentualną reinstalacją konieczny pełny ZIP z danymi i zdjęciami oraz sprawdzenie kopii. Reinstalacja wymaga ponownego parowania LAN.
+
+Artefakty pakietów są przechowywane przez 30 dni. Aktualizacja Android A → B w jednym przebiegu używa zgodnego podpisu obu pakietów; nie dowodzi możliwości aktualizacji wcześniejszego APK na fizycznym telefonie.
+
+## Ograniczenia i odbiór
+
+**Nie wykonano fizycznego połączenia komputera Windows z telefonem Android.** Rzeczywisty Electron i natywny emulator były testowane oddzielnie; nie należy łączyć tych wyników w deklarację fizycznego testu dwóch aplikacji. Domowe Wi-Fi, Ethernet + Wi-Fi, hotspot bez internetu, rzeczywiste mDNS/NsdManager, zapora oraz odczyt QR aparatem wymagają odbioru z [GM011A_LAN.md](GM011A_LAN.md#odbiór-na-fizycznym-windows-1011-i-androidzie).
+
+Prototyp obsługuje prywatny IPv4. Izolacja klientów/routera/VLAN/polityka firmowa może uniemożliwić komunikację, a ręczny IP tego nie omija. Android target pozostaje 36; target 37 wymaga osobnego uwzględnienia runtime ACCESS_LOCAL_NETWORK. Brak transportu lub klucza nie blokuje zwykłej pracy lokalnej.
+
+Testowe profile utworzone przez robocze APK sprzed poprawki DIGEST_NONE mogą wymagać świadomego odtworzenia i nowego parowania po pełnym ZIP-ie. Nie kasujemy ani nie zastępujemy kluczy po cichu.
+
+**Rekomendacja:** kod ma zieloną pełną regresję i może zostać poddany recenzji. Przed uznaniem łączności Windows ↔ Android za odebraną na docelowych urządzeniach należy wykonać fizyczny scenariusz oraz obserwować wspomniany niestabilny test Back. Nie scalać automatycznie.
+
+## Najważniejsze poprawki przed wznowieniem
+
+1. Bezpieczne zużycie jednorazowego zaproszenia, ograniczenia i walidacja, wyścigi stop/połączeń/odwołania zaufania oraz poprawny odbiór końcowych ramek.
+2. mDNS na wybranym interfejsie z prawidłowym odbiorem multicastu.
+3. Electron/BoringSSL: standardowy SecureContext i allowPartialTrustChain dla jawnych kotwic przypiętych certyfikatów, bez trust-all i bez wyłączenia TLS.
+4. Zależności produkcyjne X509 wymagane w zainstalowanym ASAR dodane jawnie i sprawdzane w pakiecie.
+5. AndroidKeyStore: DIGEST_NONE dla podpisywanego przez Conscrypt skrótu TLS oraz SHA256 dla podpisu parowania; alias socket/engine i SNI.
+6. Bezpieczna diagnostyka asynchronicznych błędów magazynu i ignorowanie nieaktualnych odpowiedzi UI.
+
+Źródła i szczegóły techniczne: [GM011A_LAN.md](GM011A_LAN.md). Kompletne wcześniejsze punkty kontrolne pozostają w historii commitów.

@@ -135,7 +135,7 @@ Bieżące wyniki oraz linki do dokładnych przebiegów są utrzymywane w docs/GM
 
 Testy transportu używają rzeczywistego TCP/TLS, standardowych bibliotek kryptograficznych i tożsamości tworzonych podczas przebiegu. Emulator używa prawdziwego AndroidKeyStore/JSSE oraz produkcyjnej implementacji serwera uruchomionej w Node na runnerze. Świadome automatyczne potwierdzenie jest dozwolone wyłącznie w syntetycznym fixture, a test Electron osobno sprawdza rzeczywisty mostek potwierdzenia. Testy nie mają dostępu do danych użytkownika. Klucze i zaproszenia nie są publikowane w artefaktach.
 
-Ostateczna lista EXE/APK, metadanych i SHA256 zostanie podana po zakończeniu natywnej regresji. Nie instaluj artefaktu z niezaliczonego przebiegu jako odebranej wersji.
+Pełna regresja kodu 9b8143575086ccda2fdb0f7f12e7dd64ee6d0025 została zaliczona. Zweryfikowane EXE/APK, metadane, sumy SHA256, dokładne wyniki i wcześniejszy niestabilny punkt kontrolny Back są zapisane w [GM011A_PROGRESS.md](GM011A_PROGRESS.md). Pakiety służą fizycznemu odbiorowi; zielone CI nie zastępuje testu dwóch docelowych urządzeń.
 
 ### Klucz AndroidKeyStore i standardowy stos TLS
 
