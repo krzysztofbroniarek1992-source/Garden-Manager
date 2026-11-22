@@ -87,3 +87,14 @@ Aktualizuje wcześniejszą listę blocked w opisie punktu 4. units.ts rozdziela 
 Rodzic finansowy musi istnieć w kontekście źródła, być zastosowany i nie mieć konfliktu. Identical-no-op nie zmienia kanonicznego rekordu i nie uznaje automatycznie wspólnej historii danych. Niezaobserwowany niezależny korzeń nadal blokuje późniejszą edycję. Onboarding i rozstrzygnięcia całych finansowych grup pozostają wymagane.
 
 Nowe finance.test.ts dodają testy trzech osobnych trwałych magazynów, integer totals, historii, powiązań zakup/wydatek, append-only płatności, blokad i quota. Dodatkowy sync-receiver.spec.ts obejmuje trzy rzeczywiste bazy Chromium i reload. Wyniki oraz HEAD są w PROGRESS i PR; to nadal nie jest biznesowy test natywnego LAN.
+
+
+## Uzupełnienie 5b — CSV
+
+Aktualny kontrakt: [GM011B_CSV.md](GM011B_CSV.md). Profile/mapowania i reguły mogą być stosowane przyczynowo, z kontrolą rodziców. Nowy import i jego nowe CSV expenses muszą stanowić jedną operację; mutual references i audit są sprawdzane na pełnym kandydacie. Osobne źródłowe UUID nigdy nie stają się nowymi operacjami telefonu.
+
+Ryzyko innej przestrzeni profilu, powtórnej identity lub niejednoznacznego źródła daje trwałe blocked, bez naliczenia kosztu. Profile nie są utożsamiane po nazwie, transakcje po samym match. Wspólna historia i zatwierdzanie tożsamości rachunków nie są zgadywane.
+
+Zmiany kategorii i approved/excluded zachowują cały audyt; równoległe finanse/profile/reguły pozostają trwałymi konfliktami, bez ogólnego API wyboru wariantu. FINANCE_INVALID pozwala odizolować dawny opaque rekord bez zatrzymywania niezależnych poprawnych planów. Nowe błędne wejście jest nadal rejected przed known.
+
+Nowe aktywacje używają źródłowych grup bootstrap CSV. Dawne rozdzielone seedy wymagają onboardingu, a nie przepisywania historii. Applied/receipts/checkpointy i rollback nadal używają tej samej transakcji v2; brak zmian Data v12, JSON/ZIP i zdjęć.

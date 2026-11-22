@@ -17,9 +17,9 @@ class MemoryStorage {
   getItem(key:string){return this.rows.get(key)??null;}
   setItem(key:string,value:string){this.rows.set(key,value);}
 }
-async function replica(n:number,active=true) {
+async function replica(n:number,active=true,running=true) {
   const factory=new IDBFactory(),storage=new MemoryStorage(),data=createDemoData(new Date("2026-11-22T12:00:00Z"));
-  data.jobs[0].status="in-progress";data.timer={jobId:"job-1",startedAt:1000+n,paused:false};
+  data.jobs[0].status="in-progress";data.timer=running?{jobId:"job-1",startedAt:1000+n,paused:false}:null;
   data.payments.push({id:"existing-payment",jobId:"job-5",amountCents:100,receivedDate:"2026-11-22",method:"cash",note:"Synthetic"});
   validateData(data);storage.setItem(STORAGE_KEY,JSON.stringify({version:12,data}));
   const name="csv-independent-"+n,repo=new AtomicRepository(storage,factory,name);await repo.initialize();
@@ -379,7 +379,7 @@ describe("GM-011B 5b CSV, three independent durable IndexedDB stores",()=>{
     for(let n=0;n<3;n++){expect((await rigs[n].repo.read()).data).toEqual(final[n]);await checkProtected(rigs[n]);}
   },30000);
   it("fails a cyclic legacy CSV bootstrap without changing Data or losing its original checkpoint",async()=>{
-    const a=await replica(0,false);await addProfile(a);await importCsv(a,"cycle-a");
+    const a=await replica(0,false,false);await addProfile(a);await importCsv(a,"cycle-a");
     await importCsv(a,"cycle-b",{statement:"d".repeat(64),file:"e".repeat(64),
       rows:[{line:2,row:row({transactionId:"second-bank-id",signedCents:-555}),error:""}]});
     const prior=(await a.repo.read()).data,legacy=structuredClone(prior),[first,second]=legacy.expenseImports;

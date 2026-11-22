@@ -243,3 +243,8 @@ Dodatkowy przegląd integralności dodał trzy regresje: różne prawidłowe ID 
 Przegląd zgodności 5a→5b ujawnił konkretną granicę: wcześniej known/blocked mógł zawierać finansowy payload opaque, który nowa walidacja odrzuci. Adapter zatrzymuje taki rekord jako FINANCE_INVALID, zamiast abortować plan bezpiecznych niezależnych rekordów. Świeży odbiór nadal odrzuca nieprawidłowe dane przed known; nic nie zostaje zastosowane. Test odtwarza dawny inbox+log w IndexedDB i potwierdza przejście niezależnego klienta oraz trwałość blokady. Nie zmieniono silnika przyczynowego ani formatu receiver.
 
 Dodano także deterministyczny test zbieżności sześciu importów A↔B↔C i sum groszy oraz test cyklicznej, starszej historii importów: nieudana aktywacja zachowuje cały Data i source-before-db-v2. Zestaw bankowy ma 24 testy; końcowe wyniki wymagają CI.
+
+
+Wynik bb72dba: 112/113 testów synchronizacji oraz 18/18 E2E rzeczywistych baz. Nowy test cyklu próbował wykonać restore fixture przy aktywnym timerze; istniejące zabezpieczenie STOP słusznie odmówiło. Wyłącznie ten fixture startuje teraz bez pomiaru, aby badać właściwy błąd cyklu bootstrap. Pozostałe 23 scenariusze CSV nadal sprawdzają aktywny lokalny timer i wcześniej zatwierdzoną płatność. Nie zmieniono kodu stopera ani reguł restore.
+
+Dokumentacja kontraktu, blokad i dalszej granicy znajduje się teraz w GM011B_CSV.md oraz uzupełnieniach ARCHITECTURE i RECEIVER. Po poprawce fixture wymagany jest pełny zielony przebieg na końcowym HEAD. Następne zadanie po zakończeniu 5b: ochrona pełnych rozliczeń i wizyt, historii czasu/korekt oraz numeracji raportów offline; nie jest to GM-011C i nie obejmuje natywnego biznesowego LAN.

@@ -122,3 +122,16 @@ Identyczny, już istniejący lokalnie rekord finansowy może dostać potwierdzen
 Nowe/zmienione CSV, profile/reguły/importy, pełne zlecenia/czas/rozliczenia i raporty pozostają zablokowane. Import ma cykl zależności rows.expenseId ↔ expense.origin.importId. Bankowe identity jest związane z profileId; niezależne profile nie są jeszcze uzgodnionymi tożsamościami rachunku. Rozwiązanie wymaga osobnego adaptera grup i onboardingu, zamiast obchodzenia walidacji lub przepisywania origin.
 
 API decyzji finansowych i przychodzące resolution dla tych jednostek pozostają blocked. Konflikty są trwałe i nie zatrzymują niezależnych bezpiecznych rekordów. Pełne decyzje finansowe muszą zachować oba audyty i reguły zależnych jednostek. Adapter nie zmienia timer, jobs, timeHistory, photos, reportSequence ani historycznych dokumentów; obowiązuje dotychczasowa atomowa transakcja state + journal + receiver.
+
+
+## 9. Punkt 5b — CSV i jego źródłowa grupa
+
+Ta sekcja aktualizuje blokadę wszystkich CSV z punktu 5a. Szczegółowy kontrakt i jawne ograniczenia: [GM011B_CSV.md](GM011B_CSV.md).
+
+bank.ts stosuje profile, mapowania i reguły oraz niepodzielne importy z ich CSV expenses. Wzajemne odwołania, oryginalne identity/match/statementKey, źródłowe wiersze i occurrence, pierwsza decyzja i pełny prefiks historii podlegają kontroli. Nie tworzymy wydatków na podstawie samych wierszy, nie przeliczamy klasyfikacji, nie zmieniamy starego audytu importu.
+
+bank-identity.ts wykrywa ryzyka, nie nadaje tożsamości rachunkom. Nowy koszt innego, nieuzgodnionego profilu, istniejąca identity pod drugim ID oraz niejednoznaczne źródła trafiają do trwałej blokady. Same podobne nazwy/kwoty/daty/opisy nie dają zgody na scalanie. Ochrona nowych lokalnych importów działa także po aktywacji dziennika; brak automatycznej aktywacji.
+
+bootstrap.ts grupuje cykl import/wydatek tylko dla nowych aktywacji; stare UUID nie są przepisywane. Dawne opaque rekordy mogą pozostać FINANCE_INVALID bez blokowania niezależnych operacji. Potwierdzenie zastosowania nadal oznacza zakończenie transakcji Data + journal + receiver, nie samą znajomość operacji.
+
+Nie zmieniono biznesowego v12, technicznego IndexedDB v2, JSON/ZIP, zdjęć, stopera, numerów raportów ani natywnego LAN. Profile/finanse w konflikcie nadal wymagają przyszłego świadomego rozstrzygnięcia. Nie jest to ukończenie GM-011B.
