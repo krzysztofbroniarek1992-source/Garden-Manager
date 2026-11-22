@@ -49,3 +49,11 @@ Nie wolno usuwać tombstones ani dowodów odebrania potrzebnych długo nieobecny
 Lokalny executor jest niedostępny. Zmiany są zapisywane bezpośrednio przez GitHub i sprawdzane w GitHub Actions; nie deklarujemy lokalnie wykonanych poleceń lub testów. Dane testowe są wyłącznie syntetyczne. Publiczne repozytorium nie zawiera danych klientów, rzeczywistych identyfikatorów instalacji, prywatnych kluczy ani sekretów.
 
 Nie scalać automatycznie. Nie uruchamiać GM-011C, synchronizacji w tle ani internetowej. Jeśli pełne kryteria nie są spełnione, PR pozostaje Draft z dokładną listą braków.
+
+## Punkt 1 — silnik przyczynowy, implementacja w toku
+
+Dodano src/sync/model.ts i causal.ts: niezmienne operacje źródłowe, wektory wiedzy, monotoniczne liczniki, kolejkę luk przyczynowych, idempotencję i wykrywanie innej treści pod tą samą tożsamością. Rejestry pól zachowują wcześniejsze zapisy nawet po późniejszej edycji innego pola klienta. Rekordy inne niż płaskie pola klienta pozostają jednostkami nierozdzielnymi. Usunięcie kontra edycja i niezależne różne utworzenia tego samego ID powodują konflikt. Jawna decyzja może zachować obecną wartość, a mimo to tworzy nową operację przyczynową.
+
+Dodano 22 testy jednostkowe, w tym syntetyczny przepływ A ↔ B ↔ C, odwróconą kolejność, luki, replay, tombstones, konflikt ceny i losową sekwencję 120 operacji. To testy czystego silnika, **nie** końcowy test trwałych baz i natywnego transportu. Workflow Business sync foundations sprawdzi TypeScript, nowe testy i dotychczasowe jednostkowe. Wyniki pozostają do potwierdzenia w CI.
+
+Wektor known oznacza odebranie i sprawdzenie przyczynowości; nie jest potwierdzeniem trwałego zastosowania danych biznesowych. Ten moduł nie modyfikuje Data, nie ma dostępu do IndexedDB i nie uruchamia komunikacji LAN. Następny punkt: trwały dziennik i adaptery jednostek v12. PR pozostaje Draft.

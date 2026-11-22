@@ -1,0 +1,28 @@
+name: Business sync foundations
+on:
+  push:
+    branches: [codex/gm011b-business-sync]
+    paths: ['src/sync/**', 'src/data/**', '.github/workflows/business-sync.yml']
+  pull_request:
+    paths: ['src/sync/**', 'src/data/**', '.github/workflows/business-sync.yml']
+permissions:
+  contents: read
+jobs:
+  causal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npx vitest run src/sync
+      - run: npm test
+      - run: git diff --check origin/main...HEAD
