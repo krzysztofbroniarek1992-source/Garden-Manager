@@ -248,3 +248,20 @@ Dodano także deterministyczny test zbieżności sześciu importów A↔B↔C i 
 Wynik bb72dba: 112/113 testów synchronizacji oraz 18/18 E2E rzeczywistych baz. Nowy test cyklu próbował wykonać restore fixture przy aktywnym timerze; istniejące zabezpieczenie STOP słusznie odmówiło. Wyłącznie ten fixture startuje teraz bez pomiaru, aby badać właściwy błąd cyklu bootstrap. Pozostałe 23 scenariusze CSV nadal sprawdzają aktywny lokalny timer i wcześniej zatwierdzoną płatność. Nie zmieniono kodu stopera ani reguł restore.
 
 Dokumentacja kontraktu, blokad i dalszej granicy znajduje się teraz w GM011B_CSV.md oraz uzupełnieniach ARCHITECTURE i RECEIVER. Po poprawce fixture wymagany jest pełny zielony przebieg na końcowym HEAD. Następne zadanie po zakończeniu 5b: ochrona pełnych rozliczeń i wizyt, historii czasu/korekt oraz numeracji raportów offline; nie jest to GM-011C i nie obejmuje natywnego biznesowego LAN.
+
+
+## Punkt 5b — kod zweryfikowany na 0aa72b5, końcowa regresja
+
+0aa72b5b6c7b34b8192e03329f450da26b209295 przeszedł 796/796 pełnych jednostkowych, 113/113 synchronizacji (24 bankowych) i 18/18 E2E rzeczywistych baz. TypeScript i diff-check zaliczone. [Fundamenty PR](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/45080414205), [fundamenty push](https://github.com/krzysztofbroniarek1992-source/Garden-Manager/actions/runs/45080409887).
+
+Przed końcową regresją dodano jeszcze dwa testy bez zmiany produkcyjnego kodu: przyczynowe edycje mapowania/reguły nie przeliczają historycznej klasyfikacji, a reinterpretacja tego samego pliku/wiersza z innym bankowym ID wycofuje lokalną komendę. Łącznie 26 bankowych testów. Wynik na końcowym HEAD należy odczytać w checks i opisie PR #29; nie deklarujemy pełnego sukcesu, zanim skończą się wszystkie workflow.
+
+### Stan 5b i punkt wznowienia
+
+Obsługiwane: profile/opcje/mapowania, reguły i kategorie, atomowe kompletne importy z expenses, duplicate-only audit bez kopii kosztów, oryginalny origin i pełna historia decyzji, przyczynowe korekty CSV, nowe grupy bootstrap, trwałe blokady/konflikty i idempotentny relay trzech replik. Nie zmieniono formatu v12, bazy v2, JSON/ZIP ani źródła kanonicznego Data.
+
+Blokowane do świadomego uzgodnienia: różne niezweryfikowane profile z kosztami (także potencjalnie różne rzeczywiste banki), druga identity pod innym ID, niejednoznaczności bez pełnego bankowego ID, sprzeczne finanse/profile/reguły, fizyczne usunięcia i modyfikacje starych auditów, dawne rozdzielone seedy bez dowodu grupy oraz FINANCE_INVALID. Nie ma jeszcze GUI decyzji; żadna blokada nie oznacza applied ani utraty źródłowej operacji.
+
+Dokładne następne zadanie po potwierdzeniu kompletu końcowych checks: osobny punkt ochrony pełnych wizyt/rozliczeń, historii czasu i korekt oraz polityki numeracji raportów offline. Zachować aktywny Timer lokalny i zatwierdzone kwoty; nie rozszerzać ogólnego wyboru wariantu finansowego bez audytu obu stron. Potem onboarding i jawne uzgadnianie profili/duplikatów, restore/retencja, native LAN i GUI. Nie rozpoczynać ich w ramach odbioru 5b.
+
+PR #29 pozostaje Draft. Nie scalać. Nie przygotowywać fizycznego odbioru na rzeczywistych danych; nie wdrożono natywnego biznesowego przepływu ani GM-011C.

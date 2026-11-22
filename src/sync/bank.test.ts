@@ -393,4 +393,27 @@ describe("GM-011B 5b CSV, three independent durable IndexedDB stores",()=>{
     expect(await raw(a,DATABASE_SOURCE)).toEqual(before);expect(a.storage.getItem(STORAGE_KEY)).toBe(mirror);
   });
 
+  it("applies sequential mapping/rule edits without re-parsing or reclassifying existing CSV history",async()=>{
+    const a=await replica(0),b=await replica(1);await addProfile(a);await importCsv(a);await exchange(a,b);
+    const before=(await a.repo.read()).data,p=before.expenseProfiles[0],rule=before.expenseRules[0];
+    await a.repo.command(s=>{
+      s.saveExpenseProfile({...p,options:{...p.options,delimiter:",",decimal:"."}},p);
+      s.saveExpenseRule({...rule,action:"category",pattern:"Synthetic",categoryId:"expense-category-0"},rule);
+    });
+    await send(a,b);
+    const actual=(await b.repo.read()).data,source=(await a.repo.read()).data;
+    expect(actual.expenseProfiles).toEqual(source.expenseProfiles);
+    expect(actual.expenseRules.find(r=>r.id===rule.id)).toEqual(source.expenseRules.find(r=>r.id===rule.id));
+    expect(actual.expenses).toEqual(before.expenses);expect(actual.expenseImports).toEqual(before.expenseImports);
+    expect(cost(actual)).toBe(12345);await checkProtected(b);
+  });
+  it("holds re-interpretation of the same file/line under a different bank ID and rolls back the local command",async()=>{
+    const a=await replica(0),b=await replica(1);await addProfile(a);await importCsv(a);await send(a,b);
+    const before=await a.repo.read(),journal=await a.repo.readSyncJournal(),mirror=a.storage.getItem(STORAGE_KEY);
+    await expect(importCsv(a,"reinterpretation",{statement:"d".repeat(64),
+      rows:[{line:2,row:row({transactionId:"a-different-id-in-the-same-file"}),error:""}]})).rejects.toThrow("CSV_FILE_ROW");
+    expect(await a.repo.read()).toEqual(before);expect(await a.repo.readSyncJournal()).toEqual(journal);
+    expect(a.storage.getItem(STORAGE_KEY)).toBe(mirror);expect((await b.repo.read()).data.expenses).toHaveLength(1);
+  });
+
 });
