@@ -69,3 +69,21 @@ Nie wdrożono kompakcji. Łączny limit journal+receiver wynosi 64 MiB; do 20000
 receiver.test.ts sprawdza oddzielne instancje fake-indexeddb. sync-receiver.spec.ts korzysta z trzech oddzielnych rzeczywistych baz A/B/C w Chromium, lokalnych syntetycznych danych, WebCrypto i kodeka oraz ponownego uruchomienia procesu przeglądarki. Dla JPEG B ma osobny magazyn plików. To nie jest test trzech natywnych urządzeń ani LAN.
 
 Przed natywną integracją pozostają polityki obsługi finansów/CSV/zakupów i czasu, numeracji raportów offline, pełne grupy zależności i onboardingu, kreator restore, retencja/archiwum oraz negocjacja/wiązanie tożsamości i trwałe potwierdzenia przez GM-011A. GUI planu i konfliktów jest osobnym podłączeniem do powyższego API. Nie rozpoczynamy GM-011C.
+
+
+## Uzupełnienie 5a — rzeczywiście dopuszczone finanse
+
+Aktualizuje wcześniejszą listę blocked w opisie punktu 4. units.ts rozdziela adapter podstawowy i finance.ts; wspólna operacja nadal jest niepodzielna.
+
+| Jednostka | Dozwolone w 5a | Nadal blokowane |
+| --- | --- | --- |
+| Kategorie wydatków | Utworzenie/edycja/archiwizacja z walidacją | Fizyczne usunięcie |
+| Wydatki | Ręczne outgoing, pełna historia i przyczynowy poprzednik | CSV, utrata historii, usunięcie, automatyczne decyzje |
+| Zakupy | Bez jobId, statusy, archiwum, soft-delete, trwały link expenseId | Zlecenia, zmiana istniejącego linku, odtworzenie soft-delete |
+| Wizyta/płatności | Dopisanie nowych payment.id do istniejącej niezmienionej zatwierdzonej wizyty | Edycja/usunięcie wpłat, zmiana job/czasu/rozliczenia/raportu, aktywny stoper tej wizyty |
+| Profile/reguły/importy | Wyłącznie potwierdzenie identycznego istniejącego rekordu bez zmiany Data | Każdy nowy/zmieniony rekord |
+| Raporty i pozostałe jednostki | Bez zmian w tym podpunkcie | Jak w punkcie 4 |
+
+Rodzic finansowy musi istnieć w kontekście źródła, być zastosowany i nie mieć konfliktu. Identical-no-op nie zmienia kanonicznego rekordu i nie uznaje automatycznie wspólnej historii danych. Niezaobserwowany niezależny korzeń nadal blokuje późniejszą edycję. Onboarding i rozstrzygnięcia całych finansowych grup pozostają wymagane.
+
+Nowe finance.test.ts dodają testy trzech osobnych trwałych magazynów, integer totals, historii, powiązań zakup/wydatek, append-only płatności, blokad i quota. Dodatkowy sync-receiver.spec.ts obejmuje trzy rzeczywiste bazy Chromium i reload. Wyniki oraz HEAD są w PROGRESS i PR; to nadal nie jest biznesowy test natywnego LAN.

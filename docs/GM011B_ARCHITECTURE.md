@@ -105,3 +105,20 @@ Obsługiwane są klienci, ogrody ze strefami, katalog oraz niezależne notatki/s
 Nowy bootstrap aktywacji rozdziela rekordy na operacje, nadal zatwierdzane razem podczas aktywacji. Istniejących operacji wielotypowych nie dzielimy i nie przepisujemy. Takie stare grupy mogą pozostać blocked do późniejszego onboardingu.
 
 Przed zastosowaniem zapisywane są before-first-receive-apply i before-last-receive-apply; nie są eksportem kluczy ani zaufania. restore-review blokuje odbiór/planowanie/stosowanie do czasu przyszłego kreatora. Limity historii nadal obowiązują; pełna kompakcja, GUI i przenośne archiwum dziennika pozostają poza tym punktem.
+
+
+## 8. Punkt 5a — ograniczony adapter finansowy
+
+Sekcja aktualizuje granicę punktu 4; nie oznacza zakończenia punktu 5 ani GM-011B.
+
+Finanse pozostają całymi jednostkami przyczynowymi, bez scalania pojedynczych pól. visits obejmuje job, płatności i tożsamości raportów. Adapter nigdy nie przypisuje job z sieci. Może dopisać nowe ID płatności, gdy istniejąca zakończona wizyta ma identyczne zatwierdzone rozliczenie, czas, historię, materiały i nagłówki raportów, żaden wcześniejszy wpis płatności nie został zmieniony/usunięty, a lokalny stoper tej wizyty nie działa. Oryginalna komenda savePayment na odłączonej próbie sprawdza limit należności; trwały zapis obejmuje wyłącznie payments. Równoległe wpłaty są konfliktem całej wizyty, a nie automatyczną sumą.
+
+Kategorie wydatków mogą być tworzone i edytowane; fizyczne usuwanie pozostaje blocked. Wydatki ręczne zachowują createdAt, rosnącą rewizję, source/origin/direction i pełny prefiks historii; końcowa pozycja historii musi odpowiadać aktualnej kwocie, statusowi, kategorii i updatedAt. Nie deduplikujemy różnych ID po podobnej nazwie.
+
+Zakupy bez jobId mogą przechodzić przez statusy, archiwum i soft-delete. Nie wolno skasować expenseId ani odtworzyć deletedAt. Operacja utworzenia wydatku i powiązania zakupu jest stosowana jako jedna grupa; samo oznaczenie kupione nie tworzy wydatku. Źródłowa wersja kategorii/wydatku musi być udowodniona i zastosowana (lub utworzona w tej samej grupie).
+
+Identyczny, już istniejący lokalnie rekord finansowy może dostać potwierdzenie swojej oryginalnej obcej operacji bez zmiany Data. To nie dowodzi wspólnego przodka całego zbioru danych. Niezależny, niezaobserwowany korzeń o tym samym ID nadal może powodować konflikt po późniejszej edycji. Przyszły onboarding musi wymienić i zatwierdzić historie przed edycją finansów; nie wolno usuwać tej ochrony tylko dlatego, że początkowe snapshoty wyglądają tak samo.
+
+Nowe/zmienione CSV, profile/reguły/importy, pełne zlecenia/czas/rozliczenia i raporty pozostają zablokowane. Import ma cykl zależności rows.expenseId ↔ expense.origin.importId. Bankowe identity jest związane z profileId; niezależne profile nie są jeszcze uzgodnionymi tożsamościami rachunku. Rozwiązanie wymaga osobnego adaptera grup i onboardingu, zamiast obchodzenia walidacji lub przepisywania origin.
+
+API decyzji finansowych i przychodzące resolution dla tych jednostek pozostają blocked. Konflikty są trwałe i nie zatrzymują niezależnych bezpiecznych rekordów. Pełne decyzje finansowe muszą zachować oba audyty i reguły zależnych jednostek. Adapter nie zmienia timer, jobs, timeHistory, photos, reportSequence ani historycznych dokumentów; obowiązuje dotychczasowa atomowa transakcja state + journal + receiver.

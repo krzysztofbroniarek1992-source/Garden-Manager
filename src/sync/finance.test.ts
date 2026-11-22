@@ -139,7 +139,10 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
     }
   });
   it("appends stable payment IDs to an unchanged approved visit and never changes time or settlements",async()=>{
-    const a=await replica(0),b=await replica(1),c=await replica(2);await exchange(a,b);
+    const a=await replica(0),b=await replica(1),c=await replica(2);
+    // Explicitly exchange existing baseline histories through B first. Equal
+    // snapshots alone are not proof that an unobserved third root was seen.
+    await exchange(a,b);await exchange(b,c);await exchange(a,b);await exchange(b,c);
     await pay(a,"payment-a");await send(a,b);await send(b,c);await restart(c);
     await pay(c,"payment-c",2000);await send(c,b);await send(b,a);
     for(let n=0;n<2;n++){await exchange(a,b);await exchange(b,c);}
@@ -211,21 +214,49 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
     expect((await a.repo.read()).data.expenses[0].origin).toEqual(original);
     expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="blocked"&&r.operation.changes.some(x=>x.key==="expenses/bank-import-2"))).toBe(true);
   });
+  it("does not infer a shared payment ancestor from equal but unobserved independent snapshots",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2);await exchange(a,b);
+    await pay(a,"unobserved");await send(a,b);await send(b,c);
+    expect((await c.repo.read()).data.payments).toEqual([]);
+    expect((await c.repo.readSyncReceiver())!.conflicts.some(v=>v.key==="visits/job-5"&&v.status==="open")).toBe(true);
+  });
   it("blocks overpayment, edits of time/settlement/report headers, and active-timer visits",async()=>{
-    const a=await replica(0),b=await replica(1);await exchange(a,b);
-    const current=businessRecords((await a.repo.read()).data).get("visits/job-5") as {[key:string]:Json};
-    const excessive={...current,payments:[{id:"over",jobId:"job-5",amountCents:99999999,receivedDate:"2026-11-22",method:"cash",note:""}]};
-    expect((await inject(a,b,"visits/job-5",excessive)).stage).toBe("blocked");
-    const c=await replica(2);await send(a,c);
-    const modified={...current,job:{...current.job as object,seconds:99999}};
-    expect((await inject(a,c,"visits/job-5",modified)).stage).toBe("blocked");
-    expect((await b.repo.read()).data.jobs).toEqual(b.initial.jobs);
-    const active=await replica(2,d=>{d.timer={jobId:"job-5",startedAt:1000,paused:false};});
-    await pay(a,"active-received");await send(a,active);
+    for(const type of ["overpayment","time","settlement","report"] as const) {
+      const a=await replica(0),b=await replica(1);await exchange(a,b);
+      const current=businessRecords((await a.repo.read()).data).get("visits/job-5") as {[key:string]:Json};
+      const job=current.job as {[key:string]:Json};
+      const after=type==="overpayment" ? {...current,payments:[{id:"over",jobId:"job-5",amountCents:99999999,receivedDate:"2026-11-22",method:"cash",note:""}]} :
+        type==="time" ? {...current,job:{...job,seconds:99999}} :
+        type==="settlement" ? {...current,job:{...job,settlement:{...job.settlement as object,finalLaborCents:1}}} :
+        {...current,reportIdentities:[{id:"synthetic-report",number:"SYNTHETIC-1",version:1,generatedAt:1,fingerprint:"synthetic",requiresAssets:false}]};
+      expect((await inject(a,b,"visits/job-5",after)).stage).toBe("blocked");
+      expect((await b.repo.read()).data.jobs).toEqual(b.initial.jobs);
+      expect((await b.repo.read()).data.payments).toEqual([]);
+    }
+    const a=await replica(0),active=await replica(1,d=>{d.timer={jobId:"job-5",startedAt:1000,paused:false};});
+    await exchange(a,active);await pay(a,"active-received");await send(a,active);
     expect((await active.repo.read()).data.timer).toEqual(active.initial.timer);
     expect((await active.repo.read()).data.payments).toEqual([]);
     expect((await active.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="blocked"&&r.reason.includes("Aktywny stoper"))).toBe(true);
-  });
+  },30000);
+  it("converges under seeded exchange/replay sequences without changing integer financial totals",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2), rigs=[a,b,c];
+    let seed=11011, total=0;
+    const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+    for(let n=0;n<9;n++) {
+      const amount=random()%100000+1, r=rigs[random()%3];total+=amount;
+      await r.repo.command(s=>s.saveExpense(expense("seeded-"+n,amount),null));
+      if(random()%2)await exchange(a,b);else await exchange(b,c);
+    }
+    await exchange(a,b);await exchange(b,c);await exchange(a,b);await exchange(b,c);
+    const final=await Promise.all(rigs.map(async r=>(await r.repo.read()).data));
+    for(const d of final) {
+      expect(d.expenses).toHaveLength(9);expect(new Set(d.expenses.map(e=>e.id)).size).toBe(9);
+      expect(d.expenses.reduce((sum,e)=>sum+e.amountCents,0)).toBe(total);
+    }
+    await exchange(b,c);await exchange(a,b);
+    for(let i=0;i<3;i++)expect((await rigs[i].repo.read()).data).toEqual(final[i]);
+  },30000);
   it("does not lose expense/link data or claim applied on quota; confirmation replay remains stable after restart",async()=>{
     const a=await replica(0),b=await replica(1);
     await a.repo.command(s=>s.saveExpense(expense("quota-money"),null));await send(a,b,false);
