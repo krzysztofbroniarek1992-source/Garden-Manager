@@ -154,6 +154,10 @@ export function applyBasic(data: Data, values: Map<string, Json>): Data {
   }
   for (const [key, value] of values) {
     const { kind, id } = keyParts(key);
+    if ((kind === "notes" || kind === "todos") && value === null &&
+      (kind === "notes" ? data.notes : data.todos).some(r=>r.id===id) &&
+      !next.deskTombstones.some(t=>t.id===id && t.kind===(kind==="notes"?"note":"todo")))
+      throw new ApplyBlocked("dependency","Usunięcie notatki/sprawy wymaga powiązanego tombstone.");
     if (kind === "materialCatalog" && value === null &&
       data.jobs.some(j => j.materials.some(m => m.catalogId === id)))
       throw new ApplyBlocked("domain", "Materiał jest powiązany z historią zlecenia.");

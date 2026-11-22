@@ -27,7 +27,7 @@ Lokalny UUID instalacji dziennika jest stały dla profilu i nie pochodzi z adres
 
 Operacja ma UUID, źródłową instalację, monotoniczny licznik, wektor wiedzy poprzedzającej, flagę jawnego rozstrzygnięcia oraz listę zmian before/after. Ta lista zachowuje jednostkę atomowej komendy. Utworzenie, edycja i usunięcie wynikają odpowiednio z null/wartość, wartość/wartość i wartość/null. Usunięty rekord pozostawia trwały ślad.
 
-known jest zegarem **odebrania i walidacji przyczynowej**, nie potwierdzeniem trwałego zastosowania na bazie biznesowej. appliedLocal oznacza lokalne komendy już zapisane razem z current. Pełne potwierdzenia operacji odebranych, ich statusy i konflikty oczekujące nie są jeszcze wdrożone.
+known jest zegarem **odebrania i walidacji przyczynowej**, nie potwierdzeniem trwałego zastosowania na bazie biznesowej. appliedLocal oznacza lokalne komendy już zapisane razem z current. Punkt 4 dodaje osobny receiver-v1: trwały inbox, stany i potwierdzenia zastosowania oraz konflikty. Szczegóły i granice poniżej.
 
 Przekazanie A → telefon B → komputer C zachowuje id, origin, sequence i context; telefon nie rejestruje odebranej zmiany jako własnej. Powtórzenie jest idempotentne. Inna treść pod tym samym UUID/dotem jest odrzucana. Brakujący poprzednik trafia do kolejki, bez udawania zastosowanej zmiany. Zegary ścienne nie rozstrzygają konfliktów.
 
@@ -86,3 +86,22 @@ Zanim będzie możliwe zatwierdzanie zmian odbieranych:
 Wymagane są rzeczywiste dwie/trzy bazy i natywny transport, pełny scenariusz A ↔ B ↔ C bez połączenia A–C, trwałe konflikty i potwierdzenia, GUI analizy/zatwierdzenia, bezpieczne przywrócenie oraz pełna regresja i pakiety 0.7.0-test.1. Fizyczny odbiór pozostaje po stronie użytkownika. Szczegóły wyników i następnych zadań: GM011B_PROGRESS.md.
 
 Nie scalać PR automatycznie. Nie implementować GM-011C, synchronizacji w tle ani internetowej.
+
+## 7. Punkt kontrolny 4 — kontrolowany odbiorca podstawowych jednostek
+
+Ta sekcja aktualizuje granice opisane dla punktów 1–3. Nie dodaje natywnego transportu ani kompletnego GUI.
+
+- receiver-v1 istnieje w tej samej object store sync; nie wymaga nowej wersji bazy lub formatu biznesowego.
+- received / waiting-dependencies oznaczają trwałą surową operację; known oznacza dodatkowo poprawną przyczynowość.
+- verified / planned / waiting-records / conflict / blocked nie oznaczają zapisu biznesowego.
+- applied ma lokalny numer rewizji transakcji, która zapisała Data; sieć nie może przesłać tej metadanej.
+- resolved oznacza wariant świadomie zastąpiony operacją decyzji; nie udajemy, że taki wariant został zastosowany.
+- rejected zachowuje wadliwą operację, jeśli miała poprawną tożsamość; osobny ograniczony audyt opisuje niepoprawne próby. Nie usuwa historii zaakceptowanych operacji.
+
+Kontrolowane API znajduje się na AtomicRepository, poza GardenStore, Electron IPC i Capacitor. receiveSyncOperations przechowuje oryginalne operacje bez tworzenia własnych. planSyncOperations symuluje podstawowe jednostki i zapisuje plan/konflikty. applySyncPlan sprawdza tokeny i zatwierdza Data + journal + receiver w jednej transakcji. Ponowienie po utracie odpowiedzi zwraca oryginalny CommitReceipt. resolveSyncConflict przyjmuje jawną decyzję i aktualny token konfliktu, waliduje wynik i emituje nową operację przyczynową.
+
+Obsługiwane są klienci, ogrody ze strefami, katalog oraz niezależne notatki/sprawy z powiązanymi tombstones. Pola klienta mogą łączyć się tylko przy dowodzie przyczynowym; pozostałe jednostki pozostają konserwatywnie całymi rekordami. Lokalne referencje zdjęć notatki są zachowywane. Zmiana wymagająca modyfikacji lokalnych zdjęć, odpinania historii lub innych nieobsługiwanych rekordów jest blokowana. Stoper, wizyty, płatności, wydatki, CSV, zakupy, rozliczenia, raporty, planowanie i ustawienia nie są jeszcze materializowane. Nie ma zastępowania bazy.
+
+Nowy bootstrap aktywacji rozdziela rekordy na operacje, nadal zatwierdzane razem podczas aktywacji. Istniejących operacji wielotypowych nie dzielimy i nie przepisujemy. Takie stare grupy mogą pozostać blocked do późniejszego onboardingu.
+
+Przed zastosowaniem zapisywane są before-first-receive-apply i before-last-receive-apply; nie są eksportem kluczy ani zaufania. restore-review blokuje odbiór/planowanie/stosowanie do czasu przyszłego kreatora. Limity historii nadal obowiązują; pełna kompakcja, GUI i przenośne archiwum dziennika pozostają poza tym punktem.

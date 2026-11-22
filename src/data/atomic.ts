@@ -1,3 +1,6 @@
+import { RECEIVER_KEY, RECEIVE_SOURCE, RECEIVE_LAST_SOURCE, type ReceiverState, type ConflictDecision } from "../sync/receiver-model";
+import { initialReceiver, validateReceiver, receiveDurably, planReceived, commitReceived, decideConflict, type ReceiverContext } from "../sync/receiver";
+import { SyncError } from "../sync/model";
 import { JOURNAL_STORE, JOURNAL_DATABASE_VERSION, JOURNAL_KEY, JOURNAL_SOURCE, DATABASE_SOURCE, activateJournal, validateJournal, captureInTransaction, type JournalState } from "../sync/journal";
 import { withShopping } from "../shopping/model";
 import { withExpenses } from "../expenses/model";
@@ -320,6 +323,93 @@ export class AtomicRepository {
       tx.oncomplete = () => resolve(result);
       tx.onabort = () => reject(failure ?? unavailable());
       tx.onerror = () => {};
+    });
+  }
+  /** Internal controlled receiver API, deliberately absent from IPC and LAN.
+   * Every returned result has crossed IDB oncomplete, never just request.success. */
+  private async syncTransition<T>(transform: (context: ReceiverContext) => T): Promise<T> {
+    return pendingWrite(async () => {
+      let changed = false;
+      const result = await this.transaction<T | undefined>("readwrite", (state, stateStore, abort, sync) => {
+        if (!sync) throw new SyncError("PRECONDITION", "Najpierw jawnie aktywuj dziennik synchronizacji.");
+        const result: { state: State; value: T | undefined } = { state, value: undefined };
+        const readJournal = sync.get(JOURNAL_KEY);
+        readJournal.onsuccess = () => {
+          try {
+            if (readJournal.result === undefined) throw new SyncError("PRECONDITION", "Dziennik nie został aktywowany.");
+            validateJournal(readJournal.result);
+            const journal = readJournal.result as JournalState;
+            const readReceiver = sync.get(RECEIVER_KEY);
+            readReceiver.onsuccess = () => {
+              try {
+                const receiver = readReceiver.result === undefined ? initialReceiver(journal) : readReceiver.result as ReceiverState;
+                validateReceiver(receiver,journal);
+                const context: ReceiverContext = { data: state.data, revision: state.revision, journal, receiver };
+                if (journal.lastRevision !== state.revision) throw new SyncError("PRECONDITION", "Wykryto zapis pomijający dziennik.");
+                const value = transform(context);
+                if (value instanceof Promise) throw new SyncError("INVALID", "Przejście odbioru musi być synchroniczne.");
+                validateData(context.data); validateJournal(context.journal); validateReceiver(context.receiver,context.journal);
+                changed = context.revision !== state.revision;
+                if (changed && context.revision !== state.revision + 1 ||
+                  !changed && JSON.stringify(context.data) !== JSON.stringify(state.data))
+                  throw new SyncError("INVALID", "Nieprawidłowa granica atomowego zapisu.");
+                if (changed) {
+                  const next = { ...state, formatVersion: STORAGE_VERSION, revision: context.revision, data: context.data };
+                  const first = sync.get(RECEIVE_SOURCE);
+                  first.onsuccess = () => { if (first.result === undefined) sync.put(state,RECEIVE_SOURCE); };
+                  sync.put(state,RECEIVE_LAST_SOURCE);
+                  stateStore.put(next,"current");
+                  result.state=next;
+                }
+                sync.put(context.journal,JOURNAL_KEY);
+                sync.put(context.receiver,RECEIVER_KEY);
+                result.value=value;
+              } catch(error) { abort(error); }
+            };
+          } catch(error) { abort(error); }
+        };
+        return result;
+      });
+      if (changed) {
+        await this.project();
+        if (this.name === STATE_DATABASE && typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("garden-manager-state");
+          channel.postMessage(result.state.revision); channel.close();
+        }
+      }
+      return result.value as T;
+    });
+  }
+  async receiveSyncOperations(operations: readonly unknown[]) {
+    const copy = structuredClone(operations);
+    return this.syncTransition(c => receiveDurably(c,copy));
+  }
+  async planSyncOperations() { return this.syncTransition(c => planReceived(c)); }
+  async applySyncPlan(planId: string) {
+    if (typeof planId !== "string" || planId.length > 100) throw new SyncError("INVALID","Nieprawidłowy identyfikator planu.");
+    return this.syncTransition(c => commitReceived(c,planId));
+  }
+  async resolveSyncConflict(decision: ConflictDecision) {
+    const copy = structuredClone(decision);
+    return this.syncTransition(c => decideConflict(c,copy));
+  }
+  async readSyncReceiver(): Promise<ReceiverState | null> {
+    const db = await this.open();
+    if (!db.objectStoreNames.contains(JOURNAL_STORE)) return null;
+    return new Promise((resolve,reject) => {
+      const tx=db.transaction(JOURNAL_STORE,"readonly"), sync=tx.objectStore(JOURNAL_STORE);
+      const journal=sync.get(JOURNAL_KEY), receiver=sync.get(RECEIVER_KEY);
+      let result:ReceiverState|null=null, failure:unknown;
+      receiver.onsuccess=()=>{
+        try {
+          if(receiver.result!==undefined) {
+            validateReceiver(receiver.result,journal.result);
+            result=receiver.result;
+          }
+        } catch(e) {failure=e;tx.abort();}
+      };
+      tx.oncomplete=()=>resolve(result);
+      tx.onabort=()=>reject(failure??unavailable()); tx.onerror=()=>{};
     });
   }
   async close() {

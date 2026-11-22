@@ -125,3 +125,15 @@ Przegląd ujawnił problem bootstrapu: jedna operacja całego snapshotu wiązał
 Silnik zachowuje częściową wartość niekonfliktujących pól klienta do świadomej decyzji. Jawne rozstrzygnięcie może zawierać powiązaną, niekonfliktującą zmianę (np. tombstone notatki); każdy taki poprzednik nadal musi się dokładnie zgadzać i operacja musi rzeczywiście rozstrzygać co najmniej jeden konflikt. Dodano regresję. Nie jest to zgoda na automatyczne scalanie finansów.
 
 Dodawany adapter podstawowy ma ścisłą białą listę, pełną walidację Data oraz próby istniejących reguł domenowych na odłączonej kopii. Nie zapisuje efektów pobocznych tych prób, lokalnych zdjęć ani stopera. Trwały odbiór/planowanie i testy trzech magazynów są następnymi podpunktami; nie deklarujemy ich ukończenia na tym commicie.
+
+### Punkt 4b — inbox, plan i zatwierdzenie (implementacja do weryfikacji)
+
+Dodano receiver-v1 w istniejącym magazynie sync (bez zmiany IDB v2 i Data v12). Oddzielne stany obejmują trwały odbiór, lukę przyczynową, sprawdzenie, plan, zależność rekordów, konflikt, blokadę typu, applied, jawne zastąpienie rozstrzygnięciem i odrzucenie. known pozostaje wyłącznie wiedzą przyczynową. Dane sieciowe nie mogą nadawać statusu applied.
+
+Surowe operacje oczekujące są przechowywane w inbox; dopiero udowodnione następstwo trafia do log. Dzięki temu wadliwa opóźniona operacja nie blokuje odebrania poprawnego poprzednika i niezależnych rekordów. Nie zmieniono semantyki istniejącego czystego receive.
+
+API wewnętrzne AtomicRepository: receiveSyncOperations, readSyncReceiver, planSyncOperations, applySyncPlan, resolveSyncConflict. Odbiór i plan nie zmieniają Data. Plan ma tokeny stanu/dziennika/inbox. Zastosowanie zapisuje Data, journal i receiver w tej samej transakcji, a odpowiedź powstaje dopiero po oncomplete. Zapisano checkpoint przed pierwszym i przed ostatnim zastosowaniem; powtórzony plan po utracie odpowiedzi zwraca poprzednie trwałe potwierdzenie.
+
+Konflikty zawierają wspólną bazę wyłącznie z dowodem przyczynowym, wariant lokalny i głowy zdalne, operacje, powód oraz status. Decyzja tworzy oryginalną nową operację instalacji podejmującej decyzję. Warianty odrzucone decyzją mają status resolved, a nie fałszywe applied. Finanse i inne nieobsługiwane grupy pozostają blocked; zależność od niezastosowanej wersji tego samego rekordu oraz nieuzgodniony rodzic ogrodu wstrzymują odpowiednią grupę.
+
+Dodano 16 testów integracyjnych na trzech oddzielnych instancjach fake-indexeddb, w tym forwarding, restart, jawny plan, konflikty i decyzje, tombstones, odwrócona kolejność, wadliwy opóźniony poprzednik, quota/rollback, powtórzone potwierdzenie, zakazane metadane applied oraz ochrona stopera/finansów. To jeszcze nie test trzech rzeczywistych magazynów Chromium ani natywnego LAN; taki test przeglądarkowy jest kolejnym podpunktem. Wyniki tego commitu wymagają CI.
