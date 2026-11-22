@@ -84,6 +84,19 @@ describe("GM-011B causal operations (no business application receipt)", () => {
       expect(v.conflicts[0].alternatives.map(x => x.value).sort()).toEqual(["111", "222"]);
     }
   });
+  it("finds the causal common base instead of a coincidentally equal intermediate value", () => {
+    let [a, b] = shared();
+    const intermediate = { ...base, phone: "same but independently written" };
+    a = write(a, key, base, intermediate);
+    b = write(b, key, base, intermediate);
+    a = write(a, key, intermediate, { ...base, phone: "111" });
+    b = write(b, key, intermediate, { ...base, phone: "222" });
+    [a, b] = exchange(a, b);
+    const field = recordView(a, key).conflicts.find(c => c.field === "phone")!;
+    expect(field.baseAvailable).toBe(true);
+    expect(field.base).toBe("000");
+    expect(field.alternatives.map(x => x.value).sort()).toEqual(["111", "222"]);
+  });
   it("does not merge independent different creations just because their IDs match", () => {
     const a = write(newLog(A), key, null, base);
     const b = write(newLog(B), key, null, { ...base, phone: "222" });
@@ -115,6 +128,7 @@ describe("GM-011B causal operations (no business application receipt)", () => {
     b = write(b, k, { amountCents: 10000, paidCents: 0 }, { amountCents: 10000, paidCents: 8000 });
     [a, b] = exchange(a, b);
     expect(recordView(a, k).reason).toBe("record");
+    expect(recordView(a, k).conflicts[0].base).toEqual({ amountCents: 10000, paidCents: 0 });
     expect(recordView(b, k).status).toBe("conflict");
   });
   it("retains tombstones when an old known copy comes back", () => {

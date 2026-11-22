@@ -96,3 +96,10 @@ Dodano kodek businessProtocol=1 / dataVersion=12: części 64 KiB, limit pakietu
 Kodek nie jest podłączony do istniejących natywnych kanałów i nie zapisuje bazy odbiorcy. Nie jest to test natywnej wymiany rekordów ani dowód końcowej synchronizacji trzech replik. docs/GM011B_ARCHITECTURE.md opisuje dokładne granice oraz blokady przed wdrożeniem zatwierdzania biznesowego.
 
 **Nie ukończono GM-011B.** Pozostają: przyjmowanie i atomowe stosowanie operacji odebranych, trwałe rozstrzygnięcia i potwierdzenia, onboarding i kreator restore, zależności i polityki finansów/CSV/czasu/raportów, retencja, natywny transport, interfejs, rzeczywisty test trzech replik i pakiety 0.7.0. PR pozostaje Draft; dotychczasowy ekran Synchronizacja nadal jest testem GM-011A.
+
+
+### Przegląd wspólnego przodka
+
+Przegląd wykrył zbyt słabe określanie wspólnej wartości pola: dwa urządzenia mogły niezależnie zapisać tę samą wartość pośrednią, a potem różne wartości. Sama równość before nie dowodziła wspólnego przodka. Informacja o bazie konfliktu pochodzi teraz z przecięcia wektorów przyczynowych; dodano regresję tego wariantu i sprawdzenie bazy całego agregatu finansowego. Nie stosowano zegarów ściennych ani LWW.
+
+Końcowe wyniki automatycznych kontroli bieżącego HEAD są aktualizowane w opisie PR #29. Historyczne wyniki podpunktów odnoszą się wyłącznie do wymienionych commitów. Pozostałe blokady pełnego GM-011B są nadal otwarte.

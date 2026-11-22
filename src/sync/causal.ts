@@ -96,8 +96,23 @@ export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordVie
   const first = heads[0].change.after;
   if (heads.every(x => same(x.change.after, first)))
     return { ...view, value: structuredClone(first), status: first === null ? "deleted" : "value" };
-  const conflict = (reason: NonNullable<RecordView["reason"]>, conflicts: FieldConflict[] = []): RecordView =>
-    ({ ...view, status: "conflict", reason, conflicts });
+  const commonAncestor = (ops: Operation[]) => {
+    const context: Vector = {};
+    for (const [origin, n] of Object.entries(ops[0].context)) {
+      const shared = Math.min(n, ...ops.slice(1).map(o => o.context[origin] ?? 0));
+      if (shared > 0) context[origin] = shared;
+    }
+    return recordView(log, key, context);
+  };
+  const conflict = (reason: NonNullable<RecordView["reason"]>, conflicts?: FieldConflict[]): RecordView => {
+    if (!conflicts) {
+      const ancestor = commonAncestor(heads.map(h => h.op));
+      conflicts = [{ field: "*", baseAvailable: ancestor.status === "value",
+        base: ancestor.status === "value" ? ancestor.value : null,
+        alternatives: heads.map(h => ({ dot: dot(h.op), value: structuredClone(h.change.after) })) }];
+    }
+    return { ...view, status: "conflict", reason, conflicts };
+  };
   if (heads.some(x => x.change.after === null)) return conflict("edit-delete");
   const roots = concurrentHeads(writes.filter(x => x.change.before === null));
   if (roots.length > 1 && !heads.every(h => roots.every(r => covers(h.op.context, r.op))))
@@ -121,8 +136,9 @@ export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordVie
     if (!active.length) continue;
     const winner = active[0].after;
     if (!active.every(x => same(x.after, winner))) {
-      const baseAvailable = active.every(x => same(x.before, active[0].before));
-      conflicts.push({ field: name, baseAvailable, base: baseAvailable ? active[0].before.value : null,
+      const ancestor = commonAncestor(active.map(x => x.op));
+      const baseAvailable = ancestor.status === "value" && plain(ancestor.value) && Object.hasOwn(ancestor.value, name);
+      conflicts.push({ field: name, baseAvailable, base: baseAvailable ? (ancestor.value as { [key: string]: Json })[name] : null,
         alternatives: active.map(x => ({ dot: dot(x.op), value: structuredClone(x.after.value) })) });
     } else if (winner.exists) output[name] = structuredClone(winner.value);
   }
