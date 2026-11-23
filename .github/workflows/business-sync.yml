@@ -41,6 +41,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test tests/sync-journal.spec.ts tests/sync-receiver.spec.ts tests/sync-reports.spec.ts
+      - name: Legacy migration startup readiness
+        run: npx playwright test tests/visits.spec.ts --grep 'migracja 0.2 i eksport'
       - name: Failure context
         if: failure()
         run: find test-results -name error-context.md -print -exec cat {} \;

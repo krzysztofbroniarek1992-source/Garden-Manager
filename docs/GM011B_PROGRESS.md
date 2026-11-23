@@ -496,3 +496,20 @@ skryptu przez Git Data API zmienił jego mode 100755 na 100644, więc wykonanie
 zatrzymało się Permission denied (exit 126). Przywrócono 100755 oraz dodano
 test -x przed budową i emulatorem. To błąd metadanych commitu, nie uzasadnienie
 zaliczenia testu dialogu. Pełna regresja musi przejść ponownie na nowym HEAD.
+
+### Pełny Chromium 5ae4484 — wykryty wyścig startowego fixture
+
+Windows/NSIS, Android (20 JVM, 13 instrumentacji, 5 aparat/galeria), TLS, PWA,
+852 jednostkowe i 41 osobnych IDB przeszły na 5ae4484. Pełny Chromium dał 406/407:
+tests/visits.spec.ts odczytał jeszcze version=2 z localStorage natychmiast po goto.
+settled sprawdza jedynie brak aria-busy; przed uruchomieniem GardenProvider ten
+atrybut też jest nieobecny. AtomicRepository.initialize kończy migrację i projekcję
+przed zamontowaniem app-shell. Snapshot UI po błędzie pokazywał już zmigrowane 541 zł.
+
+Fixture seed02 czeka teraz na rzeczywiste zamontowanie app-shell, bez sleep,
+zwiększania limitów lub zmiany oczekiwanego formatu/kwot. Zachowano wszystkie
+asercje v12, oryginalnej kopii v2, 541/100/441 zł, czasu i eksportu. Dodano odczyt
+kanonicznego current z rzeczywistego IDB po oncomplete oraz równość z kopią localStorage.
+Nie zmieniono migracji produktu, rozliczeń ani stopera. Osobny szybki krok uruchamia
+ten istniejący test; pełny zestaw Chromium nadal uruchamia wszystkie testy.
+406/407 nie jest pełnym sukcesem. Nowy końcowy HEAD wymaga ponownie wszystkich kontroli.
