@@ -103,3 +103,13 @@ przy brakujących plikach bez nowej metadanej zdjęcia, przestrzeń numerów ins
 dla NOWYCH rodzin raportów (bez zmiany starych PDF), kolizje historyczne, zachowujące
 obie historie decyzje dla konfliktów wizyty i finanse. Potem dopiero kolejne punkty
 onboardingu/restore/retencji, natywny LAN i GUI.
+
+
+## 5c2c — jawne uzgodnienie alternatyw
+
+Ograniczone resolveFinancialSyncConflict zachowuje źródłowe operacje i oba audyty
+w financialDecisions. Bieżąca wizyta zawiera świadomie wybraną spójną linię czasu,
+ewentualną nową corrected i jawne dyspozycje wszystkich oryginalnych wpłat.
+Nie sumuje alternatywnych sekund ani nie zmienia wydanych raportów. Lokalny Timer,
+źródłowy otwarty audyt, nieuzgodnione raporty i nierozdzielne starsze grupy pozostają
+chronione. Szczegóły i stan testów: [GM011B_RESOLUTIONS.md](GM011B_RESOLUTIONS.md).

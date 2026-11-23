@@ -1,3 +1,4 @@
+import type { FinancialDecisionRequest } from "./resolution-model";
 import type { ReportCheck, ReportAvailability } from "./report-documents";
 import type { ReportCollision } from "./report-registry";
 import type { Json, Operation, FieldConflict } from "./model";
@@ -49,6 +50,7 @@ export interface ReceiverState {
   rejections: { id: string; operationId: string | null; code: string }[];
   plan: SyncPlan | null;
   commits: CommitReceipt[];
+  financialCommits?: {request:FinancialDecisionRequest;operationId:string;stateRevision:number}[];
   reportChecks?: ReportCheck[];
   reportAvailability?: ReportAvailability[];
   reportConflicts?: ReportCollision[];

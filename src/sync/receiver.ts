@@ -1,3 +1,5 @@
+import { hasFinancialDecision, reconstructFinancialResult, applyFinancialDecision, financialAncestors } from "./resolutions";
+import { decisionKey, financialSources, verifyFinancialEvidence, validateDecisionRequest, type FinancialDecisionRequest, type FinancialEvidence } from "./resolution-model";
 import { applyReportCohort } from "./report-apply";
 import { documentRegistry, validateChecks, validateAvailability } from "./report-documents";
 import { registerReportCollisions, validateReportCollisions, validateNamespaceOperation, operationHasReportCollision } from "./report-registry";
@@ -88,6 +90,19 @@ export function validateReceiver(r: ReceiverState, j: JournalState) {
       throw new SyncError("INVALID", "Nieprawidłowe trwałe potwierdzenie.");
     commits.add(v.planId);
   }
+  const decisions=new Set<string>();
+  for(const commit of r.financialCommits??[]) {
+    validateDecisionRequest(commit.request);
+    const o=j.log.operations.find(o=>o.id===commit.operationId);
+    if(!o||o.origin!==j.log.installation||commit.operationId!==commit.request.id||
+      !j.appliedLocal.includes(dotId(o))||decisions.has(o.id)||
+      !Number.isSafeInteger(commit.stateRevision)||commit.stateRevision<0||commit.stateRevision>j.lastRevision)
+      throw new SyncError("INVALID","Nieprawidłowe potwierdzenie lokalnej decyzji finansowej.");
+    const e=verifyFinancialEvidence(j.log,o);
+    if(!same(e.intent,commit.request.intent)||e.token!==commit.request.token||e.rationale!==commit.request.rationale)
+      throw new SyncError("INVALID","Decyzja nie odpowiada trwałemu żądaniu.");
+    decisions.add(o.id);
+  }
   validateReportCollisions(j.log,r.reportConflicts??[],r.identityAlerts??[]);
   validateChecks(r.reportChecks??[],j.log.operations);
   validateAvailability(r.reportAvailability??[],j.log,r.reportChecks??[]);
@@ -165,6 +180,17 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
         row.stage="waiting-dependencies"; row.reason="Brak poprzedników przyczynowych."; continue;
       }
       try {
+        if(hasFinancialDecision(o)) {
+          const e=verifyFinancialEvidence(c.journal.log,o);
+          try {
+            if(!same(reconstructFinancialResult(c.data,e),e.result))
+              throw new SyncError("INVALID","Wynik finansowy nie wynika z intencji źródła.");
+          } catch(error) {
+            if(!(error instanceof ApplyBlocked))throw error;
+            // Valid proof with an unsupported business scope stays known/blocked,
+            // never treated as a permission to write its claimed result.
+          }
+        }
         c.journal.log=receive(c.journal.log,[o]); row.stage="verified"; row.reason="";
       } catch(e) {
         if (!(e instanceof SyncError)) throw e;
@@ -283,6 +309,21 @@ function simulate(c: ReceiverContext) {
       try {
         if(operationHasReportCollision(o,c.receiver.reportConflicts??[])) {
           row.stage="conflict";row.reason="REPORT_COLLISION: Tożsamość lub numer dokumentu wymaga świadomego uzgodnienia; zachowano oryginały.";continue;
+        }
+        if(hasFinancialDecision(o)) {
+          const evidence=verifyFinancialEvidence(c.journal.log,o);
+          if(recordView(c.journal.log,evidence.key).status==="conflict") {
+            row.stage="conflict";row.reason="FINANCIAL_DECISIONS: Równoległe decyzje wymagają kolejnego świadomego uzgodnienia.";continue;
+          }
+          const ancestors=financialAncestors(c.journal.log,o,ids);
+          checkParents(c,o,ids,data);
+          const before=businessRecords(data).get(evidence.key)??null,current=recordView(log,evidence.key);
+          if(current.status==="conflict"||!same(current.value,before))
+            throw new ApplyBlocked("domain","FINANCIAL_BASE: Baza i potwierdzona historia są niespójne.");
+          data=applyFinancialDecision(data,c.journal.log,o);
+          log.operations.push(o);ids.add(id);actions.push(id);row.stage="planned";row.reason="";
+          for(const p of ancestors) {const key=dotId(p);ids.add(key);resolved.set(key,o.id);}
+          progress=true;continue;
         }
         const cohort=applyReportCohort(data,o,c.journal.log,log,ids,c.receiver.reportAvailability??[],c.receiver.reportConflicts??[],
           (source,done,current)=>checkParents(c,source,done,current));
@@ -439,4 +480,50 @@ export function decideConflict(c: ReceiverContext, decision:ConflictDecision) {
   closeConflicts(c,o); c.receiver.plan=null; touch(c.receiver);
   validateReceiver(c.receiver,c.journal);
   return {operationId:o.id,dot:dotId(o),stateRevision:c.revision};
+}
+
+
+/** Local conscious action only. A retry with the same UUID and exact request
+ * returns its durable original result. A stale token never creates a new op. */
+export function decideFinancialConflict(c:ReceiverContext,request:FinancialDecisionRequest) {
+  requireActive(c);validateReceiver(c.receiver,c.journal);validateDecisionRequest(request);
+  const old=c.receiver.financialCommits?.find(v=>v.operationId===request.id);
+  if(old) {
+    if(!same(old.request,request))throw new SyncError("EQUIVOCATION","UUID decyzji ma inną treść.");
+    return {operationId:old.operationId,stateRevision:old.stateRevision};
+  }
+  const conflict=c.receiver.conflicts.find(v=>v.id===request.conflictId&&v.status==="open");
+  if(!conflict||conflict.token!==request.token||signature(c.journal.log,conflict.key)!==request.token)
+    fail("Konflikt zmienił się. Odczytaj aktualne warianty.");
+  if((conflict.kind==="visits"?"visit":conflict.kind==="expenses"?"expense":"unsupported")!==request.intent.kind)
+    throw new ApplyBlocked("unsupported","Ten typ finansów wymaga osobnego onboardingu lub adaptera.");
+  const proof=financialSources(c.journal.log,conflict.key);
+  const evidence:FinancialEvidence={version:1,id:request.id,key:conflict.key,...proof,
+    intent:structuredClone(request.intent),rationale:request.rationale,at:Date.now(),result:null};
+  // Evidence shape and the exact controlled outcome are validated again below.
+  evidence.result=reconstructFinancialResult(c.data,evidence);
+  const before=businessRecords(c.data).get(conflict.key)??null;
+  const appended=appendLocal(c.journal.log,[
+    {key:conflict.key,before,after:evidence.result},
+    {key:decisionKey(request.id),before:null,after:evidence as unknown as Json},
+  ],{id:request.id,resolution:true}),o=appended.operation!;
+  verifyFinancialEvidence(c.journal.log,o);
+  const ids=applied(c),ancestors=financialAncestors(c.journal.log,o,ids);
+  checkParents(c,o,ids);
+  const actual=recordView(materialized(c,ids),conflict.key);
+  if(actual.status==="conflict"||!same(actual.value,before))
+    fail("Dane i potwierdzona historia rekordu są niespójne.");
+  const next=applyFinancialDecision(c.data,c.journal.log,o);
+  c.journal.log=appended.log;c.journal.appliedLocal.push(dotId(o));
+  c.data=next;c.revision++;c.journal.lastRevision=c.revision;
+  for(const p of ancestors) {
+    const row=c.receiver.receipts.find(v=>v.operation.id===p.id);
+    if(row&&row.stage!=="applied") {
+      row.stage="resolved";row.resolvedBy=o.id;row.reason="Uzgodniono świadomą decyzją; oryginał zachowano w audycie.";
+    }
+  }
+  closeConflicts(c,o);c.receiver.plan=null;
+  (c.receiver.financialCommits??=[]).push({request:structuredClone(request),operationId:o.id,stateRevision:c.revision});
+  touch(c.receiver);validateReceiver(c.receiver,c.journal);
+  return {operationId:o.id,stateRevision:c.revision};
 }

@@ -1,3 +1,4 @@
+import type { FinancialDecisionRequest } from "../sync/resolution-model";
 import { prepareReportSeals, checkReportOperations, documentRegistry, sealKey } from "../sync/report-documents";
 import { appendLocal, canonical, dotId } from "../sync/causal";
 import { REPORT_NUMBER_KEY, REPORT_NUMBER_SOURCE, beginNumberState, checkReportWrites, legacyReservation, reserveNumber, validateNumberState, type ReportNumberState, type ReportWrite } from "../sync/report-number-state";
@@ -6,7 +7,7 @@ import { parseReportNumber } from "../reports/numbering";
 import { validateReportOptions } from "../reports/validation";
 import { registerReportCollisions } from "../sync/report-registry";
 import { RECEIVER_KEY, RECEIVE_SOURCE, RECEIVE_LAST_SOURCE, type ReceiverState, type ConflictDecision } from "../sync/receiver-model";
-import { initialReceiver, validateReceiver, receiveDurably, planReceived, commitReceived, decideConflict, type ReceiverContext } from "../sync/receiver";
+import { initialReceiver, validateReceiver, receiveDurably, planReceived, commitReceived, decideConflict, decideFinancialConflict, type ReceiverContext } from "../sync/receiver";
 import { SyncError } from "../sync/model";
 import { JOURNAL_STORE, JOURNAL_DATABASE_VERSION, JOURNAL_KEY, JOURNAL_SOURCE, DATABASE_SOURCE, activateJournal, validateJournal, captureInTransaction, type JournalState } from "../sync/journal";
 import { withShopping } from "../shopping/model";
@@ -499,6 +500,11 @@ export class AtomicRepository {
   async resolveSyncConflict(decision: ConflictDecision) {
     const copy = structuredClone(decision);
     return this.syncTransition(c => decideConflict(c,copy));
+  }
+  /** Explicit local API; absent from IPC/LAN. No generic financial JSON writes. */
+  async resolveFinancialSyncConflict(decision: FinancialDecisionRequest) {
+    const copy=structuredClone(decision);
+    return this.syncTransition(c=>decideFinancialConflict(c,copy));
   }
   async readSyncReceiver(): Promise<ReceiverState | null> {
     const db = await this.open();

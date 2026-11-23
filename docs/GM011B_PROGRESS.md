@@ -524,3 +524,16 @@ intencji, niezmienny audyt obu źródeł i udowodniona baza przyczynowa. Nie dod
 jeszcze biznesowego stosowania decyzji ani uprawnień LAN. Ogólne API nadal blokuje
 finanse. Testy modelu muszą przejść CI tego commitu. Następny checkpoint to 5c2c-B,
 zgodnie z docs/GM011B_RESOLUTIONS.md. Format v12 i techniczne IDB v2 bez zmian.
+
+
+### 5c2c-B/C — kontrolowane decyzje (przed pełną regresją)
+
+Checkpoint A 4661e654: kontrola TS i testy unit/sync przeszły CI. Dodano ograniczony
+adapter jawnych decyzji wizyty (zatwierdzenie, dyspozycje oryginalnych wpłat,
+spójna gałąź czasu + opcjonalna corrected) i wydatku (kwota/kategoria/status).
+Źródła i oba audyty pozostają w niezmiennym logu. Zapis przechodzi tę samą
+transakcję Data/journal/receiver/checkpointów. Osobne API ma token i stabilny retry.
+Generic resolveSyncConflict nadal blokuje finanse. Trzy trwałe bazy jednostkowe
+sprawdzają przekazywanie B→A/C, idempotencję, korekty, anulowanie i quota rollback.
+Ta wersja wymaga CI; nie deklarujemy jeszcze pełnego 5c2c. Następne: analiza
+wyników, uzupełnienie testów Chromium i pozostałych granic bezpieczeństwa.
