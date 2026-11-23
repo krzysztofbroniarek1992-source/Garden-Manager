@@ -170,3 +170,12 @@ Zwykłe kopie v12 nie są archiwum całego audytu synchronizacji.
 
 Dokładny kontrakt oraz algorytmy: GM011B_REPORTS.md. 5c2c, natywny biznesowy LAN,
 pełne GUI, GM-011C i fizyczny odbiór nie zostały uruchomione.
+
+
+## 5c2c — oddzielny audyt świadomych decyzji
+
+resolution-model.ts definiuje techniczny dowód oparty na źródłowych UUID, wektorach,
+pełnych alternatywach i wspólnej bazie. Dowód nie jest zgodą na dowolny zapis JSON.
+Adapter musi odtworzyć wynik z ograniczonej intencji i zweryfikować domenę w tej
+samej transakcji co Data/journal/receiver. Checkpoint A sam nie odblokowuje finansów.
+Szczegóły i dokładna granica: [GM011B_RESOLUTIONS.md](GM011B_RESOLUTIONS.md).

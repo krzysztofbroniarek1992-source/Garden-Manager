@@ -513,3 +513,14 @@ kanonicznego current z rzeczywistego IDB po oncomplete oraz równość z kopią 
 Nie zmieniono migracji produktu, rozliczeń ani stopera. Osobny szybki krok uruchamia
 ten istniejący test; pełny zestaw Chromium nadal uruchamia wszystkie testy.
 406/407 nie jest pełnym sukcesem. Nowy końcowy HEAD wymaga ponownie wszystkich kontroli.
+
+
+### 5c2c-A — rozpoczęcie od potwierdzonego 2efe5bd3
+
+Potwierdzono HEAD 2efe5bd3 i wszystkie zielone workflow 5c2b; nie powtarzano jego
+implementacji. Środowisko lokalne nie jest dostępne, prace i weryfikacja odbywają
+się przez GitHub/Actions. Dodano resolution-model.ts: ścisły model świadomej
+intencji, niezmienny audyt obu źródeł i udowodniona baza przyczynowa. Nie dodano
+jeszcze biznesowego stosowania decyzji ani uprawnień LAN. Ogólne API nadal blokuje
+finanse. Testy modelu muszą przejść CI tego commitu. Następny checkpoint to 5c2c-B,
+zgodnie z docs/GM011B_RESOLUTIONS.md. Format v12 i techniczne IDB v2 bez zmian.
