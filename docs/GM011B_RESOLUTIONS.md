@@ -123,3 +123,22 @@ od dołu wyłącznie przez istniejące createdAt, aby zachować invariant v12 pr
 źle ustawionym lokalnym zegarze. Faktyczne lokalne at decyzji pozostaje w dowodzie;
 nie określa kolejności przyczynowej ani poprawnej kwoty. Odtworzenie na odbiorcy
 jest deterministyczne również przy różnych zegarach.
+
+
+## Kontynuacja STOP — projekt gałęzi pomiaru
+
+Operacja localTimeBranches jest audytem faktycznego lokalnego pause/resume/stop
+i wskazuje konkretny parentId własnej wersji visits. UUID operacji jest oryginalnym
+UUID zdarzenia z auditTimeChanges. Dowód wiąże before/after, Timer przed/po oraz
+dokładny przyrost sekund z istniejącym silnikiem. Nie zawiera polecenia wykonania
+stopera na odbiorcy. Nie zmienia Data v12 ani technicznego schematu IndexedDB v2.
+
+Pełny wektor operacji nadal zawiera wszystkie known. Oddzielna projekcja wersji
+rekordu przedłuża wyłącznie wskazanego rodzica, więc sama wiedza o obcej wersji nie
+jest jej zastąpieniem. Zapisane operacje, ich UUID i wektory pozostają niezmienne.
+Dopiero późniejsza jawna operacja resolution może zamknąć obie alternatywy.
+Model nie używa LWW ani cofania known.
+
+Pierwszy checkpoint dodaje model i testy przyczynowości. Automatyczne tworzenie
+dowodu podczas komendy stopera i kontrolowane stosowanie odbiorcy są kolejnym
+krokiem; sam ten checkpoint jeszcze nie odblokowuje STOP aplikacji.

@@ -589,3 +589,14 @@ Pełny nowy przebieg wymagany dla końcowego kodu.
 Dodatkowy test rozjechanych zegarów: metadata wydatku spełniają istniejące
 updatedAt >= createdAt bez wyboru kwoty według dat. Audyt zachowuje lokalne at.
 Nie zmieniono reguł domeny ani formatu; pełna regresja tego commitu jest wymagana.
+
+
+### Kontynuacja od c029b6b4 — własna gałąź pomiaru
+
+Potwierdzono niezmieniony HEAD i recenzję 7116160974. Brak nowych wymagań LAN/GUI.
+Dodano model localTimeBranches: oryginalne zdarzenie pause/resume/stop, własny
+parentId, ścisły dowód before/after i naliczenia z Timer. Projekcja recordView
+rozróżnia zależności przyczynowe wiadomości od zastąpienia konkretnej gałęzi:
+pełny kontekst pozostaje oryginalny, STOP nie konsumuje obcej alternatywy.
+Pierwszy checkpoint jest modelem z testami; nie uruchamia jeszcze komend nową
+ścieżką. Następne: atomowy captureJournal, receiver i decyzja po zamknięciu.

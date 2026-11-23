@@ -1,3 +1,4 @@
+import { projectedMutations, timeBranch, validateTimeBranchLinks } from "./time-branch-model";
 import {
   SyncError, syncLimits, type Json, type Vector, type Dot,
   type Mutation, type Operation, type ReplicaLog, type RecordView, type FieldConflict,
@@ -35,6 +36,8 @@ export function canonical(value: unknown): string {
   return visit(value, 0);
 }
 export const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
+/** Effective record writes include a proven timer branch; stored wire operations stay unchanged. */
+export const recordMutations = (o:Operation) => projectedMutations(o,same);
 export const dotId = (d: Dot) => d.origin + ":" + d.sequence;
 export const covers = (v: Vector, d: Dot) => (v[d.origin] ?? 0) >= d.sequence;
 export function validateVector(value: unknown): asserts value is Vector {
@@ -68,6 +71,7 @@ export function validateOperation(value: unknown): asserts value is Operation {
     keys.add(c.key);
     if (!o.resolution && same(c.before, c.after)) fail("INVALID", "Pusta zmiana nie jest operacją.");
   }
+  timeBranch(o,same);
   if (new TextEncoder().encode(canonical(o)).byteLength > syncLimits.operationBytes)
     fail("LIMIT", "Operacja synchronizacji przekracza limit 8 MiB.");
 }
@@ -76,8 +80,8 @@ export function newLog(installation: string): ReplicaLog {
   return { protocol: 1, installation, nextSequence: 1, known: {}, operations: [], waiting: [] };
 }
 interface Write { op: Operation; change: Mutation }
-const concurrentHeads = <T extends { op: Operation }>(all: T[]): T[] =>
-  all.filter(a => !all.some(b => b !== a && covers(b.op.context, a.op)))
+const concurrentHeads = <T extends { op: Operation }>(all: T[], supersedes=(a:T,b:T)=>covers(a.op.context,b.op)): T[] =>
+  all.filter(a => !all.some(b => b !== a && supersedes(b,a)))
     .sort((a, b) => dotId(a.op).localeCompare(dotId(b.op), "en"));
 
 /** Only flat client fields may merge automatically. Financial/linked aggregates
@@ -89,8 +93,25 @@ const dot = (o: Operation): Dot => ({ origin: o.origin, sequence: o.sequence });
 
 export function recordView(log: ReplicaLog, key: string, at?: Vector): RecordView {
   const writes: Write[] = log.operations.filter(o => !at || covers(at, o))
-    .flatMap(op => op.changes.filter(c => c.key === key).map(change => ({ op, change })));
-  const heads = concurrentHeads(writes), ids = heads.map(x => dot(x.op));
+    .flatMap(op => recordMutations(op).filter(c => c.key === key).map(change => ({ op, change })));
+  const byId=new Map(writes.map(w=>[w.op.id,w]));
+  const supersedes=(a:Write,b:Write):boolean=>{
+    let current=a;
+    // Branches extend only their named owned record version, despite knowing
+    // foreign alternatives. Ordinary writes/explicit decisions keep causal semantics.
+    const seen=new Set<string>();
+    while(true) {
+      if(current.op.id===b.op.id)return true;
+      if(seen.has(current.op.id))throw new SyncError("INVALID","Cykliczna gałąź czasu.");
+      seen.add(current.op.id);
+      const branch=key.startsWith("visits/")?timeBranch(current.op,same):null;
+      if(!branch)return covers(current.op.context,b.op);
+      const parent=byId.get(branch.parentId);
+      if(!parent)return false; // Detached materialization can omit a superseded ancestor.
+      current=parent;
+    }
+  };
+  const heads = concurrentHeads(writes,supersedes), ids = heads.map(x => dot(x.op));
   const view: RecordView = { key, status: "missing", value: null, heads: ids, conflicts: [] };
   if (!heads.length) return view;
   const first = heads[0].change.after;
@@ -155,6 +176,7 @@ export function validateCausalContext(op: Operation, lookup: (origin: string, se
 }
 function checkPreconditions(log: ReplicaLog, op: Operation) {
   validateCausalContext(op, (origin, sequence) => log.operations.find(p => p.origin === origin && p.sequence === sequence));
+  validateTimeBranchLinks(log,op,same);
   let conflicts = 0;
   for (const c of op.changes) {
     const before = recordView(log, c.key, op.context);
