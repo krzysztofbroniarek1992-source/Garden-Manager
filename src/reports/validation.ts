@@ -1,3 +1,4 @@
+import { parseReportNumber } from "./numbering";
 import type { Data } from '../domain';
 import { isDate } from '../planning/dates';
 import { itemStatusLabels } from '../checklists/model';
@@ -297,7 +298,7 @@ export function validateReports(data: Data) {
           !id(r.id) ||
           ids.has(r.id) ||
           typeof r.number !== 'string' ||
-          !/^BO\/\d{4}\/\d{6,16}$/.test(r.number) ||
+          !parseReportNumber(r.number) ||
           r.version !== index + 1 ||
           !stamp(r.generatedAt) ||
           r.rendererVersion !== 1 ||
@@ -310,7 +311,8 @@ export function validateReports(data: Data) {
         const owner = families.get(r.number);
         if (owner && owner !== j.id) fail();
         families.set(r.number, j.id);
-        maxSequence = Math.max(maxSequence, Number(r.number.split('/')[2]));
+        const parsed=parseReportNumber(r.number)!;
+        if(parsed.namespace===null)maxSequence = Math.max(maxSequence,parsed.sequence);
         validateReportSnapshot(r.snapshot, r.options);
       }
     }

@@ -49,6 +49,9 @@ async function seed02(page: Page, data = fixture()) {
     if (localStorage.getItem(key) === null) localStorage.setItem(key, original);
   }, { key, original });
   await page.goto('/');
+  // aria-busy can still be absent BEFORE the provider starts initialization.
+  // This shell mounts only after canonical migration and compatibility projection.
+  await page.locator('.app-shell').waitFor();
   return original;
 }
 
@@ -289,6 +292,18 @@ test('migracja 0.2 i eksport zachowują starą należność 541 zł bez nowego z
   const original = await seed02(page);
   const migrated = await snapshot(page);
   expect(migrated.version).toBe(STORAGE_VERSION);
+  const canonical = await page.evaluate(() => new Promise<any>((resolve, reject) => {
+    const request = indexedDB.open('garden-manager-state');
+    request.onerror = () => reject(request.error);
+    request.onupgradeneeded = () => { request.transaction!.abort(); reject(new Error('Application did not initialize IndexedDB')); };
+    request.onsuccess = () => {
+      const db = request.result, tx = db.transaction('state', 'readonly'), read = tx.objectStore('state').get('current');
+      tx.oncomplete = () => { db.close(); resolve(read.result); };
+      tx.onabort = () => { db.close(); reject(tx.error); };
+    };
+  }));
+  expect(canonical.formatVersion).toBe(STORAGE_VERSION);
+  expect(canonical.data).toEqual(migrated.data);
   await settled(page); expect(await page.evaluate(() => localStorage.getItem('garden-manager:backup:v2'))).toBe(original);
   const old = fixture();
   expect(migrated.data.clients).toEqual(old.clients);

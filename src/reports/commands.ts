@@ -1,3 +1,4 @@
+import { parseReportNumber, type ReportIdentity } from "./numbering";
 import { elapsedSeconds, type Data, type Job } from '../domain';
 import {
   buildReportSnapshot,
@@ -98,6 +99,8 @@ export function auditTimeChanges(
 export function nextReportIdentity(data: Data, job: Job, now: number) {
   const history = job.reports ?? [],
     latest = history.at(-1);
+  if(latest && parseReportNumber(latest.number)?.namespace)
+    throw new Error("Nowa wersja tego raportu wymaga oryginalnej przestrzeni numeracji instalacji.");
   return {
     number:
       latest?.number ??
@@ -110,6 +113,7 @@ export function saveVisitReport(
   jobId: string,
   record: VisitReport,
   expected: string,
+  allocation?: ReportIdentity,
 ): Data {
   const job = data.jobs.find((j) => j.id === jobId);
   if (!job) throw conflict();
@@ -124,12 +128,14 @@ export function saveVisitReport(
       JSON.stringify(buildReportSnapshot(data, jobId, record.options))
   )
     throw conflict();
-  const identity = nextReportIdentity(data, job, record.generatedAt);
+  if(job.reports?.length && job.reports[0].number!==record.number) throw conflict();
+  const identity = allocation ?? nextReportIdentity(data, job, record.generatedAt);
   if (identity.number !== record.number || identity.version !== record.version)
     throw conflict();
   return {
     ...data,
-    reportSequence: data.reportSequence + (job.reports?.length ? 0 : 1),
+    // The legacy marker is not a reservation for scoped document families.
+    reportSequence: data.reportSequence + (job.reports?.length || parseReportNumber(record.number)?.namespace ? 0 : 1),
     jobs: data.jobs.map((j) =>
       j.id === jobId
         ? { ...j, reports: [...(j.reports ?? []), structuredClone(record)] }

@@ -13,6 +13,18 @@ import static pl.broniarek.gardenmanager.WebViewTestSupport.*;
  * picker, bounded native staging, CSV parser and wizard. */
 @RunWith(AndroidJUnit4.class)
 public class ExpensesTest {
+    // DocumentsUI rebuilds accessibility nodes while its list settles. Reacquire
+    // only this read-only file choice; never retry a business commit/confirmation.
+    private static void clickCsvDocument(UiDevice device) throws Exception {
+        long until=android.os.SystemClock.uptimeMillis()+15000;
+        while(android.os.SystemClock.uptimeMillis()<until) {
+            UiObject2 current=device.wait(Until.findObject(By.text("gm009b-bank.csv")),1000);
+            if(current==null)continue;
+            try {current.click();return;}
+            catch(StaleObjectException replaced) {device.waitForIdle(1000);}
+        }
+        fail("CSV document did not remain accessible in the system picker");
+    }
     @Test public void offlineExpensesImportBackAndReopen() throws Exception {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             ready(scenario);
@@ -64,13 +76,21 @@ public class ExpensesTest {
                     UiObject2 downloads=device.wait(Until.findObject(By.text("Downloads")),10000);assertNotNull(downloads);downloads.click();
                     document=device.wait(Until.findObject(By.text("gm009b-bank.csv")),15000);
                 }
-                assertNotNull("CSV document visible in system picker",document);document.click();
+                assertNotNull("CSV document visible in system picker",document);clickCsvDocument(device);
                 waitFor(scenario,"document.querySelector('.expense-import')?.textContent.includes('Przypisz kolumny') || !!document.querySelector('.expense-import [role=alert]')");
+                // The heading is rendered as soon as File is set, before decode,
+                // headers/hash and the final setOptions. Wait for the native read
+                // to finish so it cannot overwrite these deliberately chosen columns.
+                waitFor(scenario,"!document.querySelector('.expense-import [role=status]') && Array.from(document.querySelectorAll('.expense-import label')).find(e=>e.childNodes[0]?.textContent.trim()==='Data')?.querySelector('select')?.options.length===4");
                 assertEquals("",evaluate(scenario,"document.querySelector('.expense-import [role=alert]')?.textContent || ''"));
                 for(String[] field:new String[][]{{"Data","0"},{"Kwota ze znakiem","1"},{"Opis","2"}}) {
                     evaluate(scenario,"(()=>{const label=Array.from(document.querySelectorAll('.expense-import label')).find(e=>e.childNodes[0]?.textContent.trim()==="+org.json.JSONObject.quote(field[0])+");const select=label.querySelector('select');select.value="+org.json.JSONObject.quote(field[1])+";select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+                    assertEquals("painted",async(scenario,"await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));return 'painted'"));
+                    assertEquals(field[1],evaluate(scenario,"Array.from(document.querySelectorAll('.expense-import label')).find(e=>e.childNodes[0]?.textContent.trim()==="+org.json.JSONObject.quote(field[0])+").querySelector('select').value"));
                 }
                 evaluate(scenario,"document.querySelector('.expense-import').requestSubmit()");
+                waitFor(scenario,"!!document.querySelector('.expense-counts') || !!document.querySelector('.expense-import [role=alert]')");
+                assertEquals("",evaluate(scenario,"document.querySelector('.expense-import [role=alert]')?.textContent || ''"));
                 waitFor(scenario,"document.querySelector('.expense-counts')?.textContent.includes('Nowe: 2')");
                 evaluate(scenario,"Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Zatwierdź nowe obciążenia bez ostrzeżeń').click()");
                 evaluate(scenario,"setTimeout(()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim().startsWith('Zapisz import (')).click(),0)");

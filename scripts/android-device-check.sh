@@ -36,6 +36,12 @@ run_device_test "$android_package.UpgradeDataTest#verifyAfterUpdate"
 adb shell am force-stop "$android_package"
 run_device_test "$android_package.UpgradeDataTest#verifyAfterUpdate"
 adb shell am force-stop "$android_package"
+# Exercise genuine Back confirmations on current B as well as old A.
+run_device_test "$android_package.NativeSmokeTest"
+adb shell am force-stop "$android_package"
+# Preview/cancel/Back must preserve seeded finances, JPEG and the active Timer.
+run_device_test "$android_package.UpgradeDataTest#verifyAfterUpdate"
+adb shell am force-stop "$android_package"
 run_device_test "$android_package.ExpensesTest"
 adb shell am force-stop "$android_package"
 run_device_test "$android_package.ShoppingTest"
