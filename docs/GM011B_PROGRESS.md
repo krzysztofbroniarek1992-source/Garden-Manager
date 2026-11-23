@@ -487,3 +487,12 @@ trwałego zapisu zgodnego ze starym kontraktem. Nowe wadliwe wejście nadal jest
 rejected przed known; walidacja nie została osłabiona. Błędy WebCrypto nie są ukrywane.
 Dodano także kolizje historyczne i przestrzeni z prawidłowymi pełnymi dowodami,
 aby brak wcześniejszego dowodu nie maskował sprawdzenia blokady kolizji.
+
+### Poprawka uprawnienia skryptu CI
+
+Na 44dff16 jednostkowe 852/852 (169/169 sync), osobne Chromium 41/41,
+TLS21, polityki6 i PWA20 przeszły. Android nie uruchomił instrumentacji: zapis
+skryptu przez Git Data API zmienił jego mode 100755 na 100644, więc wykonanie
+zatrzymało się Permission denied (exit 126). Przywrócono 100755 oraz dodano
+test -x przed budową i emulatorem. To błąd metadanych commitu, nie uzasadnienie
+zaliczenia testu dialogu. Pełna regresja musi przejść ponownie na nowym HEAD.
