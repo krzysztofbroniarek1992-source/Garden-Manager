@@ -1,3 +1,4 @@
+import { applyReportCohort } from "./report-apply";
 import { documentRegistry, validateChecks, validateAvailability } from "./report-documents";
 import { registerReportCollisions, validateReportCollisions, validateNamespaceOperation, operationHasReportCollision } from "./report-registry";
 import type { Data } from "../domain";
@@ -283,6 +284,17 @@ function simulate(c: ReceiverContext) {
         if(operationHasReportCollision(o,c.receiver.reportConflicts??[])) {
           row.stage="conflict";row.reason="REPORT_COLLISION: Tożsamość lub numer dokumentu wymaga świadomego uzgodnienia; zachowano oryginały.";continue;
         }
+        const cohort=applyReportCohort(data,o,c.journal.log,log,ids,c.receiver.reportAvailability??[],c.receiver.reportConflicts??[],
+          (source,done,current)=>checkParents(c,source,done,current));
+        if(cohort) {
+          data=cohort.data;
+          for(const source of cohort.operations) {
+            const key=dotId(source),receipt=c.receiver.receipts.find(r=>dotId(r.operation)===key);
+            if(!receipt||settled(receipt))fail("Niespójny zbiorczy zapis raportu.");
+            log.operations.push(source);ids.add(key);actions.push(key);receipt.stage="planned";receipt.reason="";
+          }
+          progress=true;continue;
+        }
         eligibilityUnits(data,o);
         if (o.changes.some(x=>recordView(c.journal.log,x.key).status==="conflict")) {
           row.stage="conflict"; row.reason="Rekord wymaga jawnego rozstrzygnięcia."; continue;
@@ -332,7 +344,7 @@ export function planReceived(c: ReceiverContext): PlanSummary {
     receiverRevision:c.receiver.revision,knowledge:canonical(c.journal.log.known),operations:proposed.actions} : null;
   c.receiver.plan=plan;
   validateReceiver(c.receiver,c.journal);
-  return {plan,planned:proposed.actions.length,conflicts:c.receiver.conflicts.filter(v=>v.status==="open").length+(c.receiver.reportConflicts?.length??0),
+  return {plan,planned:proposed.actions.length,conflicts:c.receiver.conflicts.filter(v=>v.status==="open").length+(c.receiver.reportConflicts?.length??0)+(c.receiver.reportAvailability?.filter(v=>v.status==="conflict").length??0),
     blocked:c.receiver.receipts.filter(r=>r.stage==="blocked").length,
     dependencies:c.receiver.receipts.filter(r=>r.stage==="waiting-records" || r.stage==="waiting-dependencies").length,
     rejected:c.receiver.receipts.filter(r=>r.stage==="rejected").length};

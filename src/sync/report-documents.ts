@@ -209,7 +209,7 @@ export function validateAvailability(entries:readonly ReportAvailability[],log:R
     const actual=current.find(v=>v.jobId===e.jobId&&same(v.identity,e.identity));
     if(!actual||e.reportId!==e.identity.id||!["pending","portable","source-only","conflict"].includes(e.status)||
       typeof e.reason!=="string"||e.reason.length>4000||!Array.isArray(e.sourceOperations)||
-      e.sourceOperations.some(id=>!log.operations.some(o=>o.id===id))||
+      e.sourceOperations.some((id:string)=>!log.operations.some(o=>o.id===id))||
       !(e.proofOperation===null||log.operations.some(o=>o.id===e.proofOperation&&o.changes.some(c=>c.key===sealKey(e.reportId))))||
       !(e.documentSha256===null||hash(e.documentSha256))||!(e.snapshotSha256===null||hash(e.snapshotSha256)))
       invalid("Dostępność nie odpowiada niezmiennej historii.");

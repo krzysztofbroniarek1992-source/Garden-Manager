@@ -394,3 +394,14 @@ przygotowania dowodów przed przyszłą ofertą; nie uruchamia LAN ani synchroni
 WebCrypto przed transakcją, ponowna kontrola kanonicznego logu i rewizji wewnątrz IDB.
 Planowanie nie zapisuje Data. Pełne stosowanie nadal zablokowane do checkpointu B2.
 Pierwszy commit wymaga TypeScript i CI; nie deklarujemy jeszcze zaliczenia testów 5c2b.
+
+### Checkpoint B2 — atomowa grupa raportów (w kontroli)
+
+Dodano adapter grupujący wymagane oryginalne operacje snapshotu, tożsamości i dowodu,
+bez dzielenia starych bootstrapów ani generowania nowych UUID na odbiorcy. Operacje
+job/payments nadal przechodzą 5c1; tożsamości są dopuszczane dopiero z pełną rodziną.
+Dokument zależny od plików ma trwały source-only i pozostawia oryginalną grupę blocked.
+Nie powstaje fikcyjny VisitReport. Plan nie zmienia Data. Pełne przyjęcie korzysta
+z istniejącego commitReceived i jednej transakcji Data/journal/receiver/checkpointy.
+Pierwszy checkpoint CI wykrył niejawny any po Array.isArray; doprecyzowano parametr,
+bez usuwania walidacji. Testy adaptera i pełna regresja pozostają do wykonania.
