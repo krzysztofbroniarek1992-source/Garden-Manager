@@ -208,6 +208,18 @@ function checkParents(c:ReceiverContext,o:Operation,ids:Set<string>,data:Data=c.
       c.journal.log.operations.some(p=>covers(o.context,p) && !ids.has(dotId(p)) && p.changes.some(x=>x.key===parent))))
       throw new ApplyBlocked("dependency","Rodzic finansowy jest brakujący, niezastosowany, usunięty lub w konflikcie.");
   }
+  // A newer parent may have the same ID but another owner. Do not attach a
+  // source visit/payment to that other client without observing that change.
+  for(const change of o.changes) {
+    if(keyParts(change.key).kind!=="visits"||change.after===null)continue;
+    const job=(change.after as unknown as import("./visits").VisitUnit).job;
+    const parent="gardens/"+encodeURIComponent(job.gardenId);
+    const inOperation=o.changes.find(x=>x.key===parent&&x.after!==null);
+    const source=inOperation?.after??recordView(c.journal.log,parent,o.context).value;
+    const current=inOperation?.after??data.gardens.find(g=>g.id===job.gardenId);
+    if(source&&current&&(source as {clientId:Json}).clientId!==(current as {clientId:Json}).clientId)
+      throw new ApplyBlocked("dependency","VISIT_OWNER: Właściciel ogrodu zmienił się poza kontekstem źródłowej wizyty.");
+  }
   for (const change of o.changes) {
     const {kind}=keyParts(change.key);
     if(kind!=="gardens" || change.after===null) continue;

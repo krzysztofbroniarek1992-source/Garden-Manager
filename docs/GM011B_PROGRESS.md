@@ -294,3 +294,14 @@ Kontrakt i jawne blokady: [GM011B_VISITS.md](GM011B_VISITS.md). Raporty/counters
 nowa numeracja offline i decyzje chroniące obie historie finansowe pozostają 5c2.
 Nie deklarujemy ukończenia całego 5c. Nie zmieniono v12/IDB v2/JSON/ZIP, natywnego
 LAN, zdjęć ani UI. Brak aktywacji w produkcji i brak pakietów do fizycznego odbioru.
+
+
+### Przegląd 5c1 — granice właściciela i rewizji
+
+Pierwszy 8a57f85 przeszedł TypeScript, 130 testów synchronizacji, pełne 813/813
+jednostkowych, git diff --check oraz osobne 21/21 rzeczywiste E2E IndexedDB.
+Pełne pozostałe workflow jeszcze trwały podczas tego punktu; nie uznano ich wcześniej
+za zakończone. Dalszy przegląd dodał dowód właściciela ogrodu w kontekście źródła:
+nowa wizyta nie może trafić pod innego klienta po niezaobserwowanym przeniesieniu
+ogrodu. Dodano regresję tej granicy oraz kontrolę zdarzenia zakończenia i rewizji
+szczegółów wizyty. Wyniki końcowego commitu wymagają nowego CI.

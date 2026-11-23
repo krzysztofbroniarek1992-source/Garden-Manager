@@ -29,7 +29,9 @@ Można przyjmować:
 
 Wymagana jest zgodność kształtu, pełna validateData, udowodnieni rodzice w kontekście
 źródła i zgodność kanonicznego rekordu z zastosowaną historią. Nowa referencja
-katalogu wymaga rodzica; nowa strefa materiału musi istnieć. Zmiana terminu nie
+katalogu wymaga rodzica; nowa strefa materiału musi istnieć. Źródłowy właściciel ogrodu musi odpowiadać aktualnemu; niezaobserwowana zmiana
+właściciela wstrzymuje wizytę i jej wpłaty. Zakończenie istniejącej wizyty wymaga
+zdarzenia completed, szczegóły zachowują tożsamość i rosnącą rewizję. Zmiana terminu nie
 omija ostrzeżenia o lokalnej dostępności. Nie odtwarzamy zgody udzielonej gdzie indziej.
 
 ## Czas i Timer

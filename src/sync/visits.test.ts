@@ -202,6 +202,15 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
     expect((await job(b)).gardenId).toBe("source-garden");
     expect((await data(b)).gardens.find(g=>g.id==="source-garden")!.clientId).toBe("source-parent");
   });
+  it("does not attach a historical source visit to a concurrently changed garden owner",async()=>{
+    const a=await replica(0),b=await replica(1);await exchange(a,b);
+    const garden=(await data(b)).gardens.find(g=>g.id==="garden-1")!;
+    await b.repo.command(s=>s.saveGarden({...garden,clientId:"client-2"},garden));
+    await create(a);await send(a,b);await restart(b);
+    expect(await job(b)).toBeUndefined();
+    expect((await data(b)).gardens.find(g=>g.id==="garden-1")!.clientId).toBe("client-2");
+    expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="waiting-records"&&r.reason.includes("VISIT_OWNER"))).toBe(true);
+  });
   it("rejects malformed intrinsic time, blocks truncation and unexplained seconds, and keeps source data",async()=>{
     for(const variant of ["seconds","truncated","chain"] as const) {
       const a=await replica(0),b=await replica(1);await create(a);
@@ -213,6 +222,18 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
       else value.job.timeHistory.push({id:"bad",kind:"corrected",at:1000,beforeSeconds:99,afterSeconds:100,pauseDurationMs:null});
       const result=await inject(a,b,value);
       expect(["blocked","rejected"]).toContain(result.stage);expect(await data(b)).toEqual(before);
+    }
+  });
+  it("blocks a completion without its source event and a stale visit-details revision",async()=>{
+    for(const variant of ["completion","details"] as const) {
+      const a=await replica(0),b=await replica(1);await create(a);
+      await a.repo.command(s=>s.saveVisitDetails("visit",{publicWork:"Original",clientRemarks:"",zoneId:null},0),()=>2000);
+      await exchange(a,b);const before=await data(b),unit=businessRecords(await data(a)).get("visits/visit") as any;
+      const value=structuredClone(unit);
+      if(variant==="completion")value.job.status="completed";
+      else value.job.visitDetails.publicWork="Unversioned rewrite";
+      expect((await inject(a,b,value)).stage).toBe("blocked");
+      expect(await data(b)).toEqual(before);
     }
   });
   it("rolls back Data+journal+receiver on quota/abort and replays the durable receipt after a lost acknowledgment",async()=>{

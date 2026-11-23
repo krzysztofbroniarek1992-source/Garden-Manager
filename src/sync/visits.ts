@@ -101,6 +101,12 @@ function historyTransition(old:VisitUnit|null,value:VisitUnit) {
     if(accrued ? first.beforeSeconds<old.job.seconds : first.beforeSeconds!==old.job.seconds)
       hold("VISIT_TIME_BASE","Pierwsze zdarzenie nie zachowuje dotychczasowego czasu.");
   }
+  if(old&&old.job.status!=="completed"&&value.job.status==="completed"&&
+    !after.slice(before.length).some(e=>e.kind==="completed"))
+    hold("VISIT_COMPLETION","Zakończenie istniejącej wizyty wymaga źródłowego zdarzenia.");
+  const oldDetails=old?.job.visitDetails, details=value.job.visitDetails;
+  if(oldDetails&&(!details||!same(oldDetails,details)&&details.revision<=oldDetails.revision))
+    hold("VISIT_DETAILS","Zmiana utraciłaby wersję szczegółów wizyty.");
   validateTimeAudit(value.job);
 }
 function firstApproval(job:Job) {
