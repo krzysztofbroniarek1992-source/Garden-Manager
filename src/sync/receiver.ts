@@ -1,3 +1,4 @@
+import { documentRegistry, validateChecks, validateAvailability } from "./report-documents";
 import { registerReportCollisions, validateReportCollisions, validateNamespaceOperation, operationHasReportCollision } from "./report-registry";
 import type { Data } from "../domain";
 import {
@@ -87,6 +88,8 @@ export function validateReceiver(r: ReceiverState, j: JournalState) {
     commits.add(v.planId);
   }
   validateReportCollisions(j.log,r.reportConflicts??[],r.identityAlerts??[]);
+  validateChecks(r.reportChecks??[],j.log.operations);
+  validateAvailability(r.reportAvailability??[],j.log,r.reportChecks??[]);
   if (new TextEncoder().encode(canonical({ journal:j, receiver:r })).byteLength > syncLimits.historyBytes)
     throw new SyncError("LIMIT", "Rejestry synchronizacji osiągnęły limit. Nie usunięto historii.");
 }
@@ -170,6 +173,7 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
     }
   }
   c.receiver.reportConflicts=registerReportCollisions(c.journal.log,c.receiver.reportConflicts??[],c.receiver.identityAlerts??[]);
+  c.receiver.reportAvailability=documentRegistry(c.journal.log,c.receiver.reportChecks??[]);
   if (received.length || rejected.length) touch(c.receiver);
   validateReceiver(c.receiver,c.journal);
   return { received, duplicates, rejected, known:structuredClone(c.journal.log.known) };
@@ -265,6 +269,7 @@ function closeConflicts(c: ReceiverContext, o: Operation) {
 function simulate(c: ReceiverContext) {
   registerConflicts(c);
   c.receiver.reportConflicts=registerReportCollisions(c.journal.log,c.receiver.reportConflicts??[],c.receiver.identityAlerts??[]);
+  c.receiver.reportAvailability=documentRegistry(c.journal.log,c.receiver.reportChecks??[]);
   let data=c.data;
   const ids=applied(c), log=materialized(c,ids), actions:string[]=[];
   const resolved=new Map<string,string>();

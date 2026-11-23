@@ -1,3 +1,4 @@
+import type { ReportCheck, ReportAvailability } from "./report-documents";
 import type { ReportCollision } from "./report-registry";
 import type { Json, Operation, FieldConflict } from "./model";
 export const RECEIVER_KEY = "receiver-v1";
@@ -48,6 +49,8 @@ export interface ReceiverState {
   rejections: { id: string; operationId: string | null; code: string }[];
   plan: SyncPlan | null;
   commits: CommitReceipt[];
+  reportChecks?: ReportCheck[];
+  reportAvailability?: ReportAvailability[];
   reportConflicts?: ReportCollision[];
   identityAlerts?: Operation[];
 }

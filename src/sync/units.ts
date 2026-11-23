@@ -1,9 +1,11 @@
+import { validateReportDocumentValue } from "./report-documents";
 import type { Data } from "../domain";
 import { ApplyBlocked, applyBasic, basicKinds, eligibility, keyParts, validateBasicValue } from "./basic";
 import { applyFinance, financeEligibility, financeParents, isFinance, validateFinanceValue } from "./finance";
 import { type Json, type Operation } from "./model";
 export { financeParents };
 export function validateIncomingValue(data:Data,key:string,value:Json) {
+  validateReportDocumentValue(key,value);
   validateBasicValue(data,key,value);
   validateFinanceValue(data,key,value);
 }

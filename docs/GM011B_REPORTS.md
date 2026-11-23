@@ -125,3 +125,20 @@ dostępność dokumentu bez plików, spójność visits/reports i własności ro
 w trwałym dzienniku, idempotentne propagowanie decyzji oraz polityka przyszłego archiwum.
 Dotychczasowy destrukcyjny wybór local/remote dla finansów pozostaje zablokowany.
 Nie rozpoczynać biznesowego LAN, GM-011C ani fizycznego odbioru.
+
+## 5c2b — pierwszy punkt kontrolny integralności (implementacja w toku)
+
+Dodano wewnętrzny prepareSyncReports: pierwotne operacje nie są przepisywane.
+Nowa źródłowa operacja reportDocuments wskazuje oryginalne UUID tożsamości i snapshotu.
+Osobne SHA256 obejmują canonical({format: "gm-visit-report-v1", jobId, report})
+oraz canonical({format: "gm-report-snapshot-v1", snapshot}). canonical sortuje klucze
+rekurencyjnie, zachowuje kolejność tablic, JSON.stringify dla liczb/łańcuchów i UTF-8.
+Suma pakietu jest niezależna. Istniejący fingerprint pozostaje SHA256 JSON snapshotu
+w kolejności pól historycznego buildera; reportSourceSignature pozostaje tekstowym CAS.
+WebCrypto działa przed transakcją, a CAS wiąże wynik z niezmienioną historią.
+
+Dowody i dostępność są poza Data v12. source-only nie jest kompletnym VisitReport;
+nie zawiera lokalnych PhotoMetadata lub plików. portable oznacza zweryfikowaną treść
+w dzienniku, a nie zastosowanie do Data. Potwierdzenie applied nadal jest osobne.
+Nie ukończono jeszcze atomowego adaptera raportów ani testów tego punktu. Nie aktywować
+na rzeczywistych danych. 5c2c i natywny biznesowy LAN pozostają poza zakresem.

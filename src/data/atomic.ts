@@ -1,3 +1,5 @@
+import { prepareReportSeals, checkReportOperations, documentRegistry, sealKey } from "../sync/report-documents";
+import { appendLocal, canonical, dotId } from "../sync/causal";
 import { REPORT_NUMBER_KEY, REPORT_NUMBER_SOURCE, beginNumberState, checkReportWrites, legacyReservation, reserveNumber, validateNumberState, type ReportNumberState, type ReportWrite } from "../sync/report-number-state";
 import type { ReportIdentity } from "../reports/numbering";
 import { parseReportNumber } from "../reports/numbering";
@@ -458,7 +460,38 @@ export class AtomicRepository {
     const copy = structuredClone(operations);
     return this.syncTransition(c => receiveDurably(c,copy));
   }
-  async planSyncOperations() { return this.syncTransition(c => planReceived(c)); }
+  /** Explicit source evidence preflight for the future "Check changes" flow.
+   * WebCrypto runs before IDB; CAS binds results to the exact immutable log and
+   * canonical state. No asynchronous work keeps an IDB transaction alive. */
+  async prepareSyncReports() {
+    const state=await this.read(),journal=await this.readSyncJournal();
+    if(!journal||journal.mode!=="active"||journal.lastRevision!==state.revision)
+      throw new SyncError("PRECONDITION","Najpierw uzgodnij aktywną historię; restore-review blokuje dowody raportów.");
+    const token=canonical(journal.log),seals=await prepareReportSeals(state.data,journal.log);
+    if(!seals.length)return {created:0};
+    return this.syncTransition(c=>{
+      if(c.revision!==state.revision||canonical(c.journal.log)!==token)
+        throw new SyncError("PRECONDITION","Źródło raportów zmieniło się. Ponów przygotowanie dowodów.");
+      for(const seal of seals) {
+        const result=appendLocal(c.journal.log,[{key:sealKey(seal.identity.id),before:null,after:seal as unknown as import("../sync/model").Json}]);
+        c.journal.log=result.log;c.journal.appliedLocal.push(dotId(result.operation!));
+      }
+      c.revision++;c.journal.lastRevision=c.revision;c.receiver.revision++;c.receiver.plan=null;
+      c.receiver.reportAvailability=documentRegistry(c.journal.log,c.receiver.reportChecks??[]);
+      return {created:seals.length};
+    });
+  }
+  async planSyncOperations() {
+    const journal=await this.readSyncJournal();
+    if(!journal)throw new SyncError("PRECONDITION","Dziennik nie został aktywowany.");
+    const token=canonical(journal.log),checks=await checkReportOperations(journal.log.operations);
+    return this.syncTransition(c=>{
+      if(canonical(c.journal.log)!==token)throw new SyncError("PRECONDITION","Odebrano nowe zmiany podczas SHA256. Sprawdź plan ponownie.");
+      c.receiver.reportChecks=checks;
+      c.receiver.reportAvailability=documentRegistry(c.journal.log,checks);
+      return planReceived(c);
+    });
+  }
   async applySyncPlan(planId: string) {
     if (typeof planId !== "string" || planId.length > 100) throw new SyncError("INVALID","Nieprawidłowy identyfikator planu.");
     return this.syncTransition(c => commitReceived(c,planId));

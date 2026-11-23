@@ -384,3 +384,13 @@ Na 9a17062 TypeScript przeszedł, a sync zaliczył 145/146. Jedyna porażka nowe
 Na c6eaaaa szybki workflow push zaliczył TypeScript, 147/147 synchronizacji i 830/830 pełnych jednostkowych. Przed końcową regresją dodano test niezależności od reportSequence, zmiany roku i cofnięcia zegara. Test telefonu korzysta z rzeczywistej ścieżki Więcej → Historia prac (zgodnie z istniejącym testem raportów), zamiast niewidocznego przycisku menu desktopowego. Asercje numeru, pobrania i szerokości pozostają.
 
 Przegląd usunął zależność nowej numeracji od inkrementacji starego reportSequence przy zapisie scoped raportu. Legacy marker pozostaje niezmieniony, a prywatny high-water rezerwuje numery. Dwa różne zlecenia mogą zatwierdzić własne rezerwacje równocześnie; dwa alternatywne raporty tej samej wizyty nadal nie przechodzą CAS. Dodano obie regresje, bez zmiany starej numeracji single-device.
+
+## 5c2b — checkpoint B1, dowody dokumentów (w realizacji)
+
+Potwierdzono HEAD 0e7d7f2 i zachowano 5c2a. Dodano rygorystyczny przenośny dokument,
+źródłowe operacje reportDocuments z osobnymi SHA256, historyczny algorytm fingerprint
+oraz lokalne metadane weryfikacji/dostępności. prepareSyncReports jest jawnym API
+przygotowania dowodów przed przyszłą ofertą; nie uruchamia LAN ani synchronizacji.
+WebCrypto przed transakcją, ponowna kontrola kanonicznego logu i rewizji wewnątrz IDB.
+Planowanie nie zapisuje Data. Pełne stosowanie nadal zablokowane do checkpointu B2.
+Pierwszy commit wymaga TypeScript i CI; nie deklarujemy jeszcze zaliczenia testów 5c2b.
