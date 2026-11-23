@@ -4,6 +4,7 @@ import { SyncError, syncLimits, type ReplicaLog, type Vector } from "./model";
 import { businessRecords, recordChanges } from "./records";
 import { bootstrapGroups } from "./bootstrap";
 import { bankRisk } from "./bank-identity";
+import { protectRemoteMeasurement } from "./visits";
 
 export const JOURNAL_STORE = "sync";
 export const JOURNAL_DATABASE_VERSION = 2;
@@ -71,6 +72,7 @@ export function captureJournal(journal: JournalState, before: Data, after: Data,
   // unverified account namespace. This preflight is opt-in with the journal;
   // ordinary v12 import behavior and explicit restore remain unchanged.
   if(!restored && journal.mode==="active") {
+    protectRemoteMeasurement(before,after);
     const old=new Set(before.expenses.map(e=>e.id));
     const added=after.expenses.filter(e=>e.source==="csv" && e.origin && !old.has(e.id));
     const risk=bankRisk(before,added,after.expenseImports,false);

@@ -113,8 +113,14 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
     const a=await replica(0),b=await replica(1);await create(a);
     await a.repo.command(s=>s.startTimer("visit"),()=>1000);await send(a,b);
     expect((await data(b)).timer).toBeNull();expect((await job(b)).seconds).toBe(0);
+    const before=await b.repo.read(),journal=await b.repo.readSyncJournal();
+    await expect(b.repo.command(s=>s.startTimer("visit"),()=>2000)).rejects.toThrow("VISIT_REMOTE_MEASUREMENT");
+    await expect(b.repo.command(s=>s.correctJobTime("visit",900,0),()=>2000)).rejects.toThrow("VISIT_REMOTE_MEASUREMENT");
+    await expect(b.repo.command(s=>s.completeJob("visit"),()=>2000)).rejects.toThrow("VISIT_REMOTE_MEASUREMENT");
+    expect(await b.repo.read()).toEqual(before);expect(await b.repo.readSyncJournal()).toEqual(journal);
     await a.repo.command(s=>s.stopTimer(),()=>6500);await send(a,b);
     expect((await job(b)).seconds).toBe(5);expect((await data(b)).timer).toBeNull();
+    await b.repo.command(s=>s.startTimer("visit"),()=>8000);expect((await data(b)).timer?.jobId).toBe("visit");
   });
   it("persists concurrent corrections and both histories across restart, refuses destructive generic decisions",async()=>{
     const a=await replica(0),b=await replica(1);await create(a);await exchange(a,b);

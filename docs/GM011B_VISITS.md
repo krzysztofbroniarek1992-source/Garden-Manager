@@ -49,7 +49,10 @@ po zmianie zegara — nie są dowodem kolejności przyczynowej.
 
 Otwarty audyt z drugiego urządzenia może być zapisany jako historia stanu in-progress,
 ale NIE uruchamia lokalnego Timer. Późniejszy oryginalny STOP zapisuje zamknięty czas.
-Nie jest to synchronizacja aktywnego stopera.
+Nie jest to synchronizacja aktywnego stopera. Przy aktywnym dzienniku lokalny START,
+korekta, zakończenie lub zatwierdzenie takiej wizyty jest blokowane do odbioru
+zamkniętego segmentu źródłowego. Preflight komendy i journal wycofują się razem;
+nie można wytworzyć drugiego pomiaru na otwartym audycie innego urządzenia.
 
 Każda operacja dotykająca lokalnego timer.jobId (także pauzy) pozostaje blocked.
 Nie zatrzymujemy ani nie modyfikujemy pomiaru; inne wizyty i niezależne rekordy

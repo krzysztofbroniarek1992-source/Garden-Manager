@@ -317,3 +317,13 @@ Końcowe wyniki tego punktu są podawane w opisie PR na podstawie zakończonych 
 poniższe starsze liczniki nie są wynikiem końcowego HEAD. Pozostaje 5c2 opisane w VISITS.
 
 Test stref jawnie wymienia korzenie trzech niezależnych domyślnych ogrodów przed ich edycją. Równość snapshotu nie zastępuje dowodu wspólnej historii; nie zmieniono ochrony niezależnych korzeni w silniku.
+
+
+### 5c1 — otwarty pomiar źródłowy
+
+Przegląd wykazał dodatkową potrzebę: odebrany otwarty audyt nie ma lokalnego Timer,
+więc zwykła komenda mogłaby próbować START/korekty na niezamkniętej historii innego
+urządzenia. Opt-in preflight dziennika blokuje takie polecenie atomowo, bez zmiany
+Data/licznika. Po odebraniu oryginalnego STOP lokalny pomiar jest znowu możliwy.
+Dodano test tych prób i rollbacku. Zwykły stoper bez aktywowanego dziennika pozostaje
+bez zmian. Przypadki stanowią nadal fundament testowany syntetycznie, bez biznesowego LAN.

@@ -164,3 +164,18 @@ export function applyVisit(data:Data,key:string,before:Json,after:Json):Data {
   try{validateData(next);}catch(e){hold("VISIT_DOMAIN",(e as Error).message);}
   return next;
 }
+
+/** A received open audit is not a locally owned measurement. While its source
+ * has not supplied the closed segment, local commands must not create a second
+ * START/correction/approval on top of that open history. Only opt-in journal
+ * writes use this preflight; ordinary installations retain their timer engine. */
+export function protectRemoteMeasurement(before:Data,after:Data) {
+  for(const old of before.jobs) {
+    const last=old.timeHistory?.at(-1);
+    if(!last||!["started","paused","resumed"].includes(last.kind)||before.timer?.jobId===old.id)continue;
+    const value=after.jobs.find(j=>j.id===old.id);
+    if(!value||!same(old.timeHistory,value.timeHistory)||old.seconds!==value.seconds||
+      !same(old.settlement,value.settlement)||value.status==="completed"||after.timer?.jobId===old.id)
+      throw new SyncError("CONFLICT","VISIT_REMOTE_MEASUREMENT: Ta wizyta ma otwarty pomiar z innej instalacji. Odbierz jej zakończony pomiar przed lokalnym START, korektą lub zatwierdzeniem. Nie zmieniono danych.");
+  }
+}
