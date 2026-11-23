@@ -134,7 +134,8 @@ export function saveVisitReport(
     throw conflict();
   return {
     ...data,
-    reportSequence: data.reportSequence + (job.reports?.length ? 0 : 1),
+    // The legacy marker is not a reservation for scoped document families.
+    reportSequence: data.reportSequence + (job.reports?.length || parseReportNumber(record.number)?.namespace ? 0 : 1),
     jobs: data.jobs.map((j) =>
       j.id === jobId
         ? { ...j, reports: [...(j.reports ?? []), structuredClone(record)] }

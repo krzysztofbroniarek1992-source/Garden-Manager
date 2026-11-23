@@ -19,7 +19,10 @@ Dodatkowy niezależny claimId i właściciel-replika pozwalają wykryć niezgodn
 Przypisania natywnego klucza mTLS do repliki nie są jeszcze częścią tego punktu.
 
 Rok służy czytelności; nie gwarantuje unikalności. Licznik całej przestrzeni nie
-resetuje się po zmianie roku ani zegara. reportSequence partnera nie rezerwuje numeru.
+resetuje się po zmianie roku ani zegara. reportSequence partnera nie rezerwuje numeru. Nowa rodzina scoped nie zwiększa
+tego starego znacznika — używa wyłącznie własnego trwałego high-water. Dzięki temu
+niezależne podglądy różnych wizyt mogą zostać zatwierdzone bez sztucznego konfliktu
+przez cudzy licznik; historia tej samej wizyty nadal jest chroniona przez CAS.
 Wersja kolejnego raportu własnej rodziny zachowuje numer i zwiększa version.
 Dwie jednoczesne próby zapisu tej samej wersji nadal wymagają zgodnego świeżego
 źródła i historii; druga nie nadpisze pierwszej.

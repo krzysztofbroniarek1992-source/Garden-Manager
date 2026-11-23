@@ -171,11 +171,19 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
     const [first,next]=await Promise.all([service(a).prepare("job-0",defaultReportOptions()),port.prepare("parallel-job",defaultReportOptions())]);
     expect(first.record.number).not.toBe(next.record.number);
     expect(parseReportNumber(first.record.number)!.namespace).toBe(parseReportNumber(next.record.number)!.namespace);
-    await service(a).save("job-0",first);
-    await expect(port.save("parallel-job",next)).rejects.toThrow();
-    const fresh=await port.prepare("parallel-job",defaultReportOptions());await port.save("parallel-job",fresh);
-    expect(parseReportNumber(fresh.record.number)!.sequence).toBe(3);
+    await Promise.all([service(a).save("job-0",first),port.save("parallel-job",next)]);
+    expect((await numberState(a))!.nextSequence).toBe(3);
+    expect((await numberState(a))!.pending).toHaveLength(0);
     expect((await data(a)).jobs.flatMap(j=>j.reports??[])).toHaveLength(2);await other.close();
+  });
+  it("does not issue two alternatives of one visit version even with distinct reserved numbers",async()=>{
+    const a=await replica(0),s=service(a);
+    const [first,other]=await Promise.all([s.prepare("job-0",defaultReportOptions()),s.prepare("job-0",defaultReportOptions())]);
+    expect(first.record.number).not.toBe(other.record.number);
+    await s.save("job-0",first);const before=await data(a);
+    await expect(s.save("job-0",other)).rejects.toThrow();
+    expect(await data(a)).toEqual(before);expect((await data(a)).jobs[0].reports).toEqual([first.record]);
+    expect((await numberState(a))!.nextSequence).toBe(3);
   });
   it("preserves legacy history but blocks unowned family versions after activation",async()=>{
     const a=await replica(0,false),old=await issue(a);
@@ -208,7 +216,7 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
       expect(parseReportNumber(prepared.record.number)!.namespace).toBe(parseReportNumber(first.record.number)!.namespace);
     }
     expect((await numberState(a))!.nextSequence).toBe(4);
-    expect((await data(a)).reportSequence).toBe(9879);
+    expect((await data(a)).reportSequence).toBe(9876);
   });
   it("detects a divergent operation under the local replica identity and preserves the receipt over restart",async()=>{
     const a=await replica(0);await issue(a);
