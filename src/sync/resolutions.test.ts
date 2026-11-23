@@ -376,4 +376,25 @@ describe("5c2c controlled decisions in three separate durable IndexedDB stores",
     expect((await b.repo.readSyncJournal())!.log.operations.find(o=>o.id===source.id)).toEqual(source);
   });
 
+  it("does not require synchronized device clocks to record an expense decision",async()=>{
+    const {a,b,c}=await base();
+    const e:Expense={id:"clock",revision:1,createdAt:0,updatedAt:0,date:"2026-11-23",amountCents:1000,
+      direction:"outgoing",counterparty:"Synthetic",description:"Synthetic",categoryId:otherCategory,
+      source:"manual",origin:null,status:"approved",note:"",history:[]};
+    await a.repo.command(s=>s.saveExpense(e,null),()=>5000);await send(a,b);await send(b,c);
+    const ea=(await data(a)).expenses[0],ec=(await data(c)).expenses[0];
+    await a.repo.command(s=>s.saveExpense({...ea,amountCents:1200},ea),()=>6000);
+    await c.repo.command(s=>s.saveExpense({...ec,status:"excluded"},ec),()=>7000);
+    await send(a,b,false);await send(c,b);
+    const cf=await conflict(b,"expenses/clock"),req:FinancialDecisionRequest={id:crypto.randomUUID(),
+      conflictId:cf.id,token:cf.token,rationale:"Synthetic clock-independent result",
+      intent:{kind:"expense",basisOperationId:cf.remote[0].operationId,amountCents:1100,categoryId:otherCategory,status:"approved"}};
+    const clock=vi.spyOn(Date,"now").mockReturnValue(0);
+    await b.repo.resolveFinancialSyncConflict(req);clock.mockRestore();await send(b,a);await send(b,c);
+    for(const r of [a,b,c]) {
+      expect((await data(r)).expenses[0]).toMatchObject({amountCents:1100,createdAt:5000,updatedAt:5000});
+      expect((await evidence(r,req.id)).at).toBe(0);validateData(await data(r));
+    }
+  });
+
 });

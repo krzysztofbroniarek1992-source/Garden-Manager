@@ -584,3 +584,8 @@ fixture; po odbiorze drugiej alternatywy zatwierdzany jest bezpieczny plan
 niezależnych rodziców, a sama wizyta nadal ma obie konfliktowe gałęzie.
 Nie osłabiono rodziców, asercji dokumentów, kwot, idempotencji ani restartów.
 Pełny nowy przebieg wymagany dla końcowego kodu.
+
+
+Dodatkowy test rozjechanych zegarów: metadata wydatku spełniają istniejące
+updatedAt >= createdAt bez wyboru kwoty według dat. Audyt zachowuje lokalne at.
+Nie zmieniono reguł domeny ani formatu; pełna regresja tego commitu jest wymagana.

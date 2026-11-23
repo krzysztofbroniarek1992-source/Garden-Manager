@@ -116,3 +116,10 @@ Sam poprawny kształt v12 nie wystarcza. Przed decyzją adapter ponownie sprawdz
 zatwierdzenie i końcową zgodność historii wydatku z jego bieżącą wartością.
 Rama niefinansowa musi być zgodna także ze wspólną bazą. Jawny wybór nie może
 stać się sposobem zatwierdzenia wadliwego źródła.
+
+
+Daty nie wybierają zwycięzcy. Dla wydatku updatedAt i wpis końcowy są ograniczone
+od dołu wyłącznie przez istniejące createdAt, aby zachować invariant v12 przy
+źle ustawionym lokalnym zegarze. Faktyczne lokalne at decyzji pozostaje w dowodzie;
+nie określa kolejności przyczynowej ani poprawnej kwoty. Odtworzenie na odbiorcy
+jest deterministyczne również przy różnych zegarach.

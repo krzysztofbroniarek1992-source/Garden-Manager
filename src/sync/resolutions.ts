@@ -105,9 +105,12 @@ export function reconstructFinancialResult(data:Data,e:FinancialEvidence):Json {
     !same(v.history.slice(0,base.history.length),base.history)))
     hold("EXPENSE_HISTORY","Brak wspólnego niezmiennego audytu wydatku.");
   value.amountCents=intent.amountCents;value.categoryId=intent.categoryId;value.status=intent.status;
-  value.revision=Math.max(...values.map(v=>v.revision))+1;value.updatedAt=e.at;
+  value.revision=Math.max(...values.map(v=>v.revision))+1;
+  // Timestamp metadata must satisfy the existing v12 stamp invariant even
+  // with an incorrectly set local clock. It never selects a winning value.
+  const stamp=Math.max(e.at,value.createdAt);value.updatedAt=stamp;
   if(!Number.isSafeInteger(value.revision))hold("LIMIT","Wyczerpano rewizję wydatku.");
-  value.history.push({at:e.at,amountCents:value.amountCents,categoryId:value.categoryId,
+  value.history.push({at:stamp,amountCents:value.amountCents,categoryId:value.categoryId,
     status:value.status,reason:e.rationale});
   validateFinanceValue(data,e.key,json(value));
   return json(value);
