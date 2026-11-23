@@ -315,3 +315,5 @@ czasu/rozliczeniem oraz restore-review. Dodatkowa regresja trzech baz obejmuje s
 katalog i właściwe źródłowe referencje. Zdjęcie nie jest przesyłane przez synchronizację.
 Końcowe wyniki tego punktu są podawane w opisie PR na podstawie zakończonych workflow;
 poniższe starsze liczniki nie są wynikiem końcowego HEAD. Pozostaje 5c2 opisane w VISITS.
+
+Test stref jawnie wymienia korzenie trzech niezależnych domyślnych ogrodów przed ich edycją. Równość snapshotu nie zastępuje dowodu wspólnej historii; nie zmieniono ochrony niezależnych korzeni w silniku.

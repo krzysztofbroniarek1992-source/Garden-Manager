@@ -204,6 +204,9 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
   });
   it("retains garden-zone and catalog references only after their source versions are materialized",async()=>{
     const a=await replica(0),b=await replica(1),c=await replica(2);
+    // Equal independent default gardens do not prove shared ancestry. Exchange
+    // the original roots through B before editing their zones.
+    await exchange(a,b);await exchange(b,c);await exchange(a,b);await exchange(b,c);
     await a.repo.command(s=>{
       s.saveZone("garden-1",{id:"zone",name:"Synthetic zone",type:"lawn",area:100,length:null,plants:"",requirements:"",treatments:""},null);
       s.saveCatalogMaterial({id:"catalog",name:"Synthetic material",category:"Synthetic",unit:"kg",purchaseUnitPrice:10,
