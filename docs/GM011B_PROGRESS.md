@@ -475,3 +475,15 @@ PR/checks tego HEAD. Nie przypisujemy mu wcześniejszych zielonych przebiegów.
 Jeśli regresja wykaże błąd, najpierw naprawić 5c2b. Dopiero po jej pełnym zaliczeniu
 punkt 5c2b można zamknąć; następny jest 5c2c. Nie podłączać biznesowego LAN,
 pełnego GUI, zdjęć GM-011C ani fizycznego odbioru.
+
+### Ostatni przegląd kompatybilności starego inbox
+
+Na 9521317 szybkie sync/unit kontrole przeszły. Przegląd wykazał konkretną granicę
+aktualizacji: wcześniejszy receiver mógł trwale znać opaque reports z samymi
+pustymi options.photoIds/snapshot.photos, bez pełnej dzisiejszej struktury.
+Nowsze planowanie SHA nie może przez taki dawny rekord przerwać niezależnego planu.
+Dodano jawne REPORT_INVALID/blocked dla wcześniej known rekordu i test rzeczywistego
+trwałego zapisu zgodnego ze starym kontraktem. Nowe wadliwe wejście nadal jest
+rejected przed known; walidacja nie została osłabiona. Błędy WebCrypto nie są ukrywane.
+Dodano także kolizje historyczne i przestrzeni z prawidłowymi pełnymi dowodami,
+aby brak wcześniejszego dowodu nie maskował sprawdzenia blokady kolizji.

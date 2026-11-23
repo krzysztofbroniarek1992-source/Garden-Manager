@@ -103,14 +103,16 @@ export async function reportHashes(jobId:string,report:VisitReport) {
 export async function checkReportOperations(operations:readonly Operation[]):Promise<ReportCheck[]> {
   const checks:ReportCheck[]=[];
   for(const o of operations)for(const c of o.changes)if(c.key.startsWith("reports/")&&c.after!==null) {
-    validatePortableReport(c.key,c.after);
+    // Older receivers could durably know opaque report values. Quarantine
+    // their unit instead of preventing unrelated valid records from planning.
+    try{validatePortableReport(c.key,c.after);}catch(e){if(e instanceof SyncError&&e.code==="INVALID")continue;throw e;}
     checks.push({operationId:o.id,key:c.key,...await reportHashes(c.after.jobId,c.after.report)});
   }
   return checks;
 }
 function identityBirth(o:Operation,id:string) {
   for(const c of o.changes)if(c.key.startsWith("visits/")&&c.after!==null) {
-    validateReportHeaders(c.after);
+    try{validateReportHeaders(c.after);}catch(e){if(e instanceof SyncError&&e.code==="INVALID")continue;throw e;}
     const after=c.after as unknown as {job:{id:string};reportIdentities:ReportIdentityHeader[]};
     const old=c.before as unknown as {reportIdentities:ReportIdentityHeader[]}|null;
     const header=after.reportIdentities.find(r=>r.id===id);

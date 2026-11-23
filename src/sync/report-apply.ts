@@ -5,10 +5,10 @@ import { validateData } from "../data/repository";
 import { ApplyBlocked, keyParts } from "./basic";
 import { canonical, covers, dotId, recordView, same } from "./causal";
 import { businessRecords } from "./records";
-import { applyUnits, eligibilityUnits } from "./units";
+import { applyUnits, eligibilityUnits, validateIncomingValue } from "./units";
 import { operationHasReportCollision, type ReportCollision, type ReportIdentityHeader } from "./report-registry";
 import { orderedVisitReport, reportIdentity, reportKey, validatePortableReport, type ReportAvailability, type ReportSeal } from "./report-documents";
-import type { Json, Operation, ReplicaLog } from "./model";
+import { SyncError, type Json, type Operation, type ReplicaLog } from "./model";
 
 const headers=(v:Json)=>(v as unknown as {reportIdentities:ReportIdentityHeader[]}|null)?.reportIdentities??[];
 const reportConcern=(o:Operation)=>o.changes.some(c=>c.key.startsWith("reports/")||c.key.startsWith("reportDocuments/")||
@@ -25,6 +25,8 @@ export function applyReportCohort(
   checkParents:(o:Operation,ids:Set<string>,data:Data)=>void,
 ):ReportCohort|null {
   if(!reportConcern(original))return null;
+  try{for(const c of original.changes){validateIncomingValue(data,c.key,c.before);validateIncomingValue(data,c.key,c.after);}}
+  catch(e){if(e instanceof SyncError&&e.code==="INVALID")hold("REPORT_INVALID: Dawny opaque rekord pozostaje zablokowany: "+e.message);throw e;}
   const included=new Set([original.id]), wanted=new Map<string,{jobId:string;identity:ReportIdentityHeader}>();
   const want=(jobId:string,identity:ReportIdentityHeader)=>wanted.set(canonical([jobId,identity]),{jobId,identity});
   let changed=true;

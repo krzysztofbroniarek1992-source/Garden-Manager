@@ -7,7 +7,7 @@ import { IndexedDbPhotoRepository } from "../photos/assets";
 import { ReportService } from "../reports/service";
 import { defaultReportOptions, type ReportOptions } from "../reports/model";
 import { prepareTransfer, TransferAssembler } from "./packets";
-import { appendLocal, canonical, dotId } from "./causal";
+import { appendLocal, canonical, dotId, receive } from "./causal";
 import { reportHashes } from "./report-documents";
 
 const at=Date.parse("2026-11-23T12:00:00Z");
@@ -197,5 +197,50 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     expect(received.settlement).toEqual(original.settlement);expect((await data(c)).payments).toEqual(payments);
     expect(received.reports).toEqual([r]);expect(received.reports![0].snapshot.finance).toEqual(r.snapshot.finance);
     const before=await c.repo.read();await send(b,c);expect(await c.repo.read()).toEqual(before);
+  });
+  it("keeps both historical colliding originals with valid seals and applies an independent client",async()=>{
+    const a=await replica(0,false),b=await replica(1,true,true),c=await replica(2,false);
+    const ra=await issue(a),rc=await issue(c);expect(ra.number).toBe(rc.number);
+    await a.repo.enableSyncJournal(origins[0]);await c.repo.enableSyncJournal(origins[2]);
+    await c.repo.command(s=>s.saveClient({id:"collision-independent",name:"Synthetic",phone:"",email:"",notes:""},null));
+    await send(a,b);expect(await reports(b)).toEqual([ra]);
+    await send(c,b);await send(b,c);await restart(b);
+    expect(await reports(b)).toEqual([ra]);expect(await reports(c,"report-job-2")).toEqual([rc]);
+    expect((await data(b)).clients.some(c=>c.id==="collision-independent")).toBe(true);
+    expect((await b.repo.readSyncReceiver())!.reportConflicts!.some(c=>c.type==="number"&&c.identity===ra.number)).toBe(true);
+    const originals=(await b.repo.readSyncJournal())!.log.operations.flatMap(o=>o.changes.filter(c=>c.key.startsWith("reports/")));
+    expect(originals).toHaveLength(2);expect(ra.id).not.toBe(rc.id);
+  });
+  it("blocks actual namespace collisions even when complete document seals are supplied",async()=>{
+    const a=await replica(0),b=await replica(1,true,true),c=await replica(2),namespace="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const real=crypto.randomUUID.bind(crypto);
+    vi.spyOn(crypto,"randomUUID").mockImplementationOnce(real).mockReturnValueOnce(namespace as ReturnType<typeof crypto.randomUUID>).mockImplementation(real);
+    const ra=await issue(a);vi.restoreAllMocks();
+    vi.spyOn(crypto,"randomUUID").mockImplementationOnce(real).mockReturnValueOnce(namespace as ReturnType<typeof crypto.randomUUID>).mockImplementation(real);
+    const rc=await issue(c);vi.restoreAllMocks();expect(ra.number).toBe(rc.number);
+    await send(a,b);await send(c,b);await restart(b);
+    expect(await reports(b)).toEqual([ra]);expect(await reports(b,"report-job-2")).toEqual([]);
+    expect((await b.repo.readSyncReceiver())!.reportConflicts!.some(c=>c.type==="namespace"&&c.identity===namespace)).toBe(true);
+  });
+  it("quarantines an opaque report already known by a pre-5c2b receiver without blocking independent data",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2);await send(a,b);
+    const source=(await a.repo.readSyncJournal())!.log;
+    const opaque=appendLocal(source,[{key:"reports/"+encodeURIComponent("old-visit/opaque"),before:null,
+      after:{jobId:"old-visit",report:{id:"opaque",options:{photoIds:[],logoPhotoId:null},snapshot:{photos:[],logo:null}}}}]).operation!;
+    const journal=(await b.repo.readSyncJournal())!,receiver=(await b.repo.readSyncReceiver())!;
+    journal.log=receive(journal.log,[opaque]);
+    receiver.receipts.push({operation:opaque,stage:"verified",reason:"",appliedRevision:null,resolvedBy:null});
+    await new Promise<void>((ok,no)=>{
+      const q=b.factory.open(b.name);q.onerror=()=>no(q.error);q.onsuccess=()=>{
+        const db=q.result,tx=db.transaction("sync","readwrite"),s=tx.objectStore("sync");
+        s.put(journal,"journal-v1");s.put(receiver,"receiver-v1");
+        tx.oncomplete=()=>{db.close();ok();};tx.onabort=()=>no(tx.error);
+      };
+    });
+    await c.repo.command(s=>s.saveClient({id:"after-opaque",name:"Synthetic",phone:"",email:"",notes:""},null));
+    await send(c,b);await restart(b);
+    expect((await data(b)).clients.some(c=>c.id==="after-opaque")).toBe(true);
+    const row=(await b.repo.readSyncReceiver())!.receipts.find(v=>v.operation.id===opaque.id)!;
+    expect(row.stage).toBe("blocked");expect(row.reason).toContain("REPORT_INVALID");expect(row.appliedRevision).toBeNull();
   });
 });
