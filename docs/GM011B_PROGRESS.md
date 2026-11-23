@@ -376,3 +376,5 @@ pozostają blocked do 5c2b, świadome decyzje finansów/czasu do 5c2c. Nie wdro�
 biznesowego LAN, GM-011C, GUI ani odbioru fizycznego. Wyniki nowego kodu wymagają CI.
 
 Pierwszy 6fbb468 zatrzymał TypeScript przed testami: kontrola przepływu nie zawężała wartości po wywołaniu funkcji błędu zapisanej jako const-arrow. Użyto deklaracji funkcji z never; nie usuwano warunków ani walidacji. Nowe testy nie zostały jeszcze uznane za zaliczone.
+
+Dodano rzeczywiste Chromium dla trzech osobnych baz: kolizje historyczne i wymuszone przestrzenie, restart całego procesu przeglądarki, quota/ponowienie, PDF/JPEG/ZIP oraz ReportPanel na 360/390/430 px. Dodatkowe jednostkowe obejmują dwóch writerów ze starym mirrorem, brak PDF po nieudanej rezerwacji i brak własności przenoszonej przez kopię biznesową. Uzupełniono jawne typy callbacków walidatora diagnostyki po kolejnym zgłoszeniu TypeScript; warunki walidacji zachowane.

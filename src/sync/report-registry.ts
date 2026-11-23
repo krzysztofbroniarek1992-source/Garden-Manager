@@ -133,8 +133,8 @@ export function validateReportCollisions(log:ReplicaLog,collisions:readonly Repo
   for(const c of collisions) {
     const f=findings.find(f=>f.type===c.type&&f.identity===c.identity);
     if(!f||!isReportNamespace(c.id)||c.status!=="open"||!Array.isArray(c.operations)||!c.operations.length||
-      new Set(c.operations).size!==c.operations.length||c.operations.some(id=>!f.operations.includes(id))||
-      !Array.isArray(c.evidence)||!c.evidence.length||c.evidence.some(v=>!f.evidence.some(p=>same(p,v))))
+      new Set(c.operations).size!==c.operations.length||c.operations.some((id:string)=>!f.operations.includes(id))||
+      !Array.isArray(c.evidence)||!c.evidence.length||c.evidence.some((v:Json)=>!f.evidence.some(p=>same(p,v))))
       invalid("Niespójny konflikt dokumentów.");
   }
 }

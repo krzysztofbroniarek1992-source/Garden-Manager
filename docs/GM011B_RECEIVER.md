@@ -103,3 +103,8 @@ Nowe aktywacje używają źródłowych grup bootstrap CSV. Dawne rozdzielone see
 ## Uzupełnienie 5c1 — wizyty i audyt czasu
 
 Obowiązuje [GM011B_VISITS.md](GM011B_VISITS.md). Pełna jednostka visits zachowuje job, payments, reportIdentities i źródłową atomowość. Nowe/porządkowane wizyty i historia czasu mają kontrolowany adapter bez wykonywania komend stopera. Wcześniejsze zatwierdzenia i wpłaty są niezmienne; rozbieżności wymagają trwałej blokady lub konfliktu. Równoległe całe wizyty nie są scalane polami. Lokalne reports/photos/Timer pozostają chronione. Raporty i offline numeracja oraz zachowujące historię decyzje pozostają 5c2. Odbiór/known nadal nie oznacza applied; API nie zostało udostępnione przez natywny LAN.
+
+
+## Uzupełnienie 5c2a — kolizje dokumentów
+
+Receiver zachowuje osobne reportConflicts i identityAlerts. Dowody wynikają z niezmiennych operacji, nie z równości numeru lub pola applied otrzymanego z sieci. Konflikt przestrzeni, numeru/wersji lub report.id wstrzymuje właściwe operacje przed materializacją; niezależne dane nadal mogą przechodzić. Przestrzeń wymaga pierwotnej deklaracji i źródłowej operacji wystawienia. Odtworzenie biznesowego ZIP nie nadaje praw właściciela. To jeszcze nie adapter pełnych reports i nie API decyzji finansowych — szczegóły oraz granice 5c2b/c w [GM011B_REPORTS.md](GM011B_REPORTS.md).

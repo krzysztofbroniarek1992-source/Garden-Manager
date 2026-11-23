@@ -4,7 +4,7 @@ import { AtomicRepository } from "../data/atomic";
 import { createDemoData } from "../data/demo";
 import { STORAGE_KEY, validateData } from "../data/repository";
 import { IndexedDbPhotoRepository } from "../photos/assets";
-import { ReportService } from "../reports/service";
+import { ReportService, type PdfGenerator } from "../reports/service";
 import { defaultReportOptions } from "../reports/model";
 import { parseReportNumber } from "../reports/numbering";
 import { REPORT_NUMBER_KEY, type ReportNumberState } from "./report-number-state";
@@ -29,10 +29,10 @@ async function replica(n:number,active=true) {
 }
 type Replica=Awaited<ReturnType<typeof replica>>;
 const data=async(r:Replica)=>(await r.repo.read()).data;
-const service=(r:Replica,clock=()=>at)=>new ReportService({
+const service=(r:Replica,clock=()=>at,generator:PdfGenerator=async()=>new Uint8Array([37,80,68,70]))=>new ReportService({
   snapshot:()=>data(r),reserveReportIdentity:(...args)=>r.repo.reserveReportIdentity(...args),
   saveVisitReport:async(...args)=>{await r.repo.command(s=>s.saveVisitReport(...args));},
-},new IndexedDbPhotoRepository(new IDBFactory()),async()=>new Uint8Array([37,80,68,70]),clock);
+},new IndexedDbPhotoRepository(new IDBFactory()),generator,clock);
 async function issue(r:Replica) {
   const s=service(r),p=await s.prepare("job-"+r.n,defaultReportOptions());await s.save("job-"+r.n,p);return p;
 }
@@ -145,6 +145,54 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
     await s.save("job-0",p);await restart(a);
     expect((await data(a)).jobs[0].reports![0]).toEqual(p.record);
     expect((await numberState(a))!.pending).toHaveLength(0);
+  });
+  it("does not render a PDF or change the original journal when allocation itself fails",async()=>{
+    const a=await replica(0),generator=vi.fn(async()=>new Uint8Array([37,80,68,70]));
+    const before=await a.repo.read(),journal=await a.repo.readSyncJournal(),put=IDBObjectStore.prototype.put;
+    const failure=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementation(function(this:IDBObjectStore,v:unknown,k?:IDBValidKey){
+      if(this.name==="sync"&&k===REPORT_NUMBER_KEY)throw new DOMException("Synthetic quota","QuotaExceededError");
+      return put.call(this,v,k);
+    });
+    await expect(service(a,()=>at,generator).prepare("job-0",defaultReportOptions())).rejects.toThrow();
+    failure.mockRestore();expect(generator).not.toHaveBeenCalled();
+    expect(await a.repo.read()).toEqual(before);expect(await a.repo.readSyncJournal()).toEqual(journal);
+    expect(await numberState(a)).toBeUndefined();
+    expect(parseReportNumber((await issue(a)).record.number)!.sequence).toBe(1);
+  });
+  it("allocates fresh counters for two canonical writers without trusting either mirror",async()=>{
+    const a=await replica(0);
+    const original=(await data(a)).jobs[0],second={...original,id:"parallel-job",settlement:null};
+    await a.repo.command(s=>s.saveJob(second));
+    const stale=new Storage(),other=new AtomicRepository(stale,a.factory,a.name);await other.initialize();
+    const port=new ReportService({snapshot:async()=>(await other.read()).data,
+      reserveReportIdentity:(...args)=>other.reserveReportIdentity(...args),
+      saveVisitReport:async(...args)=>{await other.command(s=>s.saveVisitReport(...args));}
+    },new IndexedDbPhotoRepository(new IDBFactory()),async()=>new Uint8Array([37,80,68,70]),()=>at);
+    const [first,next]=await Promise.all([service(a).prepare("job-0",defaultReportOptions()),port.prepare("parallel-job",defaultReportOptions())]);
+    expect(first.record.number).not.toBe(next.record.number);
+    expect(parseReportNumber(first.record.number)!.namespace).toBe(parseReportNumber(next.record.number)!.namespace);
+    await service(a).save("job-0",first);
+    await expect(port.save("parallel-job",next)).rejects.toThrow();
+    const fresh=await port.prepare("parallel-job",defaultReportOptions());await port.save("parallel-job",fresh);
+    expect(parseReportNumber(fresh.record.number)!.sequence).toBe(3);
+    expect((await data(a)).jobs.flatMap(j=>j.reports??[])).toHaveLength(2);await other.close();
+  });
+  it("preserves legacy history but blocks unowned family versions after activation",async()=>{
+    const a=await replica(0,false),old=await issue(a);
+    await a.repo.enableSyncJournal(origins[0]);
+    await a.repo.command(s=>s.saveVisitDetails("job-0",{publicWork:"Synthetic changed",clientRemarks:"",zoneId:null},0));
+    await expect(service(a).prepare("job-0",defaultReportOptions())).rejects.toThrow(/właściciela/);
+    expect((await data(a)).jobs[0].reports![0]).toEqual(old.record);
+  });
+  it("treats a business copy of a scoped family as data, never ownership or a reset of its counter",async()=>{
+    const a=await replica(0),p=await issue(a),copy=JSON.parse(JSON.stringify(await data(a)));
+    const b=await replica(1,false);
+    await b.repo.command(s=>s.restoreSnapshot(copy,JSON.stringify(s.snapshot())));
+    validateData(await data(b));
+    expect((await data(b)).jobs[0].reports![0]).toEqual(p.record);
+    await b.repo.command(s=>s.saveVisitDetails("job-0",{publicWork:"Synthetic changed",clientRemarks:"",zoneId:null},0));
+    await expect(service(b).prepare("job-0",defaultReportOptions())).rejects.toThrow(/przestrzeni/);
+    expect(await b.repo.readSyncJournal()).toBeNull();
   });
   it("detects a divergent operation under the local replica identity and preserves the receipt over restart",async()=>{
     const a=await replica(0);await issue(a);

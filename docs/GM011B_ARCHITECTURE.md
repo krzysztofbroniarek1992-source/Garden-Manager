@@ -140,3 +140,8 @@ Nie zmieniono biznesowego v12, technicznego IndexedDB v2, JSON/ZIP, zdjęć, sto
 ## 10. Punkt 5c1 — kontrolowane wizyty
 
 [GM011B_VISITS.md](GM011B_VISITS.md) aktualizuje wcześniejsze ograniczenie wizyt do samych wpłat. visits.ts stosuje pełne przyczynowe przejścia job i append-only payments, zachowując reports i lokalne assets. Automat audytu i prefiks historii chronią seconds i korekty. Timer pozostaje lokalny; operacje jego wizyty są blocked. Nie ma LWW, automatycznego sumowania alternatywnych pomiarów ani ogólnego destrukcyjnego rozstrzygnięcia finansów. Zmiana zatwierdzonej ceny/wpłaty, reports, counters i jednostki planowania wymagają dalszych punktów. Brak zmiany Data v12 i IndexedDB v2.
+
+
+## 11. Punkt 5c2a — przestrzenie dokumentów
+
+[GM011B_REPORTS.md](GM011B_REPORTS.md) opisuje osobny licznik report-numbering-v1, pełny UUID v4, rezerwację przed PDF, kontrolę źródła i trwałe kolizje. Data nadal v12, IndexedDB nadal v2; wersja samego rekordu dziennika 2 blokuje wcześniejszego writera po utworzeniu przestrzeni. Operacje techniczne reportNamespaces są oryginalnie przekazywalne, nie zastępują biznesowego Data. Pełne dokumenty i decyzje finansów/czasu pozostają 5c2b/c. Żaden JSON/ZIP biznesowy nie jest pełnym archiwum dziennika lub własności przestrzeni.
