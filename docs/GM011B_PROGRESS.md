@@ -434,3 +434,22 @@ Nie stanowi to dowodu przyczyny. Brak dialogu nie jest uznany za zaliczony test 
 potwierdzoną regresję nowego adaptera. Dodano jednorazowy odczyt zachowanych
 syntetycznych artefaktów (XML okna i filtrowany logcat), aby ustalić stan po Back.
 Po diagnozie job inspekcyjny zostanie usunięty; właściwy test i asercje pozostają.
+
+### Wyjaśniona awaria NativeSmoke na ece932f
+
+Job 137907016414 odczytał oryginalny artefakt run 45164924751. XML miał pakiet
+android, alertTitle „Pixel Launcher isn't responding” i aerr_close/aerr_wait,
+zamiast widocznego button2 aplikacji. AppPlugin dostarczył backButton o 11:29:35.951
+UTC, a onJsConfirm utworzył natywne okno; teardown nieudanego testu zgłosił
+WindowLeaked tego okna. To dowód obcej nakładki ANR launchera emulatora, nie braku
+wywołania potwierdzenia przez nowy adapter. Same wcześniejsze błędy ADB nie były
+uzasadnieniem tej diagnozy.
+
+NativeSmoke rozpoznaje i zamyka tylko dokładnie ten systemowy ANR launchera,
+najwyżej raz, bez ponawiania Back. ANR Garden Managera i inne dialogi pozostają
+błędem. Prawdziwy tekst niezapisanych zmian oraz button2/button1 nadal są wymagane;
+po Anuluj podgląd pozostaje, po potwierdzeniu znika. Dodano negatywne asercje
+polityki, rzeczywisty scenariusz także na nowym B oraz ponowną kontrolę niezmienionego
+profilu finansów/JPEG/stopera po aktualizacji. Jednorazowy job inspekcji usunięto.
+Inne historyczne przypadki Android Back bez takiego dowodu pozostają monitorowane.
+Wynik poprawki wymaga CI końcowego HEAD; nie deklarujemy go przed zakończeniem.
