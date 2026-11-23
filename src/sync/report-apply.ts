@@ -94,7 +94,7 @@ export function applyReportCohort(
     const normalize=(key:string,value:Json):Json=>{
       if(!key.startsWith("visits/")||value===null)return value;
       const local=businessRecords(next).get(key);
-      return {...(value as object),reportIdentities:headers(local??null)} as Json;
+      return {...(value as object),reportIdentities:headers(local??null)} as unknown as Json;
     };
     const ordinary=o.changes.filter(c=>!technical(c.key)&&!c.key.startsWith("reports/"));
     const adapter={...o,changes:ordinary.map(c=>({key:c.key,before:normalize(c.key,c.before),after:normalize(c.key,c.after)}))};
