@@ -17,7 +17,7 @@ export interface Reservation extends ReportIdentity {
 export interface ReportNumberState {
   version:1;claim:ReportNamespaceClaim;nextSequence:number;pending:Reservation[];
 }
-const stop=(message:string):never=>{throw new SyncError("PRECONDITION","REPORT_NUMBERING: "+message);};
+function stop(message:string):never {throw new SyncError("PRECONDITION","REPORT_NUMBERING: "+message);}
 export function validateNumberState(value:unknown,j:JournalState):asserts value is ReportNumberState {
   if(!value||typeof value!=="object")stop("Brak trwałego licznika.");
   const n=value as ReportNumberState;

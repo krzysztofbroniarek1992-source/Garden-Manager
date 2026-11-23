@@ -14,7 +14,7 @@ export interface ReportCollision {
 }
 const object=(v:unknown):v is {[k:string]:unknown}=>!!v&&typeof v==="object"&&!Array.isArray(v);
 const exact=(v:unknown,names:string[])=>object(v)&&Object.keys(v).sort().join("|")===[...names].sort().join("|");
-const invalid=(message:string):never=>{throw new SyncError("INVALID","REPORT_IDENTITY: "+message);};
+function invalid(message:string):never {throw new SyncError("INVALID","REPORT_IDENTITY: "+message);}
 const id=(v:unknown)=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 const stamp=(v:unknown)=>Number.isSafeInteger(v)&&(v as number)>=0&&(v as number)<=8.64e15;
 export function validateReportHeader(v:unknown):asserts v is ReportIdentityHeader {

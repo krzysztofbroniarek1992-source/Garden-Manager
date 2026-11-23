@@ -374,3 +374,5 @@ Dotychczasowe single-device legacy numery zachowane. Po aktywacji nowa wersja ob
 lub historycznej rodziny wymaga uzgodnienia właściciela. Pełne reports/identities
 pozostają blocked do 5c2b, świadome decyzje finansów/czasu do 5c2c. Nie wdrożono
 biznesowego LAN, GM-011C, GUI ani odbioru fizycznego. Wyniki nowego kodu wymagają CI.
+
+Pierwszy 6fbb468 zatrzymał TypeScript przed testami: kontrola przepływu nie zawężała wartości po wywołaniu funkcji błędu zapisanej jako const-arrow. Użyto deklaracji funkcji z never; nie usuwano warunków ani walidacji. Nowe testy nie zostały jeszcze uznane za zaliczone.
