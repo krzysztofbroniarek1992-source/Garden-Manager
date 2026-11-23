@@ -202,6 +202,24 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
     expect((await job(b)).gardenId).toBe("source-garden");
     expect((await data(b)).gardens.find(g=>g.id==="source-garden")!.clientId).toBe("source-parent");
   });
+  it("retains garden-zone and catalog references only after their source versions are materialized",async()=>{
+    const a=await replica(0),b=await replica(1),c=await replica(2);
+    await a.repo.command(s=>{
+      s.saveZone("garden-1",{id:"zone",name:"Synthetic zone",type:"lawn",area:100,length:null,plants:"",requirements:"",treatments:""},null);
+      s.saveCatalogMaterial({id:"catalog",name:"Synthetic material",category:"Synthetic",unit:"kg",purchaseUnitPrice:10,
+        packageName:"",packageQuantity:null,notes:""},null);
+    });
+    await create(a);await a.repo.command(s=>{
+      s.addJobMaterial("visit","garden-1",{id:"m",name:"Synthetic material",quantity:1,unitPrice:20,catalogId:"catalog",zoneId:"zone",zoneName:"Synthetic zone"});
+      s.saveVisitDetails("visit",{publicWork:"Zone work",clientRemarks:"",zoneId:"zone"},0);
+    });
+    await send(a,b);await send(b,c);
+    for(const r of [b,c]) {
+      expect((await job(r)).materials[0]).toEqual((await job(a)).materials[0]);
+      expect((await job(r)).visitDetails?.zoneId).toBe("zone");
+      expect((await data(r)).gardens.find(g=>g.id==="garden-1")!.zones[0].id).toBe("zone");
+    }
+  });
   it("does not attach a historical source visit to a concurrently changed garden owner",async()=>{
     const a=await replica(0),b=await replica(1);await exchange(a,b);
     const garden=(await data(b)).gardens.find(g=>g.id==="garden-1")!;

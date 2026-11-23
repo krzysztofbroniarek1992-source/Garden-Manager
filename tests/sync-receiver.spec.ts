@@ -488,3 +488,40 @@ test.describe("5c1 real persistent visit aggregates (no native business LAN)",()
     expect(result.receiver.receipts.some((r:any)=>r.stage==="blocked"&&r.reason.includes("Aktywny stoper"))).toBe(true);
   });
 });
+
+
+test("5c1 visit updates preserve local JPEG bytes and remain compatible with full v12 ZIP/JSON restore",async({page})=>{
+  await boot(page);
+  const result=await page.evaluate(async()=>{
+    const x=(window as any).__receiverRig,id="asset-visit";
+    await x.rigs.A.command((s:any)=>s.saveJob({id,gardenId:"garden-1",title:"Synthetic asset visit",date:"2026-11-23",time:"09:00",
+      status:"planned",billing:"fixed",rate:120,fixedPrice:100,seconds:0,materials:[],notes:"",activities:["Synthetic"],settlement:null}));
+    await x.exchange("A","B");
+    const a="/src/photos/assets.ts",s="/src/photos/service.ts",i="/src/photos/images.ts",b="/src/photos/backup.ts",r="/src/data/repository.ts";
+    const {IndexedDbPhotoRepository}=await import(a),{PhotoService}=await import(s),{BrowserPhotoProcessor}=await import(i),
+      {makeFullBackup,readFullBackup}=await import(b),{LocalRepository,STORAGE_KEY}=await import(r);
+    const assets=new IndexedDbPhotoRepository(undefined,"gm011b-visit-local-assets");
+    const canvas=document.createElement("canvas");canvas.width=2;canvas.height=2;canvas.getContext("2d")!.fillRect(0,0,2,2);
+    const blob=await new Promise<Blob>(ok=>canvas.toBlob(v=>ok(v!),"image/jpeg"));
+    const service=new PhotoService({snapshot:async()=>x.data("B"),appendPhotos:async(p:any[])=>{
+      await x.rigs.B.command((s:any)=>s.appendPhotos(p));}},assets,new BrowserPhotoProcessor());
+    const [photo]=await service.add([{id:"visit-local-pixel",blob,name:"synthetic.jpg"}],{
+      clientId:"client-1",gardenId:"garden-1",zoneId:null,jobId:id,category:"before",description:"Synthetic pixel",capturedDate:null});
+    const before=await x.data("B");
+    await x.rigs.A.command((s:any)=>s.correctJobTime(id,3601,0));
+    await x.rigs.A.command((s:any)=>s.completeJob(id));
+    await x.rigs.A.command((s:any)=>s.approveSettlement(id,10000,"fixed"));
+    await x.send("A","B");const data=await x.data("B"),asset=await assets.get(photo.assetId);
+    const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await asset.image.arrayBuffer()))).map(n=>n.toString(16).padStart(2,"0")).join("");
+    const text=JSON.stringify({version:12,data});
+    const json=new LocalRepository({getItem:(k:string)=>k===STORAGE_KEY?text:null,setItem:()=>{}}).load();
+    const zip=await readFullBackup(await makeFullBackup(data,assets));
+    await x.rigs.B.command((s:any)=>s.restoreSnapshot(zip.data,JSON.stringify(data)));
+    const restored=await x.data("B"),journal=await x.rigs.B.readSyncJournal();await x.close();
+    return{before,data,hash,photo,json,zipData:zip.data,assetCount:zip.assets.length,restored,mode:journal.mode};
+  });
+  expect(result.data.photos).toEqual(result.before.photos);expect(result.hash).toBe(result.photo.sha256);
+  expect(result.json).toEqual(result.data);expect(result.zipData).toEqual(result.data);
+  expect(result.assetCount).toBe(1);expect(result.restored).toEqual(result.data);expect(result.mode).toBe("restore-review");
+  expect(result.data.jobs.find((j:any)=>j.id==="asset-visit").seconds).toBe(3601);
+});

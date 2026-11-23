@@ -305,3 +305,13 @@ za zakończone. Dalszy przegląd dodał dowód właściciela ogrodu w kontekści
 nowa wizyta nie może trafić pod innego klienta po niezaobserwowanym przeniesieniu
 ogrodu. Dodano regresję tej granicy oraz kontrolę zdarzenia zakończenia i rewizji
 szczegółów wizyty. Wyniki końcowego commitu wymagają nowego CI.
+
+
+### 5c1 — dokumentacja lokalna i kopie
+
+Dodano regresję rzeczywistego Chromium: aktualizacja wizyty z JPEG zapisanym wyłącznie
+na odbiorcy, kontrola SHA256 jego bajtów, odczyt pełnego ZIP i JSON v12 z nową historią
+czasu/rozliczeniem oraz restore-review. Dodatkowa regresja trzech baz obejmuje strefę,
+katalog i właściwe źródłowe referencje. Zdjęcie nie jest przesyłane przez synchronizację.
+Końcowe wyniki tego punktu są podawane w opisie PR na podstawie zakończonych workflow;
+poniższe starsze liczniki nie są wynikiem końcowego HEAD. Pozostaje 5c2 opisane w VISITS.
