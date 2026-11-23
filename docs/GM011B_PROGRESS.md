@@ -329,3 +329,23 @@ Dodano test tych prób i rollbacku. Zwykły stoper bez aktywowanego dziennika po
 bez zmian. Przypadki stanowią nadal fundament testowany syntetycznie, bez biznesowego LAN.
 
 Preflight nie blokuje niezależnego lokalnego zapisu wyłącznie z powodu starej, niespójnej historii v12 niezmienianej wizyty. Dodano regresję zachowania tego kanonicznego źródła i dopisania niezależnego klienta; taka historia nadal nie staje się poprawną operacją odbioru.
+
+
+### Regresja Androida 5c1 — systemowy selektor i gotowość CSV
+
+HEAD a76ff05 zaliczył 817/817 jednostkowych (134/134 sync), 388/388 pełnych Chromium,
+22/22 oddzielnych IDB E2E, PWA20 + Android web1, TLS21 + Electron policy6, rzeczywisty
+Electron14 i aktualizację NSIS A/B. Android JVM20 i wstępne instrumentacje aktualizacji
+przeszły, ale cały job nie był zielony: próba1 zakończyła się StaleObjectException
+na document.click() w ExpensesTest.java:64; próba2 na tym samym kodzie dotarła do
+mapowania, lecz nie otrzymała podglądu Nowe:2. Nie zaliczono żadnej z tych prób jako
+pełnej regresji Androida i nie utożsamiono ich z dawną niestabilnością Android Back.
+
+Przegląd testu i CsvImport wykazał, że nagłówek Przypisz kolumny pojawia się już po
+setFile, przed końcem decode/headers/hash i końcowym setOptions. Test czeka teraz na
+koniec statusu odczytu i rzeczywiste opcje nagłówków, następnie na wyrenderowanie
+każdego wybranego mapowania. Sprawdza odczytaną wartość i błędy, zachowując Nowe:2,
+liczby kosztów, import, wpłaty i ponowne otwarcie. Systemowy wybór pliku ponownie
+wyszukuje wyłącznie zastąpiony węzeł UiAutomator w ograniczonym czasie; zatwierdzenie
+biznesowe nie jest ponawiane. Nie zmieniono produktu, parsera ani reguł finansowych.
+Nowy HEAD wymaga pełnego CI; wyniki końcowe są w opisie PR i checks.
