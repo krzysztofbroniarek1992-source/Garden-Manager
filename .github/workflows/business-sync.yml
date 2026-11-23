@@ -50,3 +50,32 @@ jobs:
           name: GM011B-journal-browser-reports
           path: test-results/
           if-no-files-found: ignore
+
+  inspect-android-dialog-failure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Android-test-reports
+          run-id: 45164924751
+          github-token: ${{ github.token }}
+          path: previous-android-failure
+      - name: Inspect retained synthetic emulator window and relevant logcat
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, xml.etree.ElementTree as ET
+          root = pathlib.Path('previous-android-failure')
+          for path in root.rglob('*window*.xml'):
+              print('WINDOW', path.name)
+              for node in ET.parse(path).getroot().iter('node'):
+                  print({k: node.get(k) for k in ('package','resource-id','text','content-desc','focused','clickable')})
+          for path in root.rglob('*logcat*.txt'):
+              lines = path.read_text(errors='replace').splitlines()
+              selected = [s for s in lines if re.search(r'Capacitor|chromium|JsDialog|WindowManager|InputMethod|backButton|onBackPressed', s)]
+              print('FILTERED LOGCAT', path.name)
+              print('\n'.join(selected[-180:]))
+          PY

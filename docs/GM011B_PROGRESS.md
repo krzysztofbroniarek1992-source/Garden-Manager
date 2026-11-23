@@ -422,3 +422,15 @@ zapisać jako zwykłej nowej operacji o fikcyjnym before. W takim restore zachow
 oryginalny log, nowy snapshot i checkpoint przed/po oraz restore-review w jednej
 transakcji. Nie potwierdzamy zastosowania odebranych operacji i nie propagujemy cofnięcia.
 Dotychczasowe restore, które miały poprawną bazę przyczynową, zachowują poprzedni audyt.
+
+### Wznowienie od ece932f — kontrola Androida i końcowego 5c2b
+
+Potwierdzono niezmieniony HEAD ece932f, Draft/niescalony. Business sync, LAN,
+Windows i Shopping regression są zielone dla tego HEAD; Android run 45164924751
+nie przeszedł NativeSmokeTest przy oczekiwaniu na natywny button2.
+Skrypt uruchamiał wtedy niezmieniony APK A z 607baeab, PR #27, przed instalacją B.
+ADB zgłaszał problemy podczas startu, po czym boot i instalacja zakończyły się sukcesem.
+Nie stanowi to dowodu przyczyny. Brak dialogu nie jest uznany za zaliczony test lub
+potwierdzoną regresję nowego adaptera. Dodano jednorazowy odczyt zachowanych
+syntetycznych artefaktów (XML okna i filtrowany logcat), aby ustalić stan po Back.
+Po diagnozie job inspekcyjny zostanie usunięty; właściwy test i asercje pozostają.
