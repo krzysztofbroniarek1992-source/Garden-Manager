@@ -78,6 +78,15 @@ function fingerprintSnapshot(s:ReportSnapshot):ReportSnapshot {
       paidCents:s.finance.paidCents,remainingCents:s.finance.remainingCents,billing:s.finance.billing}:null,
     photos:s.photos.map(image),logo:s.logo?image(s.logo):null};
 }
+/** v12 JSON callers historically use builder property order for CAS and reuse.
+ * Rehydration changes no canonical content, options or fingerprint. */
+export function orderedVisitReport(r:VisitReport):VisitReport {
+  const o=r.options;
+  return {id:r.id,number:r.number,version:r.version,generatedAt:r.generatedAt,rendererVersion:r.rendererVersion,fingerprint:r.fingerprint,
+    options:{showTime:o.showTime,showFinance:o.showFinance,showMaterials:o.showMaterials,showChecklists:o.showChecklists,
+      showPhotos:o.showPhotos,showRemarks:o.showRemarks,photoIds:[...o.photoIds],logoPhotoId:o.logoPhotoId},
+    snapshot:fingerprintSnapshot(r.snapshot)};
+}
 async function digest(text:string) {
   const bytes=new TextEncoder().encode(text);
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))).map(n=>n.toString(16).padStart(2,"0")).join("");

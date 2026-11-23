@@ -7,7 +7,7 @@ import { canonical, covers, dotId, recordView, same } from "./causal";
 import { businessRecords } from "./records";
 import { applyUnits, eligibilityUnits } from "./units";
 import { operationHasReportCollision, type ReportCollision, type ReportIdentityHeader } from "./report-registry";
-import { reportIdentity, reportKey, validatePortableReport, type ReportAvailability, type ReportSeal } from "./report-documents";
+import { orderedVisitReport, reportIdentity, reportKey, validatePortableReport, type ReportAvailability, type ReportSeal } from "./report-documents";
 import type { Json, Operation, ReplicaLog } from "./model";
 
 const headers=(v:Json)=>(v as unknown as {reportIdentities:ReportIdentityHeader[]}|null)?.reportIdentities??[];
@@ -119,7 +119,7 @@ export function applyReportCohort(
       if(!reportValue)hold("REPORT_PARENT: Brak pełnego oryginału snapshotu.",true);
       validatePortableReport(reportKey(jobId,h.id),reportValue);
       if(!same(reportIdentity(reportValue.report),h))hold("REPORT_DOCUMENT_CONFLICT: Niezgodna tożsamość snapshotu.");
-      reports.push(structuredClone(reportValue.report));
+      reports.push(orderedVisitReport(reportValue.report));
     }
     if((job.reports??[]).some((r,i)=>!same(reports[i]??null,r)))
       hold("REPORT_DOCUMENT_CONFLICT: Nie wolno nadpisać istniejącego dokumentu.");

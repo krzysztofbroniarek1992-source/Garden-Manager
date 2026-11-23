@@ -145,3 +145,28 @@ Nie zmieniono biznesowego v12, technicznego IndexedDB v2, JSON/ZIP, zdjęć, sto
 ## 11. Punkt 5c2a — przestrzenie dokumentów
 
 [GM011B_REPORTS.md](GM011B_REPORTS.md) opisuje osobny licznik report-numbering-v1, pełny UUID v4, rezerwację przed PDF, kontrolę źródła i trwałe kolizje. Data nadal v12, IndexedDB nadal v2; wersja samego rekordu dziennika 2 blokuje wcześniejszego writera po utworzeniu przestrzeni. Operacje techniczne reportNamespaces są oryginalnie przekazywalne, nie zastępują biznesowego Data. Pełne dokumenty i decyzje finansów/czasu pozostają 5c2b/c. Żaden JSON/ZIP biznesowy nie jest pełnym archiwum dziennika lub własności przestrzeni.
+
+## 12. Punkt 5c2b — niezmienne dokumenty
+
+report-documents.ts definiuje reportDocuments/1 i rozdziela sumę pakietu, SHA256
+kanonicznego dokumentu, SHA256 snapshotu, historyczny fingerprint oraz tekstowy CAS
+reportSourceSignature. prepareSyncReports dodaje dowody jako nowe oryginalne operacje
+źródła, nie przepisuje już wydanych UUID i nie przekazuje praw właściciela przez ZIP.
+
+report-apply.ts grupuje całe niezmienne operacje snapshotu/tożsamości/dowodów.
+Adapter job/payments nadal sprawdza 5c1, a cała rodzina reports jest kontrolowana przed
+jednym zatwierdzeniem Data + journal + receiver + checkpointów. Nie generuje PDF,
+zdarzeń czasu ani nowych wpłat. Przekazanie A→B→C zachowuje źródłowe pochodzenie A.
+
+reportChecks to lokalny wynik WebCrypto, nie payload z sieci. reportAvailability
+jest trwałym rejestrem outside Data: pending, portable, source-only lub conflict.
+portable nie jest receipt applied. source-only zachowuje informację o dokumencie
+zależnym od zdjęć/logo, bez lokalnych PhotoMetadata i pełnego VisitReport.
+
+Restore przy known, ale niezastosowanej historii nie fabrykuje nowego before;
+zachowuje oryginalny log, checkpoint przed/po, zastąpiony biznesowy snapshot i
+restore-review atomowo. Przyszły kreator onboardingu musi uzgodnić tę historię.
+Zwykłe kopie v12 nie są archiwum całego audytu synchronizacji.
+
+Dokładny kontrakt oraz algorytmy: GM011B_REPORTS.md. 5c2c, natywny biznesowy LAN,
+pełne GUI, GM-011C i fizyczny odbiór nie zostały uruchomione.

@@ -1,7 +1,8 @@
 # GM-011B — raporty i numeracja offline
 
-Status: punkt 5c2a w kontroli CI. PR #29 pozostaje Draft. Nie ukończono 5c2b
-(synchronizacja dokumentów) ani 5c2c (świadome decyzje finansów/czasu).
+Status: 5c2a ukończone. Adapter 5c2b zaimplementowany i podlega końcowej regresji
+opisanej w PR/checks konkretnego HEAD. 5c2c (świadome decyzje finansów/czasu) nie
+zostało rozpoczęte. PR #29 pozostaje Draft.
 Nie ma biznesowego LAN i nie należy aktywować mechanizmu na danych produkcyjnych.
 
 ## Nowe numery
@@ -142,3 +143,91 @@ nie zawiera lokalnych PhotoMetadata lub plików. portable oznacza zweryfikowaną
 w dzienniku, a nie zastosowanie do Data. Potwierdzenie applied nadal jest osobne.
 Nie ukończono jeszcze atomowego adaptera raportów ani testów tego punktu. Nie aktywować
 na rzeczywistych danych. 5c2c i natywny biznesowy LAN pozostają poza zakresem.
+
+### Granica odtwarzania i dostępność
+
+Zwykły JSON/ZIP v12 nie zawiera reportDocuments, lokalnych reportChecks ani
+reportAvailability. Oryginalne dowody pozostają w dzienniku bieżącego urządzenia.
+Jeśli restore trafia na known, ale niezastosowany stan dokumentu, nie tworzymy
+fikcyjnej operacji rollback. Zachowujemy cały log, checkpoint przed/po i restore-review
+atomowo. Ponowny odbiór, planowanie i wystawianie są wstrzymane do przyszłego kreatora.
+Pełne przenośne archiwum dowodów synchronizacji nadal nie jest zaimplementowane.
+
+portable znaczy: pełna przenośna reprezentacja w niezmiennym dzienniku przeszła
+lokalne WebCrypto i odpowiada źródłowemu dowodowi. Nie jest potwierdzeniem applied;
+to wynika wyłącznie z trwałego receipt i kanonicznego Data. source-only zawiera ID,
+numer, wersję, fingerprint, SHA256 oryginału, UUID źródeł i minimalne wymagania
+zasobów (liczby, logo, SHA256 plików), bez lokalnych PhotoMetadata lub plików.
+Nie można na tej podstawie wygenerować pozornie kompletnego PDF.
+
+SHA256 wykrywa zmianę treści, nie zastępuje uwierzytelnienia źródła. Wiązanie
+repliki z kluczem mTLS przy biznesowym LAN pozostaje przyszłym punktem.
+
+## Kontrakt ukończonego adaptera 5c2b
+
+Ta sekcja aktualizuje wcześniejsze historyczne granice 5c2a i checkpoint B1.
+Przed przygotowaniem oferty źródło jawnie wywołuje prepareSyncReports.
+Dla każdego swojego oryginalnego dokumentu dodaje osobną niezmienną operację
+reportDocuments, odnoszącą się do źródłowych UUID tożsamości i snapshotu. Nie
+przepisuje starych operacji, nie poświadcza dokumentów otrzymanych jako nowych
+lokalnych zdarzeń, nie uruchamia LAN i nie aktywuje dziennika automatycznie.
+
+### Cztery odrębne mechanizmy
+
+1. SHA256 pakietu: istniejący TransferAssembler sprawdza kompletność bajtów transmisji.
+2. SHA256 dokumentu: UTF-8 canonical({format:"gm-visit-report-v1",jobId,report});
+   obejmuje ID, numer, wersję, generatedAt, rendererVersion, fingerprint, options
+   oraz pełny snapshot. Osobny snapshotSha256 to UTF-8
+   canonical({format:"gm-report-snapshot-v1",snapshot}).
+3. Biznesowy fingerprint: SHA256 JSON.stringify(snapshot) w kolejności pól
+   historycznego buildera rendererVersion=1. Nie jest zastępowany kanonicznym SHA.
+   Po sortowaniu kluczy pakietu odtwarzamy tę kolejność przy weryfikacji i zapisie.
+4. reportSourceSignature: zwykły JSON CAS aktualnego źródła podglądu, nie SHA256.
+   Nie wymagamy zgodności starego snapshotu z aktualnym klientem, wizytą lub stawką.
+
+canonical sortuje klucze obiektów rekurencyjnie porządkiem JavaScript .sort(),
+zachowuje kolejność tablic i używa JSON.stringify dla liczb/łańcuchów. Nie normalizuje
+Unicode ani dat. WebCrypto SHA256 działa poza IDB. Token niezmiennego logu i rewizji
+sprawdza się ponownie w transakcji; do sieci nie przyjmujemy lokalnych reportChecks
+ani informacji applied.
+
+### Cała jednostka zastosowania
+
+Plan używa pełnych oryginalnych operacji, także dawnych oddzielnych bootstrapów:
+snapshot + visits.reportIdentities + źródłowy dowód. Świadectwo przestrzeni numeracji
+musi być znane i zgodne z 5c2a. Finanse/czas przechodzą istniejące kontrole 5c1,
+a dopisanie tożsamości jest możliwe dopiero po kontroli kompletnej rodziny:
+właściwy jobId, niezmienne ID/numer/wersja/data/fingerprint, ciągłość wersji i
+niezmienność wcześniej zapisanych dokumentów. Historyczny snapshot nie jest
+regenerowany i nie jest przeliczany na podstawie dzisiejszych danych.
+
+Planowanie zmienia tylko rejestry techniczne. applySyncPlan zapisuje Data + journal
++ receiver + checkpointy w jednej transakcji; odpowiedź dopiero po oncomplete.
+Utracone potwierdzenie zwraca ten sam CommitReceipt. Quota/abort wycofuje całą grupę.
+Niezależne rekordy mogą przechodzić obok konfliktu lub brakujących zasobów.
+Historyczne kolizje numerów, przestrzeni i tożsamości nadal blokuje 5c2a; dodatkowo
+inna zawartość snapshotu, niezgodne SHA/fingerprint albo brak dowodów zapisują
+trwały konflikt dostępności. Nie zmieniamy ani nie usuwamy oryginałów.
+
+### Raporty zależne od lokalnych plików
+
+Pełna treść z lokalnymi referencjami nie jest eksportowana do reports.
+Źródłowa deklaracja zachowuje tożsamość, numer, wersję, fingerprint, sumy oryginału
+i minimalne wymagania zdjęć/logo. Pośrednik i trzecia instalacja zachowują
+reportAvailability.status=source-only w receiver-v1 oraz oryginalne operacje.
+Odpowiednia grupa pozostaje blocked, nie applied jako kompletny raport.
+Nie powstają PhotoMetadata, pliki, miniatury ani zastępcze PDF.
+
+Dla source-only SHA dokumentu jest deklaracją oryginalnego źródła — odbiorca nie ma
+pełnej treści i nie twierdzi, że zweryfikował jej bajty. Dla portable lokalna
+weryfikacja SHA obejmuje dostępną pełną reprezentację. Nawet portable nie oznacza
+applied. Transfer plików i ustalenie ich kompletności są przyszłym GM-011C.
+
+### Granice wdrożenia
+
+To wewnętrzny adapter i testy niezależnych baz, nie gotowa synchronizacja natywna
+ani GUI. Niezgodne lub skopiowane przestrzenie, dawne grupy nieuzgodnionej historii,
+konflikty finansów/czasu i restore-review pozostają blokadami. Brak przenośnego
+archiwum pełnej historii synchronizacji i bezpiecznej kompakcji. JSON/ZIP v12 nadal
+obejmuje lokalne raporty i zdjęcia, bez sekretów, dziennika i dowodów technicznych.
+Po udanej końcowej regresji następny punkt to wyłącznie 5c2c.

@@ -248,13 +248,17 @@ test.describe("5c2b real durable document receiving (not native business LAN)",(
       const c=await x.checkpoint("C"),before=await x.data("C");
       await x.send("A","B");await x.send("B","C");
       const rows=c.journal.log.operations.filter((o:any)=>o.changes.some((m:any)=>m.key.startsWith("reportDocuments/")));
-      return{first,second,historical,c,after:await x.data("C"),before,rows};
+      const bp="/src/photos/backup.ts",{makeFullBackup,readFullBackup}=await import(bp);
+      const restored=await readFullBackup(await makeFullBackup(before,x.rigs.C.assets));
+      return{first,second,historical,c,after:await x.data("C"),before,rows,zip:restored.data,zipAssets:restored.assets.length};
     });
     expect(result.first.pdfHeader).toBe("%PDF-");expect(result.second.record.version).toBe(2);
     expect(result.second.record.number).toBe(result.first.record.number);
     expect(result.historical).toEqual([result.first.record]);
     expect(result.c.state.data.jobs.find((j:any)=>j.id==="report-job-A").reports).toEqual([result.first.record,result.second.record]);
-    expect(result.after).toEqual(result.before);expect(result.rows).toHaveLength(2);
+    expect(result.after).toEqual(result.before);expect(result.zip).toEqual(result.before);expect(result.zipAssets).toBe(0);
+    expect(JSON.stringify(result.zip)).not.toContain('"reportDocuments"');expect(JSON.stringify(result.zip)).not.toContain('"reportAvailability"');
+    expect(result.rows).toHaveLength(2);
     expect(result.rows.every((o:any)=>o.origin==="11111111-1111-4111-8111-111111111111")).toBe(true);
     expect(result.c.receiver.reportAvailability.filter((r:any)=>r.status==="portable")).toHaveLength(2);
     expect(result.after.timer).toBeNull();
@@ -349,11 +353,13 @@ test.describe("5c2b real durable document receiving (not native business LAN)",(
         x.rigs.B.assets,new BrowserPhotoProcessor());
       await service.importFull(oldBackup,JSON.stringify(b));
       let blocked=false;try{await x.rigs.B.repo.planSyncOperations();}catch{blocked=true;}
-      const afterJournal=await x.rigs.B.repo.readSyncJournal(),afterReceiver=await x.receiver("B");await x.close();
+      const afterJournal=await x.rigs.B.repo.readSyncJournal(),afterReceiver=await x.receiver("B");
+      const restoredB=await x.data("B"),restoredPhoto=restoredB.photos.find((p:any)=>p.id===own.id),restoredAsset=await x.rigs.B.assets.get(restoredPhoto.assetId);
+      const restoredOwnSha=await hash(restoredAsset.image);await x.close();
       return{report,photo,own,source,local,b,c,rx,backupData:backup.data,backupCount:backup.assets.length,
-        sha:await hash(original.image),ownSha:await hash(untouched.image),beforeJournal,afterJournal,afterReceiver,blocked};
+        sha:await hash(original.image),ownSha:await hash(untouched.image),beforeJournal,afterJournal,afterReceiver,restoredOwnSha,blocked};
     },kind);
-    expect(saved.sha).toBe(saved.photo.sha256);expect(saved.ownSha).toBe(saved.own.sha256);
+    expect(saved.sha).toBe(saved.photo.sha256);expect(saved.ownSha).toBe(saved.own.sha256);expect(saved.restoredOwnSha).toBe(saved.own.sha256);
     expect(saved.backupData).toEqual(saved.source);expect(saved.backupCount).toBe(1);
     expect(saved.b.photos).toEqual(saved.local.photos);expect(saved.c.photos).toEqual([]);
     for(const d of [saved.b,saved.c])expect(d.jobs.find((j:any)=>j.id==="report-job-A")?.reports??[]).toEqual([]);

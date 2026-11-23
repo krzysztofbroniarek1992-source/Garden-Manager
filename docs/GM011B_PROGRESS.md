@@ -453,3 +453,25 @@ polityki, rzeczywisty scenariusz także na nowym B oraz ponowną kontrolę niezm
 profilu finansów/JPEG/stopera po aktualizacji. Jednorazowy job inspekcji usunięto.
 Inne historyczne przypadki Android Back bez takiego dowodu pozostają monitorowane.
 Wynik poprawki wymaga CI końcowego HEAD; nie deklarujemy go przed zakończeniem.
+
+### 5c2b — końcowe dopracowanie i granica wznowienia
+
+Na ece932f Business sync, LAN, Windows/NSIS i pełny Shopping/Chromium/PWA przeszły;
+Android nie został uznany za zaliczony. Jego konkretny błąd został wyjaśniony wyżej.
+
+Dodano zachowanie kolejności pól buildera po kanonicznym dekodowaniu: bez tego
+identyczne options mogły nie zostać rozpoznane przez istniejący ReportService
+jako ten sam podgląd. Canonical treść i SHA pozostają takie same. Regresja wymaga
+rzeczywistego ponownego użycia dokumentu na B, bez przydziału nowego numeru.
+
+Dodatkowe testy: nowa przyczynowa próba zmiany wydanego snapshotu zachowuje oryginał
+i konflikt; legacy BO/rok/licznik przechodzi A→B→C bez globalnej rezerwacji licznika;
+finanse/czas raportu pozostają historyczne po zmianie bieżącej stawki. Chromium
+sprawdza także SHA lokalnego JPEG po rzeczywistym odtworzeniu ZIP i roundtrip pełnego
+raportu bez plików przez ZIP v12. Opisano kompletny kontrakt adaptera i jego blokady.
+
+Wyniki nowego końcowego HEAD wymagają osobnej pełnej regresji i są wpisywane do
+PR/checks tego HEAD. Nie przypisujemy mu wcześniejszych zielonych przebiegów.
+Jeśli regresja wykaże błąd, najpierw naprawić 5c2b. Dopiero po jej pełnym zaliczeniu
+punkt 5c2b można zamknąć; następny jest 5c2c. Nie podłączać biznesowego LAN,
+pełnego GUI, zdjęć GM-011C ani fizycznego odbioru.

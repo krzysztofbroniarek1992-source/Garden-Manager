@@ -7,7 +7,7 @@ import { IndexedDbPhotoRepository } from "../photos/assets";
 import { ReportService } from "../reports/service";
 import { defaultReportOptions, type ReportOptions } from "../reports/model";
 import { prepareTransfer, TransferAssembler } from "./packets";
-import { canonical, dotId } from "./causal";
+import { appendLocal, canonical, dotId } from "./causal";
 import { reportHashes } from "./report-documents";
 
 const at=Date.parse("2026-11-23T12:00:00Z");
@@ -48,6 +48,8 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
   it("applies exact report A-B-C, relays original evidence, and retries without new document or operation",async()=>{
     const a=await replica(0),b=await replica(1),c=await replica(2),report=await issue(a);
     const p=await send(a,b);expect(p.planned).toBeGreaterThan(0);expect(await reports(b)).toEqual([report]);
+    const reused=await service(b).prepare("report-job-0",defaultReportOptions());
+    expect(reused.reused).toBe(true);expect(reused.record).toEqual(report);
     await send(b,c);expect(await reports(c)).toEqual([report]);
     const log=(await c.repo.readSyncJournal())!.log,proof=log.operations.find(o=>o.changes.some(c=>c.key.startsWith("reportDocuments/")))!;
     expect(proof.origin).toBe(origins[0]);
@@ -168,5 +170,32 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     expect((await b.repo.readSyncReceiver())!.reportAvailability).toEqual(receiver!.reportAvailability);
     await expect(b.repo.planSyncOperations()).rejects.toThrow(/przywróceniu|historię/);
     expect((await data(b)).clients).toEqual(old.clients);
+  });
+  it("retains an issued original and quarantines a new causal operation trying to alter its snapshot",async()=>{
+    const a=await replica(0),b=await replica(1),r=await issue(a);await send(a,b);
+    const log=(await a.repo.readSyncJournal())!.log,key="reports/"+encodeURIComponent("report-job-0/"+r.id);
+    const value={jobId:"report-job-0",report:r},altered=structuredClone(value);altered.report.snapshot.workDescription="Rewritten";
+    const forged=appendLocal(log,[{key,before:value as any,after:altered as any}]).operation!;
+    await b.repo.receiveSyncOperations([forged]);await apply(b);await restart(b);
+    expect(await reports(b)).toEqual([r]);
+    expect((await b.repo.readSyncReceiver())!.receipts.find(v=>v.operation.id===forged.id)!.stage).not.toBe("applied");
+    expect((await b.repo.readSyncReceiver())!.reportAvailability!.some(v=>v.reportId===r.id&&v.status==="conflict")).toBe(true);
+  });
+  it("supports a legacy immutable family without borrowing the foreign sequence as a reservation",async()=>{
+    const a=await replica(0,false),b=await replica(1,true,true),c=await replica(2,true,true),r=await issue(a);
+    expect(r.number).toBe("BO/2026/000001");await a.repo.enableSyncJournal(origins[0]);
+    await send(a,b);await send(b,c);expect(await reports(c)).toEqual([r]);
+    expect((await data(c)).reportSequence).toBe(1);expect((await data(c)).timer).toBeNull();
+  });
+  it("copies historical finance/time exactly without repricing after current settings change",async()=>{
+    const a=await replica(0),b=await replica(1,true,true),c=await replica(2,true,true);
+    const r=await issue(a,{...defaultReportOptions(),showFinance:true,showChecklists:true,showRemarks:true});
+    const original=(await data(a)).jobs[0],payments=(await data(a)).payments;
+    await send(a,b);await b.repo.command(s=>s.setRate(999));await send(b,c);
+    const received=(await data(c)).jobs.find(j=>j.id===original.id)!;
+    expect(received.seconds).toBe(original.seconds);expect(received.timeHistory).toEqual(original.timeHistory);
+    expect(received.settlement).toEqual(original.settlement);expect((await data(c)).payments).toEqual(payments);
+    expect(received.reports).toEqual([r]);expect(received.reports![0].snapshot.finance).toEqual(r.snapshot.finance);
+    const before=await c.repo.read();await send(b,c);expect(await c.repo.read()).toEqual(before);
   });
 });
