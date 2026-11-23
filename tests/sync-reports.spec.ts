@@ -204,3 +204,168 @@ for(const width of [360,390,430])test("active numbered ReportPanel uses the cano
   await expect(panel.locator(".report-number")).toContainText(record.number);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+async function bootDocuments(page:Page,active=true) {
+  await boot(page,active);
+  await page.evaluate(async()=>{
+    const x=(window as any).__reportRig,oldSend=x.send;
+    x.send=async(from:string,to:string)=>{await x.rigs[from].repo.prepareSyncReports();return oldSend(from,to);};
+    x.packet=async(from:string,to:string)=>{
+      if([from,to].sort().join("")==="AC")throw Error("Direct A-C forbidden");
+      const cp="/src/sync/packets.ts",codec=await import(cp),a=x.rigs[from].repo,b=x.rigs[to].repo;
+      await a.prepareSyncReports();
+      const t=await codec.prepareTransfer(await a.readSyncJournal(),(await b.readSyncJournal()).log.known),reader=new codec.TransferAssembler(t.offer);
+      for(const part of [...t.chunks].reverse())reader.accept(part);
+      return(await reader.finish()).operations;
+    };
+    x.apply=async(label:string)=>{const r=x.rigs[label].repo,p=await r.planSyncOperations();if(p.plan)await r.applySyncPlan(p.plan.id);return p;};
+    x.checkpoint=async(label:string)=>{const r=x.rigs[label].repo;return{state:await r.read(),journal:await r.readSyncJournal(),receiver:await r.readSyncReceiver()};};
+    x.addPixel=async(label:string,logo=false)=>{
+      const sp="/src/photos/service.ts",ip="/src/photos/images.ts",{PhotoService}=await import(sp),{BrowserPhotoProcessor}=await import(ip),r=x.rigs[label];
+      const c=document.createElement("canvas");c.width=3;c.height=3;c.getContext("2d")!.fillStyle=label==="A"?"#118811":"#1122cc";c.getContext("2d")!.fillRect(0,0,3,3);
+      const blob=await new Promise<Blob>(ok=>c.toBlob(b=>ok(b!),"image/jpeg"));
+      const port={snapshot:()=>x.data(label),appendPhotos:async(p:any[])=>{await r.repo.command((s:any)=>s.appendPhotos(p));},
+        restoreSnapshot:async(...args:any[])=>{await r.repo.command((s:any)=>s.restoreSnapshot(...args));}};
+      const service=new PhotoService(port,r.assets,new BrowserPhotoProcessor());
+      const [photo]=await service.add([{id:"document-pixel-"+label,blob,name:"synthetic.jpg"}],{clientId:"client-1",gardenId:"garden-1",
+        zoneId:null,jobId:"report-job-"+label,category:logo?"other":"before",description:"Synthetic document asset",capturedDate:null});
+      return photo;
+    };
+  });
+}
+test.describe("5c2b real durable document receiving (not native business LAN)",()=>{
+  test.setTimeout(180000);
+  test("exact historical report A-B-C, version two, original proof UUID and safe replay",async({page})=>{
+    await bootDocuments(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__reportRig,first=await x.issue("A");
+      await x.send("A","B");
+      await x.rigs.A.repo.command((s:any)=>s.saveVisitDetails("report-job-A",{publicWork:"Synthetic later snapshot",clientRemarks:"",zoneId:null},0));
+      await x.send("A","B");
+      const historical=(await x.data("B")).jobs.find((j:any)=>j.id==="report-job-A").reports;
+      const second=await x.issue("A");await x.send("A","B");await x.send("B","C");
+      const c=await x.checkpoint("C"),before=await x.data("C");
+      await x.send("A","B");await x.send("B","C");
+      const rows=c.journal.log.operations.filter((o:any)=>o.changes.some((m:any)=>m.key.startsWith("reportDocuments/")));
+      return{first,second,historical,c,after:await x.data("C"),before,rows};
+    });
+    expect(result.first.pdfHeader).toBe("%PDF-");expect(result.second.record.version).toBe(2);
+    expect(result.second.record.number).toBe(result.first.record.number);
+    expect(result.historical).toEqual([result.first.record]);
+    expect(result.c.state.data.jobs.find((j:any)=>j.id==="report-job-A").reports).toEqual([result.first.record,result.second.record]);
+    expect(result.after).toEqual(result.before);expect(result.rows).toHaveLength(2);
+    expect(result.rows.every((o:any)=>o.origin==="11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(result.c.receiver.reportAvailability.filter((r:any)=>r.status==="portable")).toHaveLength(2);
+    expect(result.after.timer).toBeNull();
+  });
+  test("process restarts before apply and after commit preserve exact report and lost confirmation",async()=>{
+    const dir=await mkdtemp(path.join(tmpdir(),"gm011b-documents-"));
+    let context=await chromium.launchPersistentContext(dir,{headless:true,baseURL:"http://127.0.0.1:5173"});
+    try {
+      let page=await context.newPage();await bootDocuments(page);
+      const saved=await page.evaluate(async()=>{
+        const x=(window as any).__reportRig,p=await x.issue("A"),before=await x.data("B");
+        await x.rigs.B.repo.receiveSyncOperations(await x.packet("A","B"));
+        const receiver=await x.receiver("B"),after=await x.data("B");await x.close();return{p,before,after,receiver};
+      });
+      expect(saved.after).toEqual(saved.before);
+      await context.close();context=await chromium.launchPersistentContext(dir,{headless:true,baseURL:"http://127.0.0.1:5173"});
+      page=await context.newPage();await bootDocuments(page);
+      const committed=await page.evaluate(async()=>{
+        const x=(window as any).__reportRig,r=x.rigs.B.repo,p=await r.planSyncOperations();
+        const before=await x.data("B"),receipt=await r.applySyncPlan(p.plan.id),after=await x.data("B");await x.close();return{before,after,receipt,plan:p.plan};
+      });
+      expect(committed.before).toEqual(saved.before);
+      expect(committed.after.jobs.find((j:any)=>j.id==="report-job-A").reports).toEqual([saved.p.record]);
+      await context.close();context=await chromium.launchPersistentContext(dir,{headless:true,baseURL:"http://127.0.0.1:5173"});
+      page=await context.newPage();await bootDocuments(page);
+      const retried=await page.evaluate(async id=>{const x=(window as any).__reportRig,receipt=await x.rigs.B.repo.applySyncPlan(id);await x.send("B","C");return{receipt,b:await x.data("B"),c:await x.data("C")};},committed.plan.id);
+      expect(retried.receipt).toEqual(committed.receipt);
+      expect(retried.b).toEqual(committed.after);expect(retried.c.jobs.find((j:any)=>j.id==="report-job-A").reports).toEqual([saved.p.record]);
+    }finally{await context.close();await rm(dir,{recursive:true,force:true});}
+  });
+  for(const fault of ["snapshot","checksum","identity","parent","shape"])test("isolates "+fault+" corruption with valid outer packet and preserves an independent client",async({page})=>{
+    await bootDocuments(page);
+    const result=await page.evaluate(async fault=>{
+      const x=(window as any).__reportRig;
+      await x.rigs.A.repo.command((s:any)=>s.saveClient({id:"safe-document-client",name:"Synthetic",phone:"",email:"",notes:""},null));
+      await x.issue("A");
+      const ops=await x.packet("A","B"),o=ops.find((p:any)=>p.changes.some((m:any)=>m.key.startsWith("reports/")));
+      if(fault==="snapshot")o.changes.find((m:any)=>m.key.startsWith("reports/")).after.report.snapshot.workDescription="Damaged";
+      if(fault==="checksum")ops.find((p:any)=>p.changes.some((m:any)=>m.key.startsWith("reportDocuments/"))).changes[0].after.documentSha256="0".repeat(64);
+      if(fault==="identity")o.changes=o.changes.filter((m:any)=>!m.key.startsWith("visits/"));
+      if(fault==="parent")for(const op of ops)for(const c of op.changes)if(c.key==="visits/report-job-A")for(const v of [c.before,c.after])if(v)v.job.gardenId="missing-source-parent";
+      if(fault==="shape")o.changes.find((m:any)=>m.key.startsWith("reports/")).after.report.extra="invalid";
+      const received=await x.rigs.B.repo.receiveSyncOperations(ops);await x.apply("B");
+      return{received,b:await x.data("B"),rx:await x.receiver("B")};
+    },fault);
+    expect(result.b.jobs.find((j:any)=>j.id==="report-job-A")?.reports??[]).toEqual([]);
+    expect(result.b.clients.some((c:any)=>c.id==="safe-document-client")).toBe(true);
+    if(fault==="shape")expect(result.received.rejected.length).toBeGreaterThan(0);
+    else if(fault==="parent")expect(result.rx.receipts.some((r:any)=>r.stage==="waiting-records")).toBe(true);
+    else expect(result.rx.reportAvailability.some((v:any)=>v.status==="conflict")).toBe(true);
+  });
+  test("quota and explicit abort roll back whole report group before durable applied",async({page})=>{
+    await bootDocuments(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__reportRig,p=await x.issue("A"),r=x.rigs.B.repo;
+      await r.receiveSyncOperations(await x.packet("A","B"));const plan=await r.planSyncOperations(),before=await x.checkpoint("B");
+      const put=IDBObjectStore.prototype.put,attempts:any[]=[];
+      for(const mode of ["quota","abort"]) {
+        IDBObjectStore.prototype.put=function(value:unknown,key?:IDBValidKey){
+          if(this.name==="sync"&&key==="receiver-v1") {
+            if(mode==="quota")throw new DOMException("Synthetic quota","QuotaExceededError");
+            this.transaction.abort();throw new DOMException("Synthetic abort","AbortError");
+          }
+          return put.call(this,value,key);
+        };
+        let failed=false;try{await r.applySyncPlan(plan.plan.id);}catch{failed=true;}finally{IDBObjectStore.prototype.put=put;}
+        attempts.push({failed,state:await x.checkpoint("B")});
+      }
+      const receipt=await r.applySyncPlan(plan.plan.id),again=await r.applySyncPlan(plan.plan.id);
+      return{before,attempts,receipt,again,after:await x.data("B"),p};
+    });
+    for(const a of result.attempts){expect(a.failed).toBe(true);expect(a.state).toEqual(result.before);}
+    expect(result.again).toEqual(result.receipt);
+    expect(result.after.jobs.find((j:any)=>j.id==="report-job-A").reports).toEqual([result.p.record]);
+  });
+  for(const kind of ["photo","logo"])test(kind+" stays source-only across relay/reload; JPEG/ZIP and restore-review remain safe",async({page})=>{
+    await bootDocuments(page);
+    const saved=await page.evaluate(async kind=>{
+      const x=(window as any).__reportRig,photo=await x.addPixel("A",kind==="logo"),own=await x.addPixel("B"),
+        mp="/src/reports/model.ts",bp="/src/photos/backup.ts",sp="/src/photos/service.ts",ip="/src/photos/images.ts",
+        {defaultReportOptions}=await import(mp),{makeFullBackup,readFullBackup}=await import(bp),
+        {PhotoService}=await import(sp),{BrowserPhotoProcessor}=await import(ip);
+      const options={...defaultReportOptions(),showPhotos:kind==="photo",photoIds:kind==="photo"?[photo.id]:[],logoPhotoId:kind==="logo"?photo.id:null};
+      const report=await x.issue("A",options),source=await x.data("A"),local=await x.data("B");
+      await x.send("A","B");await x.send("B","C");
+      const b=await x.data("B"),c=await x.data("C"),rx=await x.receiver("B");
+      const hash=async(blob:Blob)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await blob.arrayBuffer()))).map(n=>n.toString(16).padStart(2,"0")).join("");
+      const original=await x.rigs.A.assets.get(photo.assetId),untouched=await x.rigs.B.assets.get(own.assetId);
+      const backup=await readFullBackup(await makeFullBackup(source,x.rigs.A.assets)),oldBackup=await readFullBackup(await makeFullBackup(local,x.rigs.B.assets));
+      const beforeJournal=await x.rigs.B.repo.readSyncJournal();
+      const service=new PhotoService({snapshot:()=>x.data("B"),restoreSnapshot:async(...a:any[])=>{await x.rigs.B.repo.command((s:any)=>s.restoreSnapshot(...a));}},
+        x.rigs.B.assets,new BrowserPhotoProcessor());
+      await service.importFull(oldBackup,JSON.stringify(b));
+      let blocked=false;try{await x.rigs.B.repo.planSyncOperations();}catch{blocked=true;}
+      const afterJournal=await x.rigs.B.repo.readSyncJournal(),afterReceiver=await x.receiver("B");await x.close();
+      return{report,photo,own,source,local,b,c,rx,backupData:backup.data,backupCount:backup.assets.length,
+        sha:await hash(original.image),ownSha:await hash(untouched.image),beforeJournal,afterJournal,afterReceiver,blocked};
+    },kind);
+    expect(saved.sha).toBe(saved.photo.sha256);expect(saved.ownSha).toBe(saved.own.sha256);
+    expect(saved.backupData).toEqual(saved.source);expect(saved.backupCount).toBe(1);
+    expect(saved.b.photos).toEqual(saved.local.photos);expect(saved.c.photos).toEqual([]);
+    for(const d of [saved.b,saved.c])expect(d.jobs.find((j:any)=>j.id==="report-job-A")?.reports??[]).toEqual([]);
+    const limited=saved.rx.reportAvailability.find((v:any)=>v.reportId===saved.report.record.id);
+    expect(limited.status).toBe("source-only");expect(limited.identity.number).toBe(saved.report.record.number);
+    expect(limited.identity.fingerprint).toBe(saved.report.record.fingerprint);
+    expect(limited.reason).toContain("pełna zawartość");
+    expect(saved.afterJournal.mode).toBe("restore-review");expect(saved.afterJournal.log.operations.length).toBeGreaterThanOrEqual(saved.beforeJournal.log.operations.length);
+    expect(saved.blocked).toBe(true);expect(saved.afterReceiver.reportAvailability).toEqual(saved.rx.reportAvailability);
+    await page.reload();await bootDocuments(page);
+    const persisted=await page.evaluate(async()=>{const x=(window as any).__reportRig;return{b:await x.receiver("B"),c:await x.receiver("C")};});
+    expect(persisted.b.reportAvailability.find((v:any)=>v.reportId===saved.report.record.id).status).toBe("source-only");
+    expect(persisted.c.reportAvailability.find((v:any)=>v.reportId===saved.report.record.id).status).toBe("source-only");
+  });
+});

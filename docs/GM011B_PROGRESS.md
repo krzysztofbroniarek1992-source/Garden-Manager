@@ -405,3 +405,20 @@ Nie powstaje fikcyjny VisitReport. Plan nie zmienia Data. Pełne przyjęcie korz
 z istniejącego commitReceived i jednej transakcji Data/journal/receiver/checkpointy.
 Pierwszy checkpoint CI wykrył niejawny any po Array.isArray; doprecyzowano parametr,
 bez usuwania walidacji. Testy adaptera i pełna regresja pozostają do wykonania.
+
+### Kontrola B2 i rzeczywiste kopie
+
+Po poprawce typu TypeScript 80db311 zaliczył dotychczasowe 31 E2E IndexedDB.
+Nowe jednostkowe wykryły dwie niepoprawne przesłanki fixture: niezależne wcześniej
+utworzone klient/garden nie są dowodem wspólnej historii po edycji nazwy, a wizyta
+z zatwierdzoną ceną nie może zostać otwarta do pomiaru. Test historii klienta używa
+pustych B/C, timer jest tworzony na źródle bez zatwierdzonej ceny; ochrony domeny
+pozostały bez zmian i asercje zachowania raportów pozostają.
+
+Dodano rzeczywiste Chromium A/B/C, pełny restart procesu, uszkodzenia snapshotu/dowodów,
+quota/abort, JPEG, logo i pełny ZIP. Analiza przywracania wykryła konkretną granicę:
+Data może być za known historią niezastosowanego raportu, więc starego ZIP nie da się
+zapisać jako zwykłej nowej operacji o fikcyjnym before. W takim restore zachowujemy
+oryginalny log, nowy snapshot i checkpoint przed/po oraz restore-review w jednej
+transakcji. Nie potwierdzamy zastosowania odebranych operacji i nie propagujemy cofnięcia.
+Dotychczasowe restore, które miały poprawną bazę przyczynową, zachowują poprzedni audyt.

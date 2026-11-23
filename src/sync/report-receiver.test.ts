@@ -13,10 +13,10 @@ import { reportHashes } from "./report-documents";
 const at=Date.parse("2026-11-23T12:00:00Z");
 const origins=["11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222","33333333-3333-4333-8333-333333333333"];
 class Storage {rows=new Map<string,string>();getItem(k:string){return this.rows.get(k)??null;}setItem(k:string,v:string){this.rows.set(k,v);}}
-async function replica(n:number,active=true) {
+async function replica(n:number,active=true,empty=false) {
   const storage=new Storage(),factory=new IDBFactory(),seed=createDemoData(new Date(at));
   seed.jobs=[{...seed.jobs.find(j=>j.id==="job-5")!,id:"report-job-"+n,gardenId:"garden-1",activities:["Synthetic work"],materials:[]}];
-  seed.payments=[];validateData(seed);storage.setItem(STORAGE_KEY,JSON.stringify({version:12,data:seed}));
+  seed.payments=[];if(empty){seed.jobs=[];seed.gardens=[];seed.clients=[];}validateData(seed);storage.setItem(STORAGE_KEY,JSON.stringify({version:12,data:seed}));
   const name="report-apply-"+n,repo=new AtomicRepository(storage,factory,name);await repo.initialize();
   if(active)await repo.enableSyncJournal(origins[n]);
   return{repo,storage,factory,name,n};
@@ -65,7 +65,7 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     expect((await b.repo.readSyncReceiver())!.receipts.filter(r=>receipt.operations.includes(dotId(r.operation))).every(r=>r.stage==="applied")).toBe(true);
   });
   it("keeps historical snapshot after visit/client changes and adds exact next version",async()=>{
-    const a=await replica(0),b=await replica(1),c=await replica(2),first=await issue(a);
+    const a=await replica(0),b=await replica(1,true,true),c=await replica(2,true,true),first=await issue(a);
     await send(a,b);
     await a.repo.command(s=>s.saveVisitDetails("report-job-0",{publicWork:"Later changed work",clientRemarks:"Later",zoneId:null},0),()=>at+10);
     const client=(await data(a)).clients.find(c=>c.id==="client-1")!;
@@ -73,7 +73,7 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     await send(a,b);expect(await reports(b)).toEqual([first]);
     const second=await issue(a);expect(second.version).toBe(2);expect(second.number).toBe(first.number);
     expect(second.snapshot.clientName).toBe("Later client name");
-    await send(a,b);await send(b,c);expect(await reports(c)).toEqual([first,second]);
+    await send(a,b);expect(await reports(b)).toEqual([first,second]);await send(b,c);expect(await reports(c)).toEqual([first,second]);
     const before=await reports(c);await send(a,b);await send(b,c);expect(await reports(c)).toEqual(before);
   });
   it("uses separate canonical document/snapshot SHA256 without redefining old fingerprint or plain source CAS",async()=>{
@@ -142,7 +142,10 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     await send(a,b);expect(await reports(b)).toEqual([r]);
   });
   it("blocks active local timer on the target while unrelated client passes",async()=>{
-    const a=await replica(0),b=await replica(1);await send(a,b);
+    const a=await replica(0,false),b=await replica(1);
+    const initial=await data(a);
+    await a.repo.command(s=>s.restoreSnapshot({...initial,jobs:initial.jobs.map(j=>({...j,settlement:null}))},JSON.stringify(initial)));
+    await a.repo.enableSyncJournal(origins[0]);await send(a,b);
     const existing=(await data(b)).jobs.find(j=>j.id==="report-job-0")!;
     await b.repo.command(s=>s.saveJob({...existing,status:"in-progress"},existing));
     await b.repo.command(s=>s.controlVisitTimer("report-job-0","start",null,null),()=>at+1);
@@ -150,5 +153,20 @@ describe("5c2b immutable documents, independent durable A/B/C (not native LAN)",
     await issue(a);await a.repo.command(s=>s.saveClient({id:"timer-independent",name:"Synthetic",phone:"",email:"",notes:""},null));
     await send(a,b);expect((await data(b)).timer).toEqual(timer);expect(await reports(b)).toEqual([]);
     expect((await data(b)).clients.some(c=>c.id==="timer-independent")).toBe(true);
+  });
+  it("restoring with pending report history retains all evidence and enters restore-review atomically",async()=>{
+    const a=await replica(0),b=await replica(1),old=await data(b);await issue(a);
+    await b.repo.receiveSyncOperations(await packet(a,b));await apply(b);
+    // Force a pending later source identity; it must not become a fictitious
+    // new rollback operation merely to satisfy the causal precondition.
+    await a.repo.command(s=>s.saveVisitDetails("report-job-0",{publicWork:"Second",clientRemarks:"",zoneId:null},0));
+    await issue(a);await b.repo.receiveSyncOperations(await packet(a,b));
+    const journal=(await b.repo.readSyncJournal())!,receiver=await b.repo.readSyncReceiver(),current=await data(b);
+    await b.repo.command(s=>s.restoreSnapshot(old,JSON.stringify(current)));await restart(b);
+    const after=(await b.repo.readSyncJournal())!;
+    expect(after.mode).toBe("restore-review");expect(after.log).toEqual(journal.log);
+    expect((await b.repo.readSyncReceiver())!.reportAvailability).toEqual(receiver!.reportAvailability);
+    await expect(b.repo.planSyncOperations()).rejects.toThrow(/przywróceniu|historię/);
+    expect((await data(b)).clients).toEqual(old.clients);
   });
 });

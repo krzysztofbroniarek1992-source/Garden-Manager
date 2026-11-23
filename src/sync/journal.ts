@@ -80,7 +80,16 @@ export function captureJournal(journal: JournalState, before: Data, after: Data,
     const risk=bankRisk(before,added,after.expenseImports,false);
     if(risk)throw new SyncError("CONFLICT",risk);
   }
-  const result = appendLocal(journal.log, change);
+  let result:ReturnType<typeof appendLocal>;
+  try {result=appendLocal(journal.log,change);}
+  catch(error) {
+    // A business restore can intentionally replace a local materialization
+    // behind already RECEIVED but unapplied report/financial history. Do not
+    // forge a before value or rewrite those operations to make a rollback fit.
+    // Keep the entire log and quarantine the restored branch for onboarding.
+    if(!restored||!(error instanceof SyncError)||!["PRECONDITION","CONFLICT"].includes(error.code))throw error;
+    result={log:structuredClone(journal.log),operation:null};
+  }
   const next: JournalState = {
     ...journal, log: result.log, lastRevision: afterRevision,
     mode: restored ? "restore-review" : journal.mode,
@@ -101,6 +110,12 @@ export function captureInTransaction(
     try {
       if (request.result === undefined) return; // Activation is explicit, not an automatic LAN side effect.
       const next = captureJournal(request.result, before, after, beforeRevision, afterRevision, restored);
+      if(restored) {
+        const checkpoint={before,after,journal:request.result,beforeRevision,afterRevision};
+        const first=store.get("before-first-business-restore");
+        first.onsuccess=()=>{if(first.result===undefined)store.put(checkpoint,"before-first-business-restore");};
+        store.put(checkpoint,"before-last-business-restore");
+      }
       store.put(next, JOURNAL_KEY);
     } catch (error) { abort(error); }
   };
