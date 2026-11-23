@@ -61,7 +61,7 @@ async function boot(page:Page) {
       async approvals(left=25000,right=30000) {
         await rigs.A.repo.command((s:any)=>s.approveSettlement("visit",left,"manual"),()=>at+10);
         await rigs.C.repo.command((s:any)=>s.approveSettlement("visit",right,"manual"),()=>at+10);
-        await api.send("A","B",false);await api.send("C","B",false);
+        await api.send("A","B",false);await api.send("C","B");
       },
       async conflict(label:string,key="visits/visit"){
         await rigs[label].repo.planSyncOperations();
@@ -92,7 +92,7 @@ async function boot(page:Page) {
         return(await service.add([{id:"synthetic-resolution-jpeg",blob,name:"synthetic.jpg"}],
           {clientId:"client-1",gardenId:"garden-1",zoneId:null,jobId:"visit",category:"before",description:"Synthetic",capturedDate:null}))[0];
       },
-      async close(){for(const r of Object.values(rigs) as any[]){await r.repo.close();await r.assets.close();}},
+      async close(){for(const r of Object.values(rigs) as any[]){await r.repo.close();}},
     };
     (window as any).__resolutionRig=api;
   });
@@ -167,7 +167,7 @@ test.describe("5c2c real Chromium durable decisions (not native LAN)",()=>{
       const x=(window as any).__resolutionRig;await x.base(30000);
       for(const [label,id] of [["A","pay-a"],["C","pay-c"]])await x.rigs[label].repo.command((s:any)=>s.savePayment(
         {id,jobId:"visit",amountCents:1000,receivedDate:"2026-11-23",method:"cash",note:"Synthetic"},null));
-      await x.send("A","B",false);await x.send("C","B",false);
+      await x.send("A","B",false);await x.send("C","B");
       const req=await x.request("B");req.intent.payments=req.intent.payments.map((p:any)=>p.id==="pay-a"?
         {...p,action:"correct",amountCents:1250,receivedDate:"2026-11-23",method:"transfer",note:"Reviewed correction"}:p);
       await x.rigs.B.repo.resolveFinancialSyncConflict(req);await x.send("B","A");await x.send("B","C");
@@ -176,7 +176,7 @@ test.describe("5c2c real Chromium durable decisions (not native LAN)",()=>{
         const p=(await x.data(label)).payments.find((p:any)=>p.id==="pay-a");
         await x.rigs[label].repo.command((s:any)=>s.savePayment({...p,amountCents:amount},p));
       }
-      await x.send("A","B",false);await x.send("C","B",false);
+      await x.send("A","B",false);await x.send("C","B");
       const cancel=await x.request("B");cancel.intent.payments=cancel.intent.payments.map((p:any)=>p.id==="pay-a"?{...p,action:"cancel"}:p);
       await x.rigs.B.repo.resolveFinancialSyncConflict(cancel);
       for(let i=0;i<2;i++){await x.send("B","A");await x.send("B","C");await x.send("A","B");await x.send("C","B");}
@@ -214,7 +214,7 @@ test.describe("5c2c real Chromium durable decisions (not native LAN)",()=>{
       const x=(window as any).__resolutionRig;await x.base();
       await x.rigs.A.repo.command((s:any)=>s.correctJobTime("visit",7200,3600),()=>x.at+10);
       await x.rigs.C.repo.command((s:any)=>s.correctJobTime("visit",9000,3600),()=>x.at+10);
-      await x.send("A","B",false);await x.send("C","B",false);
+      await x.send("A","B",false);await x.send("C","B");
       const req=await x.request("B",{time:{kind:"seconds",seconds:8000}});
       await x.rigs.B.repo.resolveFinancialSyncConflict(req);
       for(let i=0;i<3;i++){await x.send("B","A");await x.send("B","C");await x.send("A","B");await x.send("C","B");}

@@ -9,7 +9,7 @@ import { covers, same } from "./causal";
 import { validateFinanceValue } from "./finance";
 import type { Json, Operation, ReplicaLog } from "./model";
 import { SyncError } from "./model";
-import { validateTimeAudit, validateSourceApprovalTransition, type VisitUnit } from "./visits";
+import { validateTimeAudit, validateSourceApprovalTransition, validateSourceHistoryTransition, type VisitUnit } from "./visits";
 import { isDecisionKey, verifyFinancialEvidence, type FinancialEvidence } from "./resolution-model";
 
 export const hasFinancialDecision = (o:Operation) => o.changes.some(c=>isDecisionKey(c.key));
@@ -39,9 +39,11 @@ export function reconstructFinancialResult(data:Data,e:FinancialEvidence):Json {
       void seconds;void timeHistory;void settlement;
       return {job,reportIdentities:v.reportIdentities};
     };
-    for(const source of e.sources)validateSourceApprovalTransition(
-      source.before as unknown as VisitUnit|null,source.after as unknown as VisitUnit);
-    if(values.some(v=>!same(frame(v),frame(value))) || value.job.taskOccurrenceId)
+    for(const source of e.sources) {
+      validateSourceApprovalTransition(source.before as unknown as VisitUnit|null,source.after as unknown as VisitUnit);
+      validateSourceHistoryTransition(source.before as unknown as VisitUnit|null,source.after as unknown as VisitUnit);
+    }
+    if(values.some(v=>!same(frame(v),frame(value)))||!same(frame(e.base as unknown as VisitUnit),frame(value))||value.job.taskOccurrenceId)
       hold("SCOPE","Rozbieżne dane niefinansowe, dokumenty lub harmonogram wymagają osobnego uzgodnienia.");
     if(values.some(v=>open(v.job)))hold("OPEN_TIME","Najpierw odbierz zakończenie źródłowego pomiaru.");
     const base=e.base as unknown as VisitUnit, prefix=base.job.timeHistory??[];
@@ -92,8 +94,13 @@ export function reconstructFinancialResult(data:Data,e:FinancialEvidence):Json {
     void revision;void updatedAt;void amountCents;void categoryId;void status;void history;
     return immutable;
   };
-  if(values.some(v=>!same(frame(v),frame(value))))
+  if(values.some(v=>!same(frame(v),frame(value)))||!same(frame(base),frame(value)))
     hold("EXPENSE_SCOPE","Nie wolno uzgadniać innych źródeł, transakcji, profili ani powiązań po podobieństwie.");
+  if(values.some(v=>{
+    const last=v.history.at(-1);
+    return !last||last.amountCents!==v.amountCents||last.categoryId!==v.categoryId||
+      last.status!==v.status||last.at!==v.updatedAt;
+  }))hold("EXPENSE_AUDIT","Źródłowy wynik wydatku nie odpowiada swojej ostatniej decyzji.");
   if(values.some(v=>v.history.length<base.history.length ||
     !same(v.history.slice(0,base.history.length),base.history)))
     hold("EXPENSE_HISTORY","Brak wspólnego niezmiennego audytu wydatku.");

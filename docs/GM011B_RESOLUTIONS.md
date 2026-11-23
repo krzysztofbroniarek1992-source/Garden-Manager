@@ -107,3 +107,12 @@ Także ponowne uzgodnienie dwóch równoległych decyzji bez spójnej wspólnej 
 pełne uzgodnienie jednostek CSV i historycznych grup wielorekordowych pozostają
 otwarte. Bieżący checkpoint jest bezpieczną, ograniczoną implementacją, nie
 deklaracją ukończenia 5c2c. PR musi pozostać Draft.
+
+
+### Sprawdzanie wariantów nigdy wcześniej niezastosowanych
+
+Sam poprawny kształt v12 nie wystarcza. Przed decyzją adapter ponownie sprawdza
+źródłowe przejście historii czasu (w tym pierwszy beforeSeconds), pierwsze
+zatwierdzenie i końcową zgodność historii wydatku z jego bieżącą wartością.
+Rama niefinansowa musi być zgodna także ze wspólną bazą. Jawny wybór nie może
+stać się sposobem zatwierdzenia wadliwego źródła.

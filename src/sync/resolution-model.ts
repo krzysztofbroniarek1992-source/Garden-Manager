@@ -95,7 +95,7 @@ export function validateFinancialIntent(value: unknown): asserts value is Financ
     }
   } else if (value.kind === "expense") {
     exact(value, ["kind","basisOperationId","amountCents","categoryId","status"]);
-    if (!integer(value.amountCents) || !text(value.categoryId) ||
+    if (!integer(value.amountCents) || value.amountCents === 0 || !text(value.categoryId) ||
       !["approved","excluded"].includes(value.status as string)) invalid();
   } else invalid();
 }

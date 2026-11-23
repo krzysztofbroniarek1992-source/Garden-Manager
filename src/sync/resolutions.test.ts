@@ -1,3 +1,4 @@
+import { businessRecords } from "./records";
 import { newShoppingItem } from "../shopping/model";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
@@ -5,7 +6,7 @@ import { AtomicRepository } from "../data/atomic";
 import { createDemoData } from "../data/demo";
 import { STORAGE_KEY, validateData } from "../data/repository";
 import { jobTotalCents, paidCents, type Data, type Job, type Payment } from "../domain";
-import { otherCategory, type Expense } from "../expenses/model";
+import { defaultOptions, reviewRows, rulesKey, otherCategory, type Expense } from "../expenses/model";
 import { RECEIVER_KEY, type StoredConflict } from "./receiver-model";
 import { prepareTransfer, TransferAssembler } from "./packets";
 import { appendLocal, canonical } from "./causal";
@@ -288,6 +289,91 @@ describe("5c2c controlled decisions in three separate durable IndexedDB stores",
     const receipt=await a.repo.applySyncPlan(p.plan!.id),after=await a.repo.read();
     expect((await job(a)).settlement!.finalLaborCents).toBe(27500);
     expect(await a.repo.applySyncPlan(p.plan!.id)).toEqual(receipt);expect(await a.repo.read()).toEqual(after);
+  });
+
+  it("resolves a verified shared CSV expense without changing transaction identity or the original import audit",async()=>{
+    const {a,b,c}=await base(),options=defaultOptions();
+    options.mapping={...options.mapping,date:0,amount:1,counterparty:2,description:3,transactionId:4};
+    await a.repo.command(s=>s.saveExpenseProfile({id:"shared-profile",name:"Synthetic bank",
+      headers:["date","amount","party","description","id"],options,archived:false,revision:1,createdAt:0,updatedAt:0},null));
+    const d=await data(a),p=d.expenseProfiles[0],statementKey="a".repeat(64);
+    const rows=reviewRows(d,p.id,statementKey,[{line:2,error:"",row:{line:2,date:"2026-11-23",
+      signedCents:-1000,counterparty:"Synthetic bank vendor",description:"Synthetic transaction",
+      transactionId:"synthetic-tx-resolution",occurrence:1}}]);
+    await a.repo.command(s=>s.importExpenses({id:"shared-import",profile:p,rulesKey:rulesKey(d),statementKey,
+      fileHash:"b".repeat(64),filename:"synthetic.csv",requestKey:"c".repeat(64),
+      rows:rows.map(r=>({...r,selected:true,status:"approved",categoryId:otherCategory}))}));
+    await send(a,b);await send(b,c);
+    const original=await data(a),ea=original.expenses[0],ec=(await data(c)).expenses[0];
+    await a.repo.command(s=>s.saveExpense({...ea,categoryId:"expense-category-0"},ea));
+    await c.repo.command(s=>s.saveExpense({...ec,status:"excluded"},ec));
+    await send(a,b,false);await send(c,b);
+    const cf=await conflict(b,"expenses/"+encodeURIComponent(ea.id)),req:FinancialDecisionRequest={
+      id:crypto.randomUUID(),conflictId:cf.id,token:cf.token,rationale:"Synthetic bank decision",
+      intent:{kind:"expense",basisOperationId:cf.remote[0].operationId,amountCents:1000,
+        categoryId:"expense-category-0",status:"approved"}};
+    await b.repo.resolveFinancialSyncConflict(req);await send(b,a);await send(b,c);
+    for(const r of [a,b,c]) {
+      const d=await data(r);expect(d.expenses).toHaveLength(1);
+      expect(d.expenses[0]).toMatchObject({amountCents:1000,status:"approved",categoryId:"expense-category-0",origin:ea.origin});
+      expect(d.expenseImports).toEqual(original.expenseImports);
+      expect((await evidence(r,req.id)).sources).toHaveLength(2);
+    }
+  },30000);
+  it("refuses generic profile reconciliation and retains the original CSV settings conflict",async()=>{
+    const {a,b,c}=await base(),options=defaultOptions();
+    options.mapping={...options.mapping,date:0,amount:1,counterparty:2,description:3};
+    await a.repo.command(s=>s.saveExpenseProfile({id:"profile",name:"Synthetic bank",headers:[],options,
+      archived:false,revision:1,createdAt:0,updatedAt:0},null));
+    await send(a,b);await send(b,c);
+    const pa=(await data(a)).expenseProfiles[0],pc=(await data(c)).expenseProfiles[0];
+    await a.repo.command(s=>s.saveExpenseProfile({...pa,name:"Synthetic A"},pa));
+    await c.repo.command(s=>s.saveExpenseProfile({...pc,name:"Synthetic C"},pc));
+    await send(a,b,false);await send(c,b);await restart(b);
+    const cf=await conflict(b,"expenseProfiles/profile"),before=await b.repo.read();
+    await expect(b.repo.resolveFinancialSyncConflict({id:crypto.randomUUID(),conflictId:cf.id,token:cf.token,
+      rationale:"Must not reconcile account identity",intent:{kind:"expense",basisOperationId:cf.remote[0].operationId,
+        amountCents:1,categoryId:otherCategory,status:"approved"}})).rejects.toThrow(/onboardingu|adaptera/);
+    expect(await b.repo.read()).toEqual(before);
+    expect((await b.repo.readSyncReceiver())!.conflicts.find(c=>c.id===cf.id)?.status).toBe("open");
+  });
+
+  it.each(["time-base","approval-source","expense-audit"] as const)("cannot bless an intrinsically shaped but invalid source transition (%s)",async variant=>{
+    const {a,b,c}=await base();
+    let key="visits/visit";
+    if(variant==="approval-source") {
+      await a.repo.command(s=>s.completeJob("visit"));await send(a,b);await send(b,c);
+    }
+    if(variant==="expense-audit") {
+      key="expenses/guarded";
+      const e:Expense={id:"guarded",revision:1,createdAt:0,updatedAt:0,date:"2026-11-23",amountCents:1000,
+        direction:"outgoing",counterparty:"Synthetic",description:"Synthetic",categoryId:otherCategory,
+        source:"manual",origin:null,status:"approved",note:"",history:[]};
+      await a.repo.command(s=>s.saveExpense(e,null));await send(a,b);await send(b,c);
+    }
+    const before=businessRecords(await data(a)).get(key)!,after=structuredClone(before) as any;
+    if(variant==="time-base") {
+      after.job.seconds=7200;after.job.timeHistory=[{id:"invalid-source-event",kind:"corrected",at:1,
+        beforeSeconds:999,afterSeconds:7200,pauseDurationMs:null}];
+      await c.repo.command(s=>s.correctJobTime("visit",9000,3600));
+    } else if(variant==="approval-source") {
+      after.job.settlement={calculatedLaborCents:0,suggestedLaborCents:10000,materialsCents:0,
+        finalLaborCents:25000,approvedAt:1,source:"manual"};
+      await c.repo.command(s=>s.approveSettlement("visit",30000,"manual"));
+    } else {
+      after.amountCents=1200;after.revision++;after.updatedAt++;
+      const e=(await data(c)).expenses[0];await c.repo.command(s=>s.saveExpense({...e,amountCents:1300},e));
+    }
+    const source=appendLocal((await a.repo.readSyncJournal())!.log,[{key,before,after}]).operation!;
+    await b.repo.receiveSyncOperations([source]);await send(c,b,false);
+    const cf=await conflict(b,key),original=await b.repo.read();
+    const req=variant==="expense-audit"?{id:crypto.randomUUID(),conflictId:cf.id,token:cf.token,rationale:"Must not bless invalid audit",
+      intent:{kind:"expense" as const,basisOperationId:cf.remote[0].operationId,amountCents:1100,categoryId:otherCategory,status:"approved" as const}}:
+      request(cf,variant==="time-base"?{time:{kind:"seconds",seconds:8000}}:{});
+    const expected=variant==="time-base"?"VISIT_TIME_BASE":variant==="approval-source"?"VISIT_APPROVAL":"FINANCIAL_EXPENSE_AUDIT";
+    await expect(b.repo.resolveFinancialSyncConflict(req)).rejects.toThrow(expected);
+    expect(await b.repo.read()).toEqual(original);
+    expect((await b.repo.readSyncJournal())!.log.operations.find(o=>o.id===source.id)).toEqual(source);
   });
 
 });

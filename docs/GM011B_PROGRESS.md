@@ -559,3 +559,28 @@ GM011B_RESOLUTIONS.md. Nie można uznać pełnego 5c2c za zamknięty, nawet jeś
 regresja ograniczonego checkpointu będzie zielona. Następny punkt: bezpieczne
 zamknięcie lokalnego pomiaru przy known konflikcie i jego późniejsze uzgodnienie,
 następnie decyzje równoległe / grupy / pełna macierz testów akceptacyjnych.
+
+
+### 5c2c — dodatkowe granice walidacji źródeł
+
+Checkpoint cbc88b1: 879/879 jednostkowych, w tym 196/196 sync. Dodano następnie
+osobne testy jawnej decyzji wydatku ze wspólnego, udowodnionego CSV i odmowy
+uzgadniania profili. Przegląd wykazał potrzebę ponownego sprawdzenia źródłowego
+pierwszego zatwierdzenia, bazowej ciągłości historii czasu i końcowego wpisu
+audytu wydatku także wtedy, gdy alternatywa nigdy nie była materializowana.
+Adapter korzysta z istniejących walidatorów wizyt; nie zatwierdza wadliwej
+alternatywy tylko dlatego, że użytkownik wybrał jej kwotę. Dodano testy ujemne.
+Nowe źródła muszą też zachowywać wspólną niefinansową ramę i tożsamość wydatku.
+Wyniki tego dopracowania wymagają nowej pełnej regresji końcowego HEAD.
+
+
+### Korekty nowego fixture Chromium
+
+Na cbc88b1 stary zestaw 41/41 osobnych IDB przeszedł, ale nowe 5/5 zakończyło się
+błędem. Fixture wywoływał nieistniejące assets.close (repozytorium zdjęć nie ma
+takiego API) i odbierał obie strony bez zatwierdzenia także niezależnych rodziców.
+Kontrola parents słusznie odmawiała wtedy decyzji. Usunięto błędne wywołanie
+fixture; po odbiorze drugiej alternatywy zatwierdzany jest bezpieczny plan
+niezależnych rodziców, a sama wizyta nadal ma obie konfliktowe gałęzie.
+Nie osłabiono rodziców, asercji dokumentów, kwot, idempotencji ani restartów.
+Pełny nowy przebieg wymagany dla końcowego kodu.

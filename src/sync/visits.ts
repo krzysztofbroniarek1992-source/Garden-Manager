@@ -186,3 +186,7 @@ export function protectRemoteMeasurement(before:Data,after:Data) {
 export function validateSourceApprovalTransition(before:VisitUnit|null,after:VisitUnit) {
   if(before&&!before.job.settlement&&after.job.settlement)firstApproval(after.job);
 }
+
+export function validateSourceHistoryTransition(before:VisitUnit|null,after:VisitUnit) {
+  historyTransition(before,after);
+}
