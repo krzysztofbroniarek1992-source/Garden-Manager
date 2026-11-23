@@ -9,7 +9,7 @@ import { covers, same } from "./causal";
 import { validateFinanceValue } from "./finance";
 import type { Json, Operation, ReplicaLog } from "./model";
 import { SyncError } from "./model";
-import { validateTimeAudit, type VisitUnit } from "./visits";
+import { validateTimeAudit, validateSourceApprovalTransition, type VisitUnit } from "./visits";
 import { isDecisionKey, verifyFinancialEvidence, type FinancialEvidence } from "./resolution-model";
 
 export const hasFinancialDecision = (o:Operation) => o.changes.some(c=>isDecisionKey(c.key));
@@ -39,6 +39,8 @@ export function reconstructFinancialResult(data:Data,e:FinancialEvidence):Json {
       void seconds;void timeHistory;void settlement;
       return {job,reportIdentities:v.reportIdentities};
     };
+    for(const source of e.sources)validateSourceApprovalTransition(
+      source.before as unknown as VisitUnit|null,source.after as unknown as VisitUnit);
     if(values.some(v=>!same(frame(v),frame(value))) || value.job.taskOccurrenceId)
       hold("SCOPE","Rozbieżne dane niefinansowe, dokumenty lub harmonogram wymagają osobnego uzgodnienia.");
     if(values.some(v=>open(v.job)))hold("OPEN_TIME","Najpierw odbierz zakończenie źródłowego pomiaru.");

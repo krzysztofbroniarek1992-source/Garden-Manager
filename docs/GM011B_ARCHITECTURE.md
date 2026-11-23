@@ -179,3 +179,11 @@ pełnych alternatywach i wspólnej bazie. Dowód nie jest zgodą na dowolny zapi
 Adapter musi odtworzyć wynik z ograniczonej intencji i zweryfikować domenę w tej
 samej transakcji co Data/journal/receiver. Checkpoint A sam nie odblokowuje finansów.
 Szczegóły i dokładna granica: [GM011B_RESOLUTIONS.md](GM011B_RESOLUTIONS.md).
+
+
+5c2c-B/C dodaje lokalne resolveFinancialSyncConflict i techniczne financialDecisions
+w tej samej operacji co wynik. Odbiorca rekonstruuje wynik z ograniczonej intencji,
+weryfikuje źródła, rodziców i domenę; Data + audit + receipt są atomowe. Generic
+financial resolution pozostaje zablokowane. Nie ma nowego API natywnego LAN.
+Wykryta granica lokalnego aktywnego pomiaru przy known konflikcie pozostaje
+fail-closed i wymaga następnego checkpointu. Pełne 5c2c nie jest ukończone.

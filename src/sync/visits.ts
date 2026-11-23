@@ -179,3 +179,10 @@ export function protectRemoteMeasurement(before:Data,after:Data) {
       throw new SyncError("CONFLICT","VISIT_REMOTE_MEASUREMENT: Ta wizyta ma otwarty pomiar z innej instalacji. Odbierz jej zakończony pomiar przed lokalnym START, korektą lub zatwierdzeniem. Nie zmieniono danych.");
   }
 }
+
+
+/** Explicit decisions may choose an alternative that was never materialized.
+ * Validate that alternative's first approval from its original source job. */
+export function validateSourceApprovalTransition(before:VisitUnit|null,after:VisitUnit) {
+  if(before&&!before.job.settlement&&after.job.settlement)firstApproval(after.job);
+}

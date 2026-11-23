@@ -1,3 +1,4 @@
+import { newShoppingItem } from "../shopping/model";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
 import { AtomicRepository } from "../data/atomic";
@@ -7,7 +8,7 @@ import { jobTotalCents, paidCents, type Data, type Job, type Payment } from "../
 import { otherCategory, type Expense } from "../expenses/model";
 import { RECEIVER_KEY, type StoredConflict } from "./receiver-model";
 import { prepareTransfer, TransferAssembler } from "./packets";
-import { canonical } from "./causal";
+import { appendLocal, canonical } from "./causal";
 import { decisionKey, type FinancialDecisionRequest, type FinancialEvidence, type FinancialIntent } from "./resolution-model";
 
 const origins=["11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222","33333333-3333-4333-8333-333333333333"];
@@ -152,7 +153,7 @@ describe("5c2c controlled decisions in three separate durable IndexedDB stores",
     await a.repo.resolveFinancialSyncConflict(ra);await c.repo.resolveFinancialSyncConflict(rc);
     await expect(a.repo.resolveFinancialSyncConflict({...ra,rationale:"Different request"})).rejects.toThrow();
     await expect(a.repo.resolveFinancialSyncConflict({...ra,id:crypto.randomUUID()})).rejects.toThrow();
-    await send(a,b);await send(c,b);await restart(b);
+    await send(a,b,false);await send(c,b);await restart(b);
     const cf=await conflict(b);
     expect(cf.remote).toHaveLength(2);
     expect(cf.operations.sort()).toEqual([ra.id,rc.id].sort());
@@ -177,7 +178,12 @@ describe("5c2c controlled decisions in three separate durable IndexedDB stores",
     const e:Expense={id:"expense",revision:1,createdAt:0,updatedAt:0,date:"2026-11-23",amountCents:1000,
       direction:"outgoing",counterparty:"Synthetic vendor",description:"Synthetic",categoryId:otherCategory,
       source:"manual",origin:null,status:"approved",note:"",history:[]};
-    await a.repo.command(s=>s.saveExpense(e,null));await send(a,b);await send(b,c);
+    await a.repo.command(s=>s.saveExpense(e,null));
+    await a.repo.command(s=>s.saveShoppingItem({...newShoppingItem("Synthetic linked"),id:"linked"},null));
+    await a.repo.command(s=>s.shoppingAction("linked",1,"ordered"));
+    await a.repo.command(s=>s.shoppingAction("linked",2,"purchased"));
+    await a.repo.command(s=>s.linkShoppingExpense("linked",3,"expense",1));
+    await send(a,b);await send(b,c);
     const ea=(await data(a)).expenses[0],ec=(await data(c)).expenses[0];
     await a.repo.command(s=>s.saveExpense({...ea,amountCents:1200},ea));
     await c.repo.command(s=>s.saveExpense({...ec,status:"excluded"},ec));
@@ -189,7 +195,99 @@ describe("5c2c controlled decisions in three separate durable IndexedDB stores",
     for(const r of [a,b,c]) {
       expect((await data(r)).expenses[0]).toMatchObject({amountCents:1100,status:"approved",origin:null,source:"manual"});
       expect((await data(r)).expenses[0].history.at(-1)?.reason).toBe(req.rationale);
+      expect((await data(r)).shoppingItems.find(i=>i.id==="linked")!.expenseId).toBe("expense");
       expect((await evidence(r,req.id)).sources).toHaveLength(2);
     }
   },30000);
+  it("preserves the active timer and blocks its decision without preventing a different visit resolution",async()=>{
+    const {a,b,c}=await base();
+    await a.repo.command(s=>s.saveJob({...((s.snapshot()).jobs[0]),id:"other",title:"Other synthetic",seconds:0}));
+    await send(a,b);await send(b,c);
+    await b.repo.command(s=>s.startTimer("visit"),()=>1000);
+    await a.repo.command(s=>s.correctJobTime("visit",7200,3600),()=>2000);
+    await c.repo.command(s=>s.correctJobTime("visit",9000,3600),()=>2000);
+    await a.repo.command(s=>s.correctJobTime("other",100,0),()=>2100);
+    await c.repo.command(s=>s.correctJobTime("other",200,0),()=>2100);
+    await send(a,b);await send(c,b);
+    const cf=await conflict(b),timer=(await data(b)).timer,original=await job(b);
+    await expect(b.repo.resolveFinancialSyncConflict(request(cf,{time:{kind:"seconds",seconds:8000}}))).rejects.toThrow();
+    expect((await data(b)).timer).toEqual(timer);expect(await job(b)).toEqual(original);
+    const other=await conflict(b,"visits/other");
+    await b.repo.resolveFinancialSyncConflict(request(other,{time:{kind:"seconds",seconds:150}}));
+    expect((await data(b)).jobs.find(j=>j.id==="other")!.seconds).toBe(150);
+    expect((await data(b)).timer).toEqual(timer);
+    // Honest safety boundary: current command causality cannot append STOP to
+    // this known conflict. It fails closed instead of losing either branch.
+    const before=await b.repo.read();
+    await expect(b.repo.command(s=>s.stopTimer(),()=>5000)).rejects.toThrow();
+    expect(await b.repo.read()).toEqual(before);
+  },30000);
+  it("does not split a pending older multi-record command into a financial decision",async()=>{
+    const {a,b,c}=await base();
+    await a.repo.command(s=>s.completeJob("visit"));await send(a,b);await send(b,c);
+    await a.repo.command(s=>{
+      s.approveSettlement("visit",25000,"manual");
+      s.saveClient({id:"atomic-client",name:"Synthetic",phone:"",email:"",notes:""},null);
+    });
+    await c.repo.command(s=>s.approveSettlement("visit",30000,"manual"));
+    await send(c,b,false);await send(a,b,false);
+    const cf=await conflict(b),before=await b.repo.read(),j=await b.repo.readSyncJournal();
+    await expect(b.repo.resolveFinancialSyncConflict(request(cf))).rejects.toThrow("ATOMIC_GROUP");
+    expect(await b.repo.read()).toEqual(before);expect(await b.repo.readSyncJournal()).toEqual(j);
+    expect((await data(b)).clients.some(c=>c.id==="atomic-client")).toBe(false);
+  });
+  it("rejects network result tampering, ignores forged applied receipts and waits for full predecessors",async()=>{
+    const {a,b,c}=await approvals(),cf=await conflict(b),req=request(cf,{labor:{kind:"amount",cents:27500}});
+    await b.repo.resolveFinancialSyncConflict(req);
+    const log=(await b.repo.readSyncJournal())!.log,op=log.operations.find(o=>o.id===req.id)!;
+    await a.repo.receiveSyncOperations([op]);
+    expect((await a.repo.readSyncReceiver())!.receipts.find(r=>r.operation.id===req.id)?.stage).toBe("waiting-dependencies");
+    await restart(a);await send(b,a);
+    expect((await job(a)).settlement!.finalLaborCents).toBe(27500);
+    await c.repo.receiveSyncOperations(log.operations.filter(o=>o.id!==req.id));
+    const copy=structuredClone(op);(copy.changes[0].after as any).job.settlement.finalLaborCents=1;
+    const before=await c.repo.read();
+    const bad=await c.repo.receiveSyncOperations([copy]);
+    expect(bad.rejected.length).toBeGreaterThan(0);
+    expect(await c.repo.read()).toEqual(before);
+    const flags=await c.repo.receiveSyncOperations([{operation:op,stage:"applied",appliedRevision:100}]);
+    expect(flags.rejected.length).toBeGreaterThan(0);expect(await c.repo.read()).toEqual(before);
+  },30000);
+  it("converges under deterministic repeated decisions while retaining every immutable original audit",async()=>{
+    const {a,b,c}=await approvals(),ids:string[]=[];
+    for(let round=0;round<5;round++) {
+      if(round) {
+        await a.repo.command(s=>s.approveSettlement("visit",25000+round,"manual"),()=>10000+round);
+        await c.repo.command(s=>s.approveSettlement("visit",30000+round,"manual"),()=>10000+round);
+        await send(a,b,false);await send(c,b);
+      }
+      const cf=await conflict(b),req=request(cf,{labor:{kind:"amount",cents:27500+round}});
+      await b.repo.resolveFinancialSyncConflict(req);ids.push(req.id);
+      for(let repeat=0;repeat<2;repeat++){await send(b,a);await send(b,c);await send(a,b);await send(c,b);}
+      for(const r of [a,b,c]) {
+        expect(jobTotalCents(await job(r))).toBe(27500+round);
+        expect(paidCents("visit",(await data(r)).payments)).toBe(0);
+        expect((await job(r)).seconds).toBe(3600);
+        for(const id of ids)expect((await evidence(r,id)).sources).toHaveLength(2);
+      }
+    }
+  },60000);
+
+  it("rolls back received decision application and its applied/resolved markers on abort, then reuses the exact plan",async()=>{
+    const {a,b}=await approvals(),cf=await conflict(b),req=request(cf,{labor:{kind:"amount",cents:27500}});
+    await b.repo.resolveFinancialSyncConflict(req);await send(b,a,false);
+    const p=await a.repo.planSyncOperations(),before=await a.repo.read(),receiver=await a.repo.readSyncReceiver(),
+      journal=await a.repo.readSyncJournal(),original=IDBObjectStore.prototype.put;
+    const spy=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementation(function(this:IDBObjectStore,...args:Parameters<IDBObjectStore["put"]>){
+      if(this.name==="state"&&args[1]==="current")throw new DOMException("Synthetic abort","AbortError");
+      return original.apply(this,args);
+    });
+    await expect(a.repo.applySyncPlan(p.plan!.id)).rejects.toThrow();spy.mockRestore();
+    expect(await a.repo.read()).toEqual(before);expect(await a.repo.readSyncReceiver()).toEqual(receiver);
+    expect(await a.repo.readSyncJournal()).toEqual(journal);await restart(a);
+    const receipt=await a.repo.applySyncPlan(p.plan!.id),after=await a.repo.read();
+    expect((await job(a)).settlement!.finalLaborCents).toBe(27500);
+    expect(await a.repo.applySyncPlan(p.plan!.id)).toEqual(receipt);expect(await a.repo.read()).toEqual(after);
+  });
+
 });

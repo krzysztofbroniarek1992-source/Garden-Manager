@@ -86,3 +86,24 @@ przyczynowy i waliduje domenę. Sam odbiór nadal nie oznacza zastosowania.
 
 Implementacja wymaga testów CI tego commitu i dalszych testów Chromium. Nie jest
 jeszcze zakończeniem 5c2c ani gotową synchronizacją natywną.
+
+
+## Wykryta otwarta granica — aktywny pomiar i przyczynowość komend
+
+Test nowego API wykazał istotny nierozwiązany przypadek: jeżeli alternatywa wizyty
+jest już known podczas lokalnego aktywnego Timer, zwykłe captureJournal nie może
+dopisać STOP do sprzecznego visits. Nie wolno udawać, że sam STOP rozstrzyga obcą
+historię. Obecny kod odmawia obu niebezpiecznych zapisów (decyzji i STOP), zachowując
+Timer, Data i oba audyty. Dotyczy to samej spornej wizyty, nie innych decyzji.
+
+To nie jest ukończona obsługa scenariusza „zamknij pomiar, potem rozstrzygnij”.
+Wymaga osobnego bezpiecznego modelu zamykania lokalnej gałęzi pomiaru przy known,
+ale niezastosowanej alternatywie (bez fikcyjnego resolution lub utraty audytu).
+Nie wprowadzono doraźnego manipulowania wektorami ani cofania known. Dodano test
+utrzymania danych i jawnego fail-closed; nie uznano tego za zaliczenie pełnego
+kryterium aktywnego stopera. Ten przypadek blokuje zamknięcie całego 5c2c i odbiór.
+
+Także ponowne uzgodnienie dwóch równoległych decyzji bez spójnej wspólnej bazy,
+pełne uzgodnienie jednostek CSV i historycznych grup wielorekordowych pozostają
+otwarte. Bieżący checkpoint jest bezpieczną, ograniczoną implementacją, nie
+deklaracją ukończenia 5c2c. PR musi pozostać Draft.

@@ -537,3 +537,25 @@ Generic resolveSyncConflict nadal blokuje finanse. Trzy trwałe bazy jednostkowe
 sprawdzają przekazywanie B→A/C, idempotencję, korekty, anulowanie i quota rollback.
 Ta wersja wymaga CI; nie deklarujemy jeszcze pełnego 5c2c. Następne: analiza
 wyników, uzupełnienie testów Chromium i pozostałych granic bezpieczeństwa.
+
+
+### 5c2c-D — testy trwałości i wykryta granica stopera
+
+Na ca966c4 kontrola TS i 190/191 testów sync przeszły; jeden nowy test błędnie
+oczekiwał conflict także dla pierwszej decyzji, którą sam wcześniej zastosował.
+Fixture teraz odbiera obie decyzje przed zatwierdzeniem, zachowując ścisłą asercję
+conflict i test rzeczywistej równoległości. Nie zmieniono semantyki applied.
+
+Dodano rzeczywiste Chromium z trzema odrębnymi DB, pełne restarty procesu,
+niezmienny PDF/snapshot/SHA, lokalny JPEG i ZIP, kwoty/wpłaty/czas, quota/abort,
+idempotentne przekazywanie i kontrole źródeł. Dodano kontrolę pierwszego
+zatwierdzenia także dla alternatywy, która nigdy nie została zastosowana.
+
+Konkretny otwarty problem: known alternatywa visits może uniemożliwić zwykłe
+dopisywanie STOP lokalnej gałęzi, podczas gdy decyzja słusznie chroni Timer.
+Kod zachowuje oba audyty i fail-closed; nie rozwiązano tego prowizorycznym
+resolution ani manipulacją wektora. Szczegóły i dokładna granica w
+GM011B_RESOLUTIONS.md. Nie można uznać pełnego 5c2c za zamknięty, nawet jeśli
+regresja ograniczonego checkpointu będzie zielona. Następny punkt: bezpieczne
+zamknięcie lokalnego pomiaru przy known konflikcie i jego późniejsze uzgodnienie,
+następnie decyzje równoległe / grupy / pełna macierz testów akceptacyjnych.
