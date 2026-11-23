@@ -274,3 +274,23 @@ PR #29 pozostaje Draft. Nie scalać. Nie przygotowywać fizycznego odbioru na rz
 Android przerwał instalację kontrolnego aparatu na adb root: unable to connect for root: closed, po 20/20 JVM i sześciu zielonych instrumentacjach. To błąd połączenia z emulatorem w przygotowaniu fixture, nie niezaliczona asercja aplikacji ani historyczny Android Back. Ponowiono cały nieudany job 45080706393 na tym samym HEAD, bez pomijania testów.
 
 Pełny Chromium miał 383/384: tests/reports.spec.ts:751 próbował zamknąć Podsumowanie wizyty natychmiast po kliknięciu zapisu. Modal/requestLeave prawidłowo odmawia zamknięcia podczas pendingWrite; helper nie sprawdzał zamknięcia i następny klik w kartę pod spodem był zasłaniany. Dodano oczekiwanie na komunikat zapisanego podsumowania, settled przed zamknięciem oraz asercję hidden dokładnie tego okna. Nie użyto force click, nie usunięto asercji ZIP/PDF i nie zmieniono kodu nawigacji, raportów ani stopera. Końcowy HEAD z poprawką testu wymaga pełnej regresji.
+
+
+## Punkt 5c1 — wizyty i historia czasu (implementacja do kontroli CI)
+
+Potwierdzono HEAD 1f5c04a oraz pięć zielonych workflow 5b. Nie powtarzano 4/5a/5b.
+Zakres 5c został jawnie podzielony na 5c1 i 5c2, zgodnie z poleceniem. Nowy visits.ts
+przyjmuje pełne, przyczynowe przejścia wizyty bez odtwarzania komend stopera, chroni
+prefiks historii i niezmienne rozliczenie/wpłaty. Aktywny lokalny timer.jobId jest
+blokowany osobno; inne wizyty mogą przechodzić. Zakupy mogą wskazywać udowodnioną wizytę.
+
+Dodano testy trzech niezależnych trwałych baz: relay, oryginalne operacje, stan/history
+start-pauza-wznowienie-stop-korekta-zakończenie, sprzeczne korekty i ceny, wpłaty,
+restart, quota/rollback, zależności i deterministyczne sumy. Pełna walidacja nowej
+wizyty odrzuca nadpłatę już przy odbiorze (wcześniej dopiero blokowała apply);
+regresja nadal sprawdza zachowanie wszystkich danych. Wyniki wymagają CI tego commitu.
+
+Kontrakt i jawne blokady: [GM011B_VISITS.md](GM011B_VISITS.md). Raporty/counters,
+nowa numeracja offline i decyzje chroniące obie historie finansowe pozostają 5c2.
+Nie deklarujemy ukończenia całego 5c. Nie zmieniono v12/IDB v2/JSON/ZIP, natywnego
+LAN, zdjęć ani UI. Brak aktywacji w produkcji i brak pakietów do fizycznego odbioru.

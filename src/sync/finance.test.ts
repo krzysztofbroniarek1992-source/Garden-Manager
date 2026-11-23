@@ -231,7 +231,7 @@ describe("GM-011B bounded financial units in independent durable stores",()=>{
         type==="time" ? {...current,job:{...job,seconds:99999}} :
         type==="settlement" ? {...current,job:{...job,settlement:{...job.settlement as object,finalLaborCents:1}}} :
         {...current,reportIdentities:[{id:"synthetic-report",number:"SYNTHETIC-1",version:1,generatedAt:1,fingerprint:"synthetic",requiresAssets:false}]};
-      expect((await inject(a,b,"visits/job-5",after)).stage).toBe("blocked");
+      expect((await inject(a,b,"visits/job-5",after)).stage).toBe(type==="overpayment"?"rejected":"blocked");
       expect((await b.repo.read()).data.jobs).toEqual(b.initial.jobs);
       expect((await b.repo.read()).data.payments).toEqual([]);
     }

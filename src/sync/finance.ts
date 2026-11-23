@@ -1,17 +1,17 @@
-import type { Data, Payment } from "../domain";
+import type { Data } from "../domain";
 import type { Expense, ExpenseCategory, Versioned } from "../expenses/model";
 import { validateExpenseData } from "../expenses/model";
 import { validateShopping, type ShoppingItem } from "../shopping/model";
-import { GardenStore } from "../data/store";
 import { validateData } from "../data/repository";
 import { same } from "./causal";
 import { businessRecords, validateWireProjection } from "./records";
 import { ApplyBlocked, keyParts } from "./basic";
 import { SyncError, type Json, type Operation } from "./model";
+import { applyVisit, validateVisitValue } from "./visits";
 import { applyBank, bankEligibility, bankParents, csvExpense, validateBankValue } from "./bank";
 
 /** Deliberately bounded checkpoint. Financial records are indivisible; there
- * is no field merge, financial resolution API or job replacement. CSV uses a separate atomic adapter. */
+ * is no field merge or generic financial resolution API. CSV and visits use bounded atomic adapters. */
 export const financeKinds = ["expenses","expenseCategories","expenseRules","expenseProfiles","expenseImports","shoppingItems","visits"] as const;
 export const isFinance = (key:string) => (financeKinds as readonly string[]).includes(keyParts(key).kind);
 type Obj = { [key:string]:Json };
@@ -37,6 +37,7 @@ export function validateFinanceValue(data:Data,key:string,value:Json) {
     throw new SyncError("INVALID","Identyfikator jednostki finansowej nie odpowiada kluczowi.");
   try {
     validateBankValue(key,value);
+    validateVisitValue(data,key,value);
     if(kind==="expenseCategories") {
       shape(value,[...stamps,"name","archived"]);
       const v=value as unknown as ExpenseCategory;
@@ -100,8 +101,6 @@ export function financeEligibility(data:Data,o:Operation) {
     if(kind==="expenses" && !csvExpense(c.after) && [c.before,c.after].some(v=>obj(v) &&
       (v.source!=="manual" || v.origin!==null || v.direction!=="outgoing")))
       throw new ApplyBlocked("unsupported","Ręczne wydatki muszą zachować pochodzenie outgoing.");
-    if(kind==="shoppingItems" && [c.before,c.after].some(v=>obj(v) && v.jobId!==null))
-      throw new ApplyBlocked("unsupported","Zakup powiązany ze zleceniem oczekuje na adapter zleceń.");
   }
   bankEligibility({...o,changes:o.changes.filter(c=>!same(present.get(c.key)??null,c.after))});
 }
@@ -126,7 +125,7 @@ export function applyFinance(data:Data,values:Map<string,Json>,o:Operation):Data
   }
   next=applyBank(next,changes);
   for(const c of changes) {
-    const {kind,id}=keyParts(c.key);
+    const {kind}=keyParts(c.key);
     if(kind==="expenses" && !csvExpense(c.after)) {
       const value=c.after as unknown as Expense, old=c.before as unknown as Expense|null;
       version(old??undefined,value);
@@ -145,30 +144,17 @@ export function applyFinance(data:Data,values:Map<string,Json>,o:Operation):Data
         throw new ApplyBlocked("domain","Nie wolno utracić powiązania wydatku ani odtworzyć usuniętego zakupu.");
       next.shoppingItems=put(next.shoppingItems,value);
     } else if(kind==="visits") {
-      const old=c.before as Obj|null, value=c.after as Obj;
-      if(!old || !same(old.job,value.job) || !same(old.reportIdentities,value.reportIdentities))
-        throw new ApplyBlocked("unsupported","Zmiany zlecenia, czasu, rozliczenia lub raportów wymagają kolejnego adaptera.");
-      const job=next.jobs.find(j=>j.id===id);
-      if(!job || job.status!=="completed" || !job.settlement)
-        throw new ApplyBlocked("domain","Płatności można dopisywać wyłącznie do istniejącej zatwierdzonej wizyty.");
-      const previous=old.payments as unknown as Payment[], payments=value.payments as unknown as Payment[];
-      if(new Set(payments.map(p=>p.id)).size!==payments.length || previous.some(p=>!payments.some(n=>n.id===p.id && same(n,p))))
-        throw new ApplyBlocked("domain","Edycja lub usunięcie istniejącej płatności wymaga osobnego uzgodnienia.");
-      let probe=structuredClone(next);
-      const store=new GardenStore({load:()=>probe,save:v=>{probe=v;}},()=>0);
-      try {
-        for(const p of payments.filter(p=>!previous.some(old=>old.id===p.id))) {
-          if(probe.payments.some(x=>x.id===p.id)) throw Error("ID płatności jest już używane.");
-          store.savePayment(p,null);
-          if(!same(probe.payments.find(x=>x.id===p.id),p)) throw Error("Nieprawidłowy zapis płatności.");
-        }
-      } catch(e) {throw new ApplyBlocked("domain",(e as Error).message);}
-      next.payments=probe.payments;
+      next=applyVisit(next,c.key,c.before,c.after);
     }
+  }
+  for(const c of changes)if(keyParts(c.key).kind==="shoppingItems") {
+    const item=c.after as unknown as ShoppingItem;
+    if(item.jobId!==null&&!next.jobs.some(j=>j.id===item.jobId))
+      throw new ApplyBlocked("dependency","Zakup wymaga istniejącej wizyty.");
   }
   try {validateData(next);} catch(e) {throw new ApplyBlocked("domain",(e as Error).message);}
   for(const k of Object.keys(data) as (keyof Data)[])
-    if(!["expenseCategories","expenseProfiles","expenseRules","expenseImports","expenses","shoppingItems","payments"].includes(k) && !same(data[k],next[k]))
+    if(!["expenseCategories","expenseProfiles","expenseRules","expenseImports","expenses","shoppingItems","jobs","payments"].includes(k) && !same(data[k],next[k]))
       throw new SyncError("INVALID","Adapter finansowy próbował zmienić chronione dane.");
   return next;
 }
@@ -180,15 +166,21 @@ export function financeParents(data:Data,o:Operation):string[] {
   for(const c of o.changes.filter(x=>isFinance(x.key))) {
     if(c.after===null || same(present.get(c.key)??null,c.after)) continue;
     for(const parent of bankParents(c))result.add(parent);
-    const {kind,id}=keyParts(c.key), value=c.after as Obj;
+    const {kind}=keyParts(c.key), value=c.after as Obj;
     if(kind==="expenses") {
       add("expenseCategories",value.categoryId as string);
       for(const h of value.history as Obj[]) add("expenseCategories",h.categoryId as string);
-    } else if(kind==="shoppingItems" && value.expenseId!==null) add("expenses",value.expenseId as string);
-    else if(kind==="visits") {
-      const job=data.jobs.find(j=>j.id===id), garden=data.gardens.find(g=>g.id===job?.gardenId);
-      if(job) add("gardens",job.gardenId);
-      if(garden) add("clients",garden.clientId);
+    } else if(kind==="shoppingItems") {
+      if(value.expenseId!==null)add("expenses",value.expenseId as string);
+      if(value.jobId!==null)add("visits",value.jobId as string);
+    } else if(kind==="visits") {
+      const job=(value as unknown as import("./visits").VisitUnit).job;
+      add("gardens",job.gardenId);
+      const garden=data.gardens.find(g=>g.id===job.gardenId);
+      if(garden)add("clients",garden.clientId);
+      const old=(c.before as unknown as import("./visits").VisitUnit|null)?.job;
+      for(const m of job.materials)if(m.catalogId&&!old?.materials.some(n=>n.id===m.id&&n.catalogId===m.catalogId))
+        add("materialCatalog",m.catalogId);
     }
   }
   return [...result];

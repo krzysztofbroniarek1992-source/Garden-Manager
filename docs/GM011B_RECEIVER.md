@@ -98,3 +98,8 @@ Ryzyko innej przestrzeni profilu, powtórnej identity lub niejednoznacznego źr�
 Zmiany kategorii i approved/excluded zachowują cały audyt; równoległe finanse/profile/reguły pozostają trwałymi konfliktami, bez ogólnego API wyboru wariantu. FINANCE_INVALID pozwala odizolować dawny opaque rekord bez zatrzymywania niezależnych poprawnych planów. Nowe błędne wejście jest nadal rejected przed known.
 
 Nowe aktywacje używają źródłowych grup bootstrap CSV. Dawne rozdzielone seedy wymagają onboardingu, a nie przepisywania historii. Applied/receipts/checkpointy i rollback nadal używają tej samej transakcji v2; brak zmian Data v12, JSON/ZIP i zdjęć.
+
+
+## Uzupełnienie 5c1 — wizyty i audyt czasu
+
+Obowiązuje [GM011B_VISITS.md](GM011B_VISITS.md). Pełna jednostka visits zachowuje job, payments, reportIdentities i źródłową atomowość. Nowe/porządkowane wizyty i historia czasu mają kontrolowany adapter bez wykonywania komend stopera. Wcześniejsze zatwierdzenia i wpłaty są niezmienne; rozbieżności wymagają trwałej blokady lub konfliktu. Równoległe całe wizyty nie są scalane polami. Lokalne reports/photos/Timer pozostają chronione. Raporty i offline numeracja oraz zachowujące historię decyzje pozostają 5c2. Odbiór/known nadal nie oznacza applied; API nie zostało udostępnione przez natywny LAN.

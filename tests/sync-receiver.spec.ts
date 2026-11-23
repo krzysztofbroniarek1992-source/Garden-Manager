@@ -394,3 +394,97 @@ test.describe("GM-011B actual independent IndexedDB databases (no native transpo
   });
 
 });
+
+
+test.describe("5c1 real persistent visit aggregates (no native business LAN)",()=>{
+  test.setTimeout(120000);
+  async function visits(page:Page) {
+    await boot(page);
+    await page.evaluate(()=>{
+      const x=(window as any).__receiverRig;
+      x.visit=(id="browser-visit")=>({id,gardenId:"garden-1",title:"Synthetic visit",date:"2026-11-23",time:"09:00",
+        status:"planned",billing:"hourly",rate:120,fixedPrice:0,seconds:0,materials:[],notes:"Synthetic",
+        activities:["Synthetic work"],settlement:null});
+    });
+  }
+  test("closed time, materials, approval and payments persist across reload, relay and lost acknowledgment",async({page})=>{
+    await visits(page);
+    const saved=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig,r=x.rigs.A,id="browser-visit";
+      await r.command((s:any)=>s.saveJob(x.visit()));
+      await r.command((s:any)=>s.startTimer(id),()=>1000);
+      await r.command((s:any)=>s.pauseTimer(),()=>4100);
+      await r.command((s:any)=>s.resumeTimer(),()=>5100);
+      await r.command((s:any)=>s.stopTimer(),()=>7200);
+      await r.command((s:any)=>s.correctJobTime(id,3601,5),()=>8000);
+      await r.command((s:any)=>s.addJobMaterial(id,"garden-1",{id:"synthetic-m",name:"Synthetic material",quantity:2,unitPrice:12.34}));
+      await r.command((s:any)=>s.finishFieldVisit(id),()=>9000);
+      await r.command((s:any)=>s.approveSettlement(id,15001,"manual"),()=>10000);
+      await r.command((s:any)=>s.savePayment({id:"synthetic-pay",jobId:id,amountCents:123,receivedDate:"2026-11-23",method:"blik",note:"Synthetic"},null));
+      await x.send("A","B",false);
+      const original=(await r.readSyncJournal()).log.operations.at(-1),plan=(await x.receiver("B")).plan;
+      const source=await x.data("A");await x.close();return{source,original,plan};
+    });
+    await page.reload();await visits(page);
+    const result=await page.evaluate(async expected=>{
+      const x=(window as any).__receiverRig;
+      const first=await x.rigs.B.applySyncPlan(expected.plan.id);
+      const retry=await x.rigs.B.applySyncPlan(expected.plan.id);
+      await x.send("B","C");await x.exchange("A","B");await x.exchange("B","C");
+      const records=await Promise.all(["A","B","C"].map(async n=>({data:await x.data(n),
+        original:(await x.rigs[n].readSyncJournal()).log.operations.find((o:any)=>o.id===expected.original.id)})));
+      await x.close();return{first,retry,records};
+    },saved);
+    expect(result.retry).toEqual(result.first);
+    for(const r of result.records) {
+      expect(r.original).toEqual(saved.original);expect(r.data.timer).toBeNull();
+      expect(r.data.jobs.find((j:any)=>j.id==="browser-visit")).toEqual(saved.source.jobs.find((j:any)=>j.id==="browser-visit"));
+      expect(r.data.payments).toEqual(saved.source.payments);
+    }
+  });
+  test("real quota abort rolls back the complete visit, time and receipt together",async({page})=>{
+    await visits(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;
+      await x.rigs.A.command((s:any)=>{s.saveJob(x.visit());s.correctJobTime("browser-visit",123,0);});
+      await x.send("A","B",false);
+      const before=await x.rigs.B.read(),receiver=await x.receiver("B"),journal=await x.rigs.B.readSyncJournal();
+      const put=IDBObjectStore.prototype.put;let failed=false;
+      IDBObjectStore.prototype.put=function(value:unknown,key?:IDBValidKey){
+        if(this.name==="sync"&&key==="receiver-v1")throw new DOMException("Synthetic quota","QuotaExceededError");
+        return put.call(this,value,key);
+      };
+      try{await x.rigs.B.applySyncPlan(receiver.plan.id);}catch{failed=true;}finally{IDBObjectStore.prototype.put=put;}
+      const rolled={data:await x.rigs.B.read(),receiver:await x.receiver("B"),journal:await x.rigs.B.readSyncJournal()};
+      await x.rigs.B.applySyncPlan(receiver.plan.id);await x.send("B","C");
+      const final=await x.data("C");await x.close();return{failed,before,receiver,journal,rolled,final};
+    });
+    expect(result.failed).toBe(true);
+    expect(result.rolled).toEqual({data:result.before,receiver:result.receiver,journal:result.journal});
+    expect(result.final.jobs.find((j:any)=>j.id==="browser-visit").seconds).toBe(123);
+  });
+  test("parallel corrections remain durable conflicts, while an unrelated visit bypasses active timer protection",async({page})=>{
+    await visits(page);
+    const saved=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig,id="browser-visit";
+      await x.rigs.A.command((s:any)=>s.saveJob(x.visit()));await x.exchange("A","B");
+      await x.rigs.A.command((s:any)=>s.correctJobTime(id,101,0));
+      await x.rigs.B.command((s:any)=>s.correctJobTime(id,202,0));await x.send("A","B");
+      const conflict=(await x.receiver("B")).conflicts.find((c:any)=>c.key==="visits/"+id&&c.status==="open");
+      await x.rigs.B.command((s:any)=>s.startTimer("job-1"),()=>1000);
+      await x.rigs.A.command((s:any)=>s.completeJob("job-1"));
+      await x.rigs.A.command((s:any)=>s.saveJob(x.visit("safe-visit")));
+      const before=await x.data("B");await x.send("A","B");await x.close();return{conflict,before};
+    });
+    await page.reload();await visits(page);
+    const result=await page.evaluate(async()=>{
+      const x=(window as any).__receiverRig;return{data:await x.data("B"),receiver:await x.receiver("B")};
+    });
+    expect(result.receiver.conflicts.find((c:any)=>c.id===saved.conflict.id)).toEqual(saved.conflict);
+    expect(result.data.jobs.find((j:any)=>j.id==="browser-visit").seconds).toBe(202);
+    expect(result.data.timer).toEqual(saved.before.timer);
+    expect(result.data.jobs.find((j:any)=>j.id==="job-1")).toEqual(saved.before.jobs.find((j:any)=>j.id==="job-1"));
+    expect(result.data.jobs.find((j:any)=>j.id==="safe-visit")).toBeDefined();
+    expect(result.receiver.receipts.some((r:any)=>r.stage==="blocked"&&r.reason.includes("Aktywny stoper"))).toBe(true);
+  });
+});

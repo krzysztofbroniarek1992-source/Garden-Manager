@@ -135,3 +135,8 @@ bank-identity.ts wykrywa ryzyka, nie nadaje tożsamości rachunkom. Nowy koszt i
 bootstrap.ts grupuje cykl import/wydatek tylko dla nowych aktywacji; stare UUID nie są przepisywane. Dawne opaque rekordy mogą pozostać FINANCE_INVALID bez blokowania niezależnych operacji. Potwierdzenie zastosowania nadal oznacza zakończenie transakcji Data + journal + receiver, nie samą znajomość operacji.
 
 Nie zmieniono biznesowego v12, technicznego IndexedDB v2, JSON/ZIP, zdjęć, stopera, numerów raportów ani natywnego LAN. Profile/finanse w konflikcie nadal wymagają przyszłego świadomego rozstrzygnięcia. Nie jest to ukończenie GM-011B.
+
+
+## 10. Punkt 5c1 — kontrolowane wizyty
+
+[GM011B_VISITS.md](GM011B_VISITS.md) aktualizuje wcześniejsze ograniczenie wizyt do samych wpłat. visits.ts stosuje pełne przyczynowe przejścia job i append-only payments, zachowując reports i lokalne assets. Automat audytu i prefiks historii chronią seconds i korekty. Timer pozostaje lokalny; operacje jego wizyty są blocked. Nie ma LWW, automatycznego sumowania alternatywnych pomiarów ani ogólnego destrukcyjnego rozstrzygnięcia finansów. Zmiana zatwierdzonej ceny/wpłaty, reports, counters i jednostki planowania wymagają dalszych punktów. Brak zmiany Data v12 i IndexedDB v2.
