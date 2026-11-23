@@ -1,3 +1,8 @@
+import { REPORT_NUMBER_KEY, REPORT_NUMBER_SOURCE, beginNumberState, checkReportWrites, legacyReservation, reserveNumber, validateNumberState, type ReportNumberState, type ReportWrite } from "../sync/report-number-state";
+import type { ReportIdentity } from "../reports/numbering";
+import { parseReportNumber } from "../reports/numbering";
+import { validateReportOptions } from "../reports/validation";
+import { registerReportCollisions } from "../sync/report-registry";
 import { RECEIVER_KEY, RECEIVE_SOURCE, RECEIVE_LAST_SOURCE, type ReceiverState, type ConflictDecision } from "../sync/receiver-model";
 import { initialReceiver, validateReceiver, receiveDurably, planReceived, commitReceived, decideConflict, type ReceiverContext } from "../sync/receiver";
 import { SyncError } from "../sync/model";
@@ -205,6 +210,7 @@ export class AtomicRepository {
         "readwrite",
         (state, objectStore, abort, journal) => {
           let data = state.data;
+          const reportWrites:ReportWrite[]=[];
           const store = new GardenStore(
             {
               load: () => data,
@@ -213,6 +219,13 @@ export class AtomicRepository {
               },
             },
             () => at,
+            (d,jobId,report,expected)=>{
+              if(d.jobs.find(j=>j.id===jobId)?.reports?.some(r=>r.id===report.id))return undefined;
+              reportWrites.push({jobId,report:structuredClone(report),expected});
+              if(parseReportNumber(report.number)?.namespace)
+                return {number:report.number,version:(d.jobs.find(j=>j.id===jobId)?.reports?.at(-1)?.version??0)+1};
+              return undefined;
+            },
           );
           let restored = false;
           const restore = store.restoreSnapshot;
@@ -237,11 +250,72 @@ export class AtomicRepository {
           };
           objectStore.put(next, "current");
           captureInTransaction(journal, state.data, data, state.revision, next.revision, restored, abort);
+          this.checkReportWritesInTransaction(journal,data,reportWrites,abort);
           return { state: next, value };
         },
       );
       await this.project();
       return result;
+    });
+  }
+  private checkReportWritesInTransaction(sync:IDBObjectStore|undefined,data:Data,writes:ReportWrite[],abort:(error:unknown)=>void) {
+    if(!writes.length)return;
+    if(!sync){checkReportWrites(data,undefined,undefined,undefined,writes);return;}
+    const journal=sync.get(JOURNAL_KEY);
+    journal.onsuccess=()=>{
+      const numbering=sync.get(REPORT_NUMBER_KEY),receiver=sync.get(RECEIVER_KEY);
+      receiver.onsuccess=()=>{
+        try {
+          if(journal.result!==undefined){validateJournal(journal.result);if(receiver.result!==undefined)validateReceiver(receiver.result,journal.result);}
+          if(numbering.result!==undefined&&journal.result===undefined)throw unavailable();
+          checkReportWrites(data,journal.result,numbering.result,receiver.result,writes);
+          if(numbering.result!==undefined)sync.put(numbering.result,REPORT_NUMBER_KEY);
+        }catch(error){abort(error);}
+      };
+    };
+  }
+  /** Reserve before PDF generation. Source CAS, namespace/high-water, pending
+   * record and the original claim are committed together, never a mirror read. */
+  async reserveReportIdentity(jobId:string,reportId:string,at:number,expected:string,fingerprint:string):Promise<ReportIdentity> {
+    if(typeof jobId!=="string"||!jobId.trim()||jobId.length>2048||typeof reportId!=="string"||
+      !/^[A-Za-z0-9_-]{1,100}$/.test(reportId)||typeof expected!=="string"||expected.length>1024**2||
+      typeof fingerprint!=="string"||!/^[a-f0-9]{64}$/.test(fingerprint)||
+      !Number.isSafeInteger(at)||at<0||at>8.64e15)throw new SyncError("INVALID","Nieprawidłowa rezerwacja numeru.");
+    try{validateReportOptions(JSON.parse(expected).options);}catch{throw new SyncError("INVALID","Nieprawidłowe źródło rezerwacji.");}
+    return pendingWrite(async()=>{
+      const result=await this.transaction<ReportIdentity|undefined>("readwrite",(state,_store,abort,sync)=>{
+        const out:{state:State;value:ReportIdentity|undefined}={state,value:undefined};
+        if(!sync){out.value=legacyReservation(state.data,jobId,expected,at);return out;}
+        const readJournal=sync.get(JOURNAL_KEY);
+        readJournal.onsuccess=()=>{
+          const readNumbering=sync.get(REPORT_NUMBER_KEY),readReceiver=sync.get(RECEIVER_KEY);
+          readReceiver.onsuccess=()=>{
+            try {
+              if(readJournal.result===undefined) {
+                if(readNumbering.result!==undefined)throw unavailable();
+                out.value=legacyReservation(state.data,jobId,expected,at);return;
+              }
+              validateJournal(readJournal.result);
+              let journal=readJournal.result as JournalState,numbering=readNumbering.result as ReportNumberState|undefined;
+              if(journal.lastRevision!==state.revision)throw new SyncError("PRECONDITION","Wykryto zapis pomijający dziennik.");
+              const receiver=readReceiver.result===undefined?initialReceiver(journal):readReceiver.result as ReceiverState;
+              validateReceiver(receiver,journal);
+              if(!numbering) {
+                const created=beginNumberState(journal);
+                sync.put({state,journal},REPORT_NUMBER_SOURCE);
+                journal=created.journal;numbering=created.numbering;
+              }
+              out.value=reserveNumber(state.data,journal,numbering,receiver,jobId,reportId,at,expected,fingerprint);
+              receiver.reportConflicts=registerReportCollisions(journal.log,receiver.reportConflicts??[],receiver.identityAlerts??[]);
+              receiver.plan=null;receiver.revision++;
+              validateJournal(journal);validateNumberState(numbering,journal);validateReceiver(receiver,journal);
+              sync.put(journal,JOURNAL_KEY);sync.put(receiver,RECEIVER_KEY);sync.put(numbering,REPORT_NUMBER_KEY);
+            }catch(error){abort(error);}
+          };
+        };
+        return out;
+      });
+      return result.value!;
     });
   }
   private async project() {
@@ -469,6 +543,7 @@ export function atomicStore(
   );
   return new Proxy(target, {
     get(object, key: string) {
+      if(key==="reserveReportIdentity")return (...args:Parameters<GardenStore["reserveReportIdentity"]>)=>repository.reserveReportIdentity(...args);
       if (!names.has(key)) return object[key as keyof typeof target];
       return async (...args: unknown[]) => {
         const result = await repository.command((store) =>

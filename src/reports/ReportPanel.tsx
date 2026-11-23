@@ -123,7 +123,7 @@ export default function ReportPanel({
   onClose: () => void;
 }) {
   const navigation=useNavigation();
-  const { data, saveVisitReport, snapshot } = useGarden(),
+  const { data, saveVisitReport, snapshot, reserveReportIdentity } = useGarden(),
     photos = usePhotos(),
     job = data.jobs.find((j) => j.id === jobId);
   const [options, setOptions] = useState<ReportOptions>(defaultReportOptions),
@@ -142,10 +142,11 @@ export default function ReportPanel({
         {
           snapshot,
           saveVisitReport,
+          reserveReportIdentity,
         },
         photos.assets,
       ),
-    [saveVisitReport, snapshot, photos.assets],
+    [saveVisitReport, snapshot, reserveReportIdentity, photos.assets],
   );
   const bytes = historical ? historyBytes : prepared?.bytes,
     record = historical ?? prepared?.record;

@@ -1,3 +1,4 @@
+import { validateReportHeaders } from "./report-registry";
 import type { Data } from "../domain";
 import type { Expense, ExpenseCategory, Versioned } from "../expenses/model";
 import { validateExpenseData } from "../expenses/model";
@@ -38,6 +39,7 @@ export function validateFinanceValue(data:Data,key:string,value:Json) {
   try {
     validateBankValue(key,value);
     validateVisitValue(data,key,value);
+    if(kind==="visits")validateReportHeaders(value);
     if(kind==="expenseCategories") {
       shape(value,[...stamps,"name","archived"]);
       const v=value as unknown as ExpenseCategory;

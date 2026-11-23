@@ -65,7 +65,7 @@ export function validateWireProjection(key:string,value:Json) {
   const kind=key.slice(0,key.indexOf("/"));
   const kinds=["clients","gardens","materialCatalog","visits","reports","expenses","expenseCategories",
     "expenseRules","expenseProfiles","expenseImports","shoppingItems","workTemplates","taskSchedules","taskOccurrences",
-    "todos","notes","checklists","deskTombstones","checklistTombstones","availability","settings","counters"];
+    "todos","notes","checklists","deskTombstones","checklistTombstones","availability","settings","counters","reportNamespaces"];
   function reject():never {throw new SyncError("INVALID","Niedozwolony typ lub lokalne referencje w projekcji v12.");}
   if(!kinds.includes(kind))reject();
   if(value===null)return;

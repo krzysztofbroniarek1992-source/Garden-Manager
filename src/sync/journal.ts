@@ -12,7 +12,7 @@ export const JOURNAL_KEY = "journal-v1";
 export const JOURNAL_SOURCE = "source-v12-before-activation";
 export const DATABASE_SOURCE = "source-before-db-v2";
 export interface JournalState {
-  version: 1;
+  version: 1 | 2;
   log: ReplicaLog;
   lastRevision: number;
   mode: "active" | "restore-review";
@@ -23,10 +23,12 @@ const invalid = () => new SyncError("INVALID", "Dziennik synchronizacji jest nie
 export function validateJournal(value: unknown): asserts value is JournalState {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw invalid();
   const j = value as JournalState, l = j.log;
-  if (j.version !== 1 || !Number.isSafeInteger(j.lastRevision) || j.lastRevision < 0 ||
+  if ((j.version !== 1 && j.version !== 2) || !Number.isSafeInteger(j.lastRevision) || j.lastRevision < 0 ||
     !["active", "restore-review"].includes(j.mode) || !Number.isSafeInteger(j.restoreCount) || j.restoreCount < 0 ||
     !Array.isArray(j.appliedLocal) || new Set(j.appliedLocal).size !== j.appliedLocal.length ||
     !l || l.protocol !== 1 || !Array.isArray(l.operations) || !Array.isArray(l.waiting)) throw invalid();
+  if(j.version===2&&!l.operations.some(o=>o.origin===l.installation&&o.changes.some(c=>c.key.startsWith("reportNamespaces/"))))
+    throw invalid();
   const localApplied = new Set(j.appliedLocal);
   newLog(l.installation); validateVector(l.known);
   if (l.nextSequence !== (l.known[l.installation] ?? 0) + 1 || !Number.isSafeInteger(l.nextSequence) ||

@@ -1,3 +1,6 @@
+import { nextReportIdentity } from "../reports/commands";
+import { reportSourceSignature, type VisitReport } from "../reports/model";
+import type { ReportIdentity } from "../reports/numbering";
 import * as shopping from '../shopping/commands';
 import type { ShoppingItem } from '../shopping/model';
 import * as expenses from '../expenses/commands';
@@ -39,8 +42,11 @@ const paymentConflict = () => new Error('Płatność została zmieniona lub usun
 /** Application commands live outside React and can be tested with any repository. */
 export class GardenStore {
   data: Data;
-  constructor(private readonly repository: DataRepository, private readonly clock = Date.now) {
+  constructor(private readonly repository: DataRepository, private readonly clock = Date.now,
+    reportIdentity?: (data:Data,jobId:string,record:VisitReport,expected:string)=>ReportIdentity|undefined) {
     this.data = repository.load();
+    if(reportIdentity)this.saveVisitReport=(jobId,report,expected)=>this.commit(data=>
+      saveVisitReport(data,jobId,report,expected,reportIdentity(data,jobId,report,expected)));
   }
 
   refresh() { this.data = this.repository.load(); }
@@ -237,6 +243,15 @@ export class GardenStore {
 
   saveVisitDetails = (jobId: string, draft: Parameters<typeof saveVisitDetails>[2], revision: number) => this.commit(data => saveVisitDetails(data,jobId,draft,revision,this.clock()));
   saveVisitReport = (jobId: string, report: Parameters<typeof saveVisitReport>[2], expected: string) => this.commit(data => saveVisitReport(data,jobId,report,expected));
+  /** Pure legacy preview. The canonical async port overrides this with a durable
+   * namespace reservation after explicit sync activation. */
+  reserveReportIdentity = (jobId:string,_reportId:string,at:number,expected:string,_fingerprint:string):ReportIdentity => {
+    const data=this.repository.load(),job=data.jobs.find(j=>j.id===jobId);
+    if(!job||reportSourceSignature(data,jobId,JSON.parse(expected).options)!==expected)
+      throw new Error("Dane wizyty zmieniły się. Przygotuj aktualny podgląd.");
+    return nextReportIdentity(data,job,at);
+  };
+
 
   saveWorkTemplate = (draft: WorkTemplate) => this.commit(data => checklists.saveWorkTemplate(data, draft, this.clock()));
   copyWorkTemplate = (id: string, revision: number): string => { let result = ''; this.commit(data => { const next = checklists.copyWorkTemplate(data,id,revision,this.clock()); result=next.id;return next.data; });return result; };

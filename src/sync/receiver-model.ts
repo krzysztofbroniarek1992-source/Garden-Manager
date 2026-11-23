@@ -1,3 +1,4 @@
+import type { ReportCollision } from "./report-registry";
 import type { Json, Operation, FieldConflict } from "./model";
 export const RECEIVER_KEY = "receiver-v1";
 export const RECEIVE_SOURCE = "before-first-receive-apply";
@@ -47,12 +48,14 @@ export interface ReceiverState {
   rejections: { id: string; operationId: string | null; code: string }[];
   plan: SyncPlan | null;
   commits: CommitReceipt[];
+  reportConflicts?: ReportCollision[];
+  identityAlerts?: Operation[];
 }
 export type ResolutionChoice = { kind: "local" } | { kind: "remote"; operationId: string } |
   { kind: "custom"; value: Json };
 export interface ConflictDecision { conflictId: string; token: string; choice: ResolutionChoice }
 export const newReceiver = (): ReceiverState => ({
-  version: 1, revision: 0, receipts: [], conflicts: [], rejections: [], plan: null, commits: [],
+  version: 1, revision: 0, receipts: [], conflicts: [], rejections: [], plan: null, commits: [], reportConflicts:[], identityAlerts:[],
 });
 export interface PlanSummary {
   plan: SyncPlan | null;

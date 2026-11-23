@@ -1,3 +1,4 @@
+import { registerReportCollisions, validateReportCollisions, validateNamespaceOperation, operationHasReportCollision } from "./report-registry";
 import type { Data } from "../domain";
 import {
   appendLocal, canonical, covers, dominates, dotId, receive, recordView, same, validateOperation,
@@ -85,6 +86,7 @@ export function validateReceiver(r: ReceiverState, j: JournalState) {
       throw new SyncError("INVALID", "Nieprawidłowe trwałe potwierdzenie.");
     commits.add(v.planId);
   }
+  validateReportCollisions(j.log,r.reportConflicts??[],r.identityAlerts??[]);
   if (new TextEncoder().encode(canonical({ journal:j, receiver:r })).byteLength > syncLimits.historyBytes)
     throw new SyncError("LIMIT", "Rejestry synchronizacji osiągnęły limit. Nie usunięto historii.");
 }
@@ -115,13 +117,22 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
     try {
       validateOperation(input);
       const o = input;
+      validateNamespaceOperation(o);
       for(const change of o.changes) { validateWireProjection(change.key,change.before); validateWireProjection(change.key,change.after); }
       const key = dotId(o), previous = known.get(key) ?? dots.get(key)?.operation;
       if (previous) {
-        if (!same(previous,o)) throw new SyncError("EQUIVOCATION","Ta sama tożsamość operacji ma różną treść.");
+        if (!same(previous,o)) {
+          const alerts=c.receiver.identityAlerts??=[];
+          if(!alerts.some(p=>same(p,o)))alerts.push(structuredClone(o));
+          throw new SyncError("EQUIVOCATION","Ta sama tożsamość operacji ma różną treść.");
+        }
         duplicates.push(key); continue;
       }
       if (ids.has(o.id)) throw new SyncError("EQUIVOCATION","UUID operacji wskazuje inne pochodzenie.");
+      if(o.origin===c.journal.log.installation) {
+        const alerts=c.receiver.identityAlerts??=[];
+        if(!alerts.some(p=>same(p,o)))alerts.push(structuredClone(o));
+      }
       if (o.origin === c.journal.log.installation ||
         (o.context[c.journal.log.installation] ?? 0) > (c.journal.log.known[c.journal.log.installation] ?? 0))
         throw new SyncError("ORIGIN","Odebrana wiadomość przewiduje operacje własnej instalacji.");
@@ -158,6 +169,7 @@ export function receiveDurably(c: ReceiverContext, incoming: readonly unknown[])
       progress=true;
     }
   }
+  c.receiver.reportConflicts=registerReportCollisions(c.journal.log,c.receiver.reportConflicts??[],c.receiver.identityAlerts??[]);
   if (received.length || rejected.length) touch(c.receiver);
   validateReceiver(c.receiver,c.journal);
   return { received, duplicates, rejected, known:structuredClone(c.journal.log.known) };
@@ -168,7 +180,7 @@ function registerConflicts(c: ReceiverContext) {
   const local = businessRecords(c.data);
   for (const key of keys) {
     const view=recordView(c.journal.log,key);
-    if (view.status!=="conflict") continue;
+    if (keyParts(key).kind==="reportNamespaces"||view.status!=="conflict") continue;
     const token=signature(c.journal.log,key), open=c.receiver.conflicts.find(v=>v.key===key && v.status==="open");
     if (open?.token===token) continue;
     if (open) open.status="superseded";
@@ -252,6 +264,7 @@ function closeConflicts(c: ReceiverContext, o: Operation) {
  * the returned Data is written only by the explicit commit transaction. */
 function simulate(c: ReceiverContext) {
   registerConflicts(c);
+  c.receiver.reportConflicts=registerReportCollisions(c.journal.log,c.receiver.reportConflicts??[],c.receiver.identityAlerts??[]);
   let data=c.data;
   const ids=applied(c), log=materialized(c,ids), actions:string[]=[];
   const resolved=new Map<string,string>();
@@ -262,6 +275,9 @@ function simulate(c: ReceiverContext) {
       const id=dotId(o), row=c.receiver.receipts.find(r=>dotId(r.operation)===id);
       if (!row || settled(row) || row.stage==="rejected" || ids.has(id)) continue;
       try {
+        if(operationHasReportCollision(o,c.receiver.reportConflicts??[])) {
+          row.stage="conflict";row.reason="REPORT_COLLISION: Tożsamość lub numer dokumentu wymaga świadomego uzgodnienia; zachowano oryginały.";continue;
+        }
         eligibilityUnits(data,o);
         if (o.changes.some(x=>recordView(c.journal.log,x.key).status==="conflict")) {
           row.stage="conflict"; row.reason="Rekord wymaga jawnego rozstrzygnięcia."; continue;
@@ -311,7 +327,7 @@ export function planReceived(c: ReceiverContext): PlanSummary {
     receiverRevision:c.receiver.revision,knowledge:canonical(c.journal.log.known),operations:proposed.actions} : null;
   c.receiver.plan=plan;
   validateReceiver(c.receiver,c.journal);
-  return {plan,planned:proposed.actions.length,conflicts:c.receiver.conflicts.filter(v=>v.status==="open").length,
+  return {plan,planned:proposed.actions.length,conflicts:c.receiver.conflicts.filter(v=>v.status==="open").length+(c.receiver.reportConflicts?.length??0),
     blocked:c.receiver.receipts.filter(r=>r.stage==="blocked").length,
     dependencies:c.receiver.receipts.filter(r=>r.stage==="waiting-records" || r.stage==="waiting-dependencies").length,
     rejected:c.receiver.receipts.filter(r=>r.stage==="rejected").length};

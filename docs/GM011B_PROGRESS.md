@@ -349,3 +349,28 @@ liczby kosztów, import, wpłaty i ponowne otwarcie. Systemowy wybór pliku pono
 wyszukuje wyłącznie zastąpiony węzeł UiAutomator w ograniczonym czasie; zatwierdzenie
 biznesowe nie jest ponawiane. Nie zmieniono produktu, parsera ani reguł finansowych.
 Nowy HEAD wymaga pełnego CI; wyniki końcowe są w opisie PR i checks.
+
+
+## Punkt 5c2a — przestrzenie raportów i kolizje (implementacja do kontroli CI)
+
+Potwierdzono HEAD c9f2d8d6755440ab6d9395a2013ad129b8f8cbc0 i pięć zielonych workflow
+5c1. Nie implementowano go ponownie. Dalszy zakres podzielono na 5c2a/b/c zgodnie
+z poleceniem; w tym punkcie weryfikujemy najpierw bezpieczną numerację i kolizje.
+
+Nowe aktywne instalacje rezerwują BO/rok/pełny-UUID-przestrzeni/licznik w osobnym
+report-numbering-v1 (ta sama baza v2, poza Data v12). Rezerwacja poprzedza generowanie
+PDF; licznik nie jest cofany przez restart lub restore. Wersja rekordu dziennika 2
+chroni ten etap przed starszym writerem 5c1, zachowując oryginalny checkpoint i operacje.
+Nie jest to zmiana biznesowego v12 ani technicznego IndexedDB v2.
+
+Receiver otrzymuje trwały audyt kolizji przestrzeni, numeru, pary numer/wersja i ID
+raportu oraz niejednoznacznej repliki. Nie utożsamia po numerze. Znany konflikt
+wstrzymuje właściwe dokumenty i własne wystawianie, bez kasowania oryginałów lub
+blokowania niezależnych rekordów. UUID jest pełny, probabilistyczny; nie deklarujemy
+absolutnej rozłączności niepołączonych urządzeń lub rozpoznawania identycznego klonu.
+
+Kontrakt, limity, downgrade fence i granice kopii: [GM011B_REPORTS.md](GM011B_REPORTS.md).
+Dotychczasowe single-device legacy numery zachowane. Po aktywacji nowa wersja obcej
+lub historycznej rodziny wymaga uzgodnienia właściciela. Pełne reports/identities
+pozostają blocked do 5c2b, świadome decyzje finansów/czasu do 5c2c. Nie wdrożono
+biznesowego LAN, GM-011C, GUI ani odbioru fizycznego. Wyniki nowego kodu wymagają CI.

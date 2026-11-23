@@ -1,3 +1,4 @@
+import type { ReportIdentity } from "./numbering";
 import type { Data } from '../domain';
 import type { PhotoAssetRepository } from '../photos/model';
 import { sha256 } from '../photos/images';
@@ -11,6 +12,7 @@ import { nextReportIdentity } from './commands';
 import { validateReportOptions } from './validation';
 export interface ReportDataPort {
   snapshot(): Data | Promise<Data>;
+  reserveReportIdentity?(jobId:string,reportId:string,at:number,expected:string,fingerprint:string):ReportIdentity|Promise<ReportIdentity>;
   saveVisitReport(jobId: string, record: VisitReport, expected: string): void | Promise<void>;
 }
 export type PdfGenerator = (
@@ -49,12 +51,15 @@ export class ReportService {
         !!latest &&
         latest.fingerprint === fingerprint &&
         JSON.stringify(latest.options) === JSON.stringify(options);
-    const now = this.clock(),
+    const now = this.clock(), id=reused?latest!.id:crypto.randomUUID(),
+      allocation = reused ? null : this.data.reserveReportIdentity
+        ? await this.data.reserveReportIdentity(jobId,id,now,expected,fingerprint)
+        : nextReportIdentity(data,job,now),
       record: VisitReport = reused
         ? structuredClone(latest!)
         : {
-            id: crypto.randomUUID(),
-            ...nextReportIdentity(data, job, now),
+            id,
+            ...allocation!,
             generatedAt: now,
             rendererVersion: 1,
             fingerprint,
