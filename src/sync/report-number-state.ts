@@ -29,6 +29,16 @@ export function validateNumberState(value:unknown,j:JournalState):asserts value 
   const claim=j.log.operations.find(o=>o.origin===j.log.installation&&o.changes.some(c=>
     c.key==="reportNamespaces/"+n.claim.namespace&&c.before===null&&same(c.after,n.claim)));
   if(!claim||!j.appliedLocal.includes(dotId(claim)))stop("Brak oryginalnej deklaracji przestrzeni.");
+  let issued=0;
+  for(const o of j.log.operations)if(o.origin===j.log.installation)for(const c of o.changes)
+    if(c.key.startsWith("visits/")&&c.after!==null) {
+      const rows=(c.after as unknown as {reportIdentities?:{number:string}[]}).reportIdentities;
+      if(Array.isArray(rows))for(const r of rows) {
+        const p=parseReportNumber(r?.number);
+        if(p?.namespace===n.claim.namespace)issued=Math.max(issued,p.sequence);
+      }
+    }
+  if(n.nextSequence<=issued)stop("Licznik cofa numer już wydany w niezmiennym dzienniku. Zapis zatrzymano.");
   const ids=new Set<string>(),fresh=new Set<number>();
   for(const p of n.pending) {
     const parsed=parseReportNumber(p.number);

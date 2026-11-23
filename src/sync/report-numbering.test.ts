@@ -118,7 +118,7 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
     vi.spyOn(crypto,"randomUUID").mockImplementationOnce(real).mockReturnValueOnce(namespace as ReturnType<typeof crypto.randomUUID>).mockImplementation(real);
     const ra=await issue(a);
     vi.restoreAllMocks();
-    vi.spyOn(crypto,"randomUUID").mockReturnValueOnce(namespace as ReturnType<typeof crypto.randomUUID>).mockImplementation(real);
+    vi.spyOn(crypto,"randomUUID").mockImplementationOnce(real).mockReturnValueOnce(namespace as ReturnType<typeof crypto.randomUUID>).mockImplementation(real);
     const rc=await issue(c);vi.restoreAllMocks();
     expect(ra.record.id).not.toBe(rc.record.id);expect(ra.record.number).toBe(rc.record.number);
     expect(same((await numberState(a))!.claim,(await numberState(c))!.claim)).toBe(false);
@@ -203,6 +203,19 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
     await a.repo.command(s=>s.saveVisitDetails("job-0",{publicWork:"Synthetic new revision",clientRemarks:"",zoneId:null},0));
     await expect(service(a).prepare("job-0",defaultReportOptions())).rejects.toThrow("REPORT_NAMESPACE_COLLISION");
     expect((await a.repo.readSyncJournal())!.log.operations.find(o=>o.id===original.id)).toEqual(original);
+  });
+  it("refuses a rolled-back local high-water when the original issued operation still exists",async()=>{
+    const a=await replica(0);await issue(a);
+    const n=(await numberState(a))!;n.nextSequence=1;
+    await new Promise<void>((ok,no)=>{
+      const q=a.factory.open(a.name);q.onerror=()=>no(q.error);
+      q.onsuccess=()=>{const db=q.result,tx=db.transaction("sync","readwrite");
+        tx.objectStore("sync").put(n,REPORT_NUMBER_KEY);tx.oncomplete=()=>{db.close();ok();};tx.onabort=()=>no(tx.error);};
+    });
+    await a.repo.command(s=>s.saveVisitDetails("job-0",{publicWork:"Synthetic changed",clientRemarks:"",zoneId:null},0));
+    const before=await a.repo.read();
+    await expect(service(a).prepare("job-0",defaultReportOptions())).rejects.toThrow(/Licznik cofa/);
+    expect(await a.repo.read()).toEqual(before);
   });
   it("does not accept an arbitrary scoped save without its original reservation",async()=>{
     const a=await replica(0),p=await service(a).prepare("job-0",defaultReportOptions()),before=await a.repo.read();

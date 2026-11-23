@@ -39,7 +39,8 @@ W tej samej transakcji state+sync zapisuje:
 
 Dopiero oncomplete pozwala generować PDF. Podgląd anulowany, awaria renderera lub
 przerwanie po rezerwacji może pozostawić lukę — numer nigdy nie wraca do puli.
-Restart zachowuje licznik. Zapis PDF/metadata jest osobną transakcją; dokument nie
+Restart zachowuje licznik. Cofnięcie licznika poniżej numeru już wydanego
+w niezmiennym dzienniku jest wykrywane i blokuje wystawienie, zamiast resetować stan. Zapis PDF/metadata jest osobną transakcją; dokument nie
 jest udostępniany użytkownikowi przed zatwierdzeniem jego historii.
 Przy zapisie sprawdzana jest pierwotna rezerwacja i świeży snapshot. Data, journal,
 usunięcie wykorzystanej rezerwacji i wszystkie wymagane metadane wycofują się razem
