@@ -194,6 +194,22 @@ describe("5c2a durable offline report spaces, not business LAN",()=>{
     await expect(service(b).prepare("job-0",defaultReportOptions())).rejects.toThrow(/przestrzeni/);
     expect(await b.repo.readSyncJournal()).toBeNull();
   });
+  it("keeps the high-water across years and clock rollback, independently of legacy reportSequence",async()=>{
+    const a=await replica(0,false),before=await data(a);
+    await a.repo.command(s=>s.restoreSnapshot({...before,reportSequence:9876},JSON.stringify(before)));
+    await a.repo.enableSyncJournal(origins[0]);const first=await issue(a);
+    expect(parseReportNumber(first.record.number)!.sequence).toBe(1);
+    for(const [jobId,time,sequence] of [["future",Date.parse("2027-01-01T12:00:00Z"),2],["clock-back",Date.parse("2025-01-01T12:00:00Z"),3]] as const) {
+      const original=(await data(a)).jobs.find(j=>j.id==="job-0")!;
+      const {reports:_reports,...job}=original;
+      await a.repo.command(s=>s.saveJob({...job,id:jobId,settlement:null}));
+      const svc=service(a,()=>time),prepared=await svc.prepare(jobId,defaultReportOptions());await svc.save(jobId,prepared);
+      expect(parseReportNumber(prepared.record.number)!.sequence).toBe(sequence);
+      expect(parseReportNumber(prepared.record.number)!.namespace).toBe(parseReportNumber(first.record.number)!.namespace);
+    }
+    expect((await numberState(a))!.nextSequence).toBe(4);
+    expect((await data(a)).reportSequence).toBe(9879);
+  });
   it("detects a divergent operation under the local replica identity and preserves the receipt over restart",async()=>{
     const a=await replica(0);await issue(a);
     const journal=(await a.repo.readSyncJournal())!,original=journal.log.operations[0];

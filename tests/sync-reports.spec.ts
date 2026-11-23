@@ -190,7 +190,8 @@ for(const width of [360,390,430])test("active numbered ReportPanel uses the cano
     const p="/src/data/atomic.ts",{AtomicRepository}=await import(p),r=new AtomicRepository(localStorage);
     await r.initialize();await r.enableSyncJournal("44444444-4444-4444-8444-444444444444");await r.close();
   });
-  await page.getByRole("navigation",{name:"Nawigacja główna"}).getByRole("button",{name:"Historia prac",exact:true}).click();
+  await page.getByRole("button",{name:"Więcej",exact:true}).click();
+  await page.getByRole("dialog",{name:"Więcej opcji",exact:true}).getByRole("button",{name:"Historia prac",exact:true}).click();
   await page.locator(".job-title-button").filter({hasText:"Przygotowanie ogrodu do sezonu"}).click();
   await page.getByRole("dialog",{name:"Szczegóły zlecenia",exact:true}).getByRole("button",{name:"Podsumowanie wizyty",exact:true}).click();
   await page.getByRole("dialog",{name:"Podsumowanie wizyty",exact:true}).getByRole("button",{name:"Generuj raport PDF",exact:true}).click();
