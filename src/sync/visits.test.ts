@@ -146,6 +146,16 @@ describe("5c1 complete visit transitions in independent durable IndexedDB stores
     expect(await job(b,"unrelated")).toBeDefined();
     expect((await b.repo.readSyncReceiver())!.receipts.some(r=>r.stage==="blocked"&&r.reason.includes("Aktywny stoper"))).toBe(true);
   });
+  it("quarantines an old inconsistent audit without blocking unrelated local business writes",async()=>{
+    const a=await replica(0,d=>{
+      d.jobs=[{...draft("legacy-open"),status:"completed",timeHistory:[{id:"legacy-event",kind:"started",at:1,
+        beforeSeconds:0,afterSeconds:0,pauseDurationMs:null}]}];
+    });
+    const before=await job(a,"legacy-open");
+    await a.repo.command(s=>s.saveClient({id:"safe-local",name:"Synthetic",phone:"",email:"",notes:""},null));
+    expect((await data(a)).clients.some(c=>c.id==="safe-local")).toBe(true);
+    expect(await job(a,"legacy-open")).toEqual(before);
+  });
   it("preserves exact approved cents and sequential independent payment IDs on A-B-C with no recalculation",async()=>{
     const a=await replica(0),b=await replica(1),c=await replica(2);await create(a);
     await a.repo.command(s=>s.correctJobTime("visit",3601,0),()=>2000);

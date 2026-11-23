@@ -327,3 +327,5 @@ urządzenia. Opt-in preflight dziennika blokuje takie polecenie atomowo, bez zmi
 Data/licznika. Po odebraniu oryginalnego STOP lokalny pomiar jest znowu możliwy.
 Dodano test tych prób i rollbacku. Zwykły stoper bez aktywowanego dziennika pozostaje
 bez zmian. Przypadki stanowią nadal fundament testowany syntetycznie, bez biznesowego LAN.
+
+Preflight nie blokuje niezależnego lokalnego zapisu wyłącznie z powodu starej, niespójnej historii v12 niezmienianej wizyty. Dodano regresję zachowania tego kanonicznego źródła i dopisania niezależnego klienta; taka historia nadal nie staje się poprawną operacją odbioru.

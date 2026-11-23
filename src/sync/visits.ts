@@ -175,7 +175,7 @@ export function protectRemoteMeasurement(before:Data,after:Data) {
     if(!last||!["started","paused","resumed"].includes(last.kind)||before.timer?.jobId===old.id)continue;
     const value=after.jobs.find(j=>j.id===old.id);
     if(!value||!same(old.timeHistory,value.timeHistory)||old.seconds!==value.seconds||
-      !same(old.settlement,value.settlement)||value.status==="completed"||after.timer?.jobId===old.id)
+      !same(old.settlement,value.settlement)||old.status!=="completed"&&value.status==="completed"||after.timer?.jobId===old.id)
       throw new SyncError("CONFLICT","VISIT_REMOTE_MEASUREMENT: Ta wizyta ma otwarty pomiar z innej instalacji. Odbierz jej zakończony pomiar przed lokalnym START, korektą lub zatwierdzeniem. Nie zmieniono danych.");
   }
 }
